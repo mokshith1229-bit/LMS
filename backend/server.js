@@ -11,15 +11,7 @@ const app = express();
 
 // Middleware
 app.use(cors({
-  origin: (origin, callback) => {
-    // Allow any localhost origin during development
-    if (!origin || origin.startsWith('http://localhost:')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
+  origin: "*"
 }));
 
 app.use(express.json());

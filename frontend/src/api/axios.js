@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const API = import.meta.env.VITE_API_URL;
+
 const api = axios.create({
-  baseURL: 'https://lms-1ntb.onrender.com/api',
+  baseURL: `${API}/api`,
   timeout: 30000,
 });
 
