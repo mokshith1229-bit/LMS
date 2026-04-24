@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: 'https://lms-1ntb.onrender.com/api',
   timeout: 30000,
 });
 
