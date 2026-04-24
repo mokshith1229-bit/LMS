@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
+import Calculator from '../../components/Calculator';
+import { Calculator as CalcIcon } from 'lucide-react';
 
 export default function AssessmentPage() {
   const { quizId } = useParams();
@@ -20,6 +22,7 @@ export default function AssessmentPage() {
   const [_violations, setViolations] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
   const [startTime] = useState(() => Date.now());
+  const [isCalcOpen, setIsCalcOpen] = useState(false);
   const timerRef = useRef(null);
   const isSubmittingRef = useRef(false);
 
@@ -245,10 +248,22 @@ export default function AssessmentPage() {
           <img src="/assets/cube_tech_logo.png" alt="Cube Highways Logo" style={{ height: 35, objectFit: 'contain' }} />
         </div>
         <div className="exam-title" style={{ fontWeight: 800 }}>{quiz.title}</div>
-        <div className="exam-timer-box">
-          TIME LEFT: {formatTime(timeLeft)}
+        <div className="exam-timer-box" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <button 
+            onClick={() => setIsCalcOpen(!isCalcOpen)}
+            style={{
+              background: '#2a2d38', color: '#fff', border: '1px solid #444',
+              borderRadius: 6, padding: '4px 12px', fontSize: '0.75rem',
+              display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer'
+            }}
+          >
+            <CalcIcon size={14} /> CALCULATOR
+          </button>
+          <span>TIME LEFT: {formatTime(timeLeft)}</span>
         </div>
       </header>
+
+      <Calculator isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} />
 
       <div className="exam-main">
         {/* Background Watermarks */}
