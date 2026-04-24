@@ -2,14 +2,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
-import { Play, File, ClipboardList, ArrowLeft, CheckCircle, Lock } from 'lucide-react';
+import { Play, File, ClipboardList, ArrowLeft, CheckCircle } from 'lucide-react';
 
-const TYPE_ICONS = {
-  video: <Play size={16} />,
-  ppt: <File size={16} />,
-  quiz: <ClipboardList size={16} />,
-};
-const TYPE_CLASS = { video: 'module-type-video', ppt: 'module-type-ppt', quiz: 'module-type-quiz' };
 
 export default function CourseDetail() {
   const { id } = useParams();
@@ -210,7 +204,7 @@ export default function CourseDetail() {
               </h3>
             </div>
             <div className="module-list">
-              {course.modules?.map((mod, i) => (
+              {course.modules?.map((mod, _i) => (
                 <div
                   key={mod._id}
                   className={`module-item ${activeModule?._id === mod._id ? 'active' : ''}`}

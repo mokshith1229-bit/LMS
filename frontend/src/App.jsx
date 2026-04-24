@@ -12,6 +12,8 @@ import AdminDashboard from './pages/admin/Dashboard';
 import CreateCourse from './pages/admin/CreateCourse';
 import UploadContent from './pages/admin/UploadContent';
 import AddQuiz from './pages/admin/AddQuiz';
+import AssignQuiz from './pages/admin/AssignQuiz';
+import AdminResults from './pages/admin/Results';
 
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard';
@@ -20,11 +22,12 @@ import QuizPage from './pages/student/QuizPage';
 import AssessmentPage from './pages/student/AssessmentPage';
 import ResultPage from './pages/student/ResultPage';
 import GetCertificates from './pages/student/GetCertificates';
+import MyAssessments from './pages/student/MyAssessments';
 
 function RootRedirect() {
   const { user, token } = useAuth();
   if (!token || !user) return <Navigate to="/login" replace />;
-  return <Navigate to={user.role === 'admin' ? '/admin' : '/student'} replace />;
+  return <Navigate to={user.role === 'admin' ? '/admin' : '/student/assessments'} replace />;
 }
 
 function App() {
@@ -70,11 +73,19 @@ function App() {
             path="/admin/add-quiz"
             element={<ProtectedRoute role="admin"><AddQuiz /></ProtectedRoute>}
           />
+          <Route
+            path="/admin/assign"
+            element={<ProtectedRoute role="admin"><AssignQuiz /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/results"
+            element={<ProtectedRoute role="admin"><AdminResults /></ProtectedRoute>}
+          />
 
           {/* Student Routes */}
           <Route
             path="/student"
-            element={<ProtectedRoute role="student"><StudentDashboard /></ProtectedRoute>}
+            element={<ProtectedRoute role="student"><Navigate to="/student/assessments" replace /></ProtectedRoute>}
           />
           <Route
             path="/student/courses"
@@ -95,6 +106,10 @@ function App() {
           <Route
             path="/student/certificates"
             element={<ProtectedRoute role="student"><GetCertificates /></ProtectedRoute>}
+          />
+          <Route
+            path="/student/assessments"
+            element={<ProtectedRoute role="student"><MyAssessments /></ProtectedRoute>}
           />
 
           {/* Fallback */}

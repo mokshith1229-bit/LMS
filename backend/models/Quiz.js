@@ -14,7 +14,7 @@ const questionSchema = new mongoose.Schema({
     required: true,
   },
   correctAnswer: {
-    type: Number, // index of the correct option
+    type: String, 
     required: true,
   },
 });
@@ -24,18 +24,17 @@ const quizSchema = new mongoose.Schema(
     courseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Course',
-      required: true,
     },
     title: {
       type: String,
       required: true,
       trim: true,
     },
-    questions: [questionSchema],
-    timeLimitSeconds: {
+    duration: {
       type: Number,
-      default: 600, // 10 minutes default
+      default: 1800, // seconds
     },
+    questions: [questionSchema],
     passingScore: {
       type: Number,
       default: 60, // percentage

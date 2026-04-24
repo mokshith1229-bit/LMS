@@ -4,31 +4,43 @@ import { useAuth } from '../../context/AuthContext';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import CourseCard from '../../components/CourseCard';
-import { BookOpen, Users, ClipboardCheck, Plus, TrendingUp } from 'lucide-react';
+import { BookOpen, Users, ClipboardCheck, Plus, TrendingUp, UserPlus, BarChart2 } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const { user } = useAuth();
   const [stats, setStats] = useState({ totalCourses: 0, totalStudents: 0, totalSubmissions: 0 });
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const loadData = async () => {
+    try {
+      const [statsRes, coursesRes] = await Promise.all([
+        api.get('/courses/admin/stats'),
+        api.get('/courses'),
+      ]);
+      setStats(statsRes.data.stats);
+      setCourses(coursesRes.data.courses);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [statsRes, coursesRes] = await Promise.all([
-          api.get('/courses/admin/stats'),
-          api.get('/courses'),
-        ]);
-        setStats(statsRes.data.stats);
-        setCourses(coursesRes.data.courses);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    loadData();
   }, []);
+
+  const handleDeleteCourse = async (id) => {
+    try {
+      await api.delete(`/courses/${id}`);
+      setCourses(courses.filter(c => c._id !== id));
+      // Refresh stats to reflect the change
+      const statsRes = await api.get('/courses/admin/stats');
+      setStats(statsRes.data.stats);
+    } catch (err) {
+      console.error('Failed to delete course', err);
+    }
+  };
 
   return (
     <div className="app-layout">
@@ -85,6 +97,12 @@ export default function AdminDashboard() {
             <Link to="/admin/add-quiz" className="btn btn-secondary">
               <ClipboardCheck size={16} /> Add Quiz
             </Link>
+            <Link to="/admin/assign" className="btn btn-secondary">
+              <UserPlus size={16} /> Assign Quiz
+            </Link>
+            <Link to="/admin/results" className="btn btn-secondary">
+              <BarChart2 size={16} /> View Results
+            </Link>
           </div>
         </div>
 
@@ -107,8 +125,8 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="courses-grid">
-            {courses.map((course, i) => (
-              <CourseCard key={course._id} course={course} index={i} />
+            {courses.map((course, _i) => (
+              <CourseCard key={course._id} course={course} index={_i} onDelete={handleDeleteCourse} />
             ))}
           </div>
         )}

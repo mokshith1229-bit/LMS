@@ -37,15 +37,21 @@ export default function AddQuiz() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       // Append new questions to existing ones (or replace if they were empty)
-      const newQuestions = data.questions;
+      const newQuestions = data?.questions || data?.quiz?.questions;
+      
+      if (!newQuestions || !Array.isArray(newQuestions)) {
+        throw new Error('Invalid response format from server: missing questions array');
+      }
+
       if (questions.length === 1 && !questions[0].question) {
         setQuestions(newQuestions);
       } else {
         setQuestions([...questions, ...newQuestions]);
       }
-      toast.success(`${data.count} questions loaded from Excel!`);
+      toast.success(`${data.count || newQuestions.length} questions loaded from Excel!`);
     } catch (err) {
-      const msg = err.response?.data?.message || 'Failed to parse Excel';
+      console.error('Excel processing error:', err);
+      const msg = err.response?.data?.message || err.message || 'Failed to parse Excel';
       if (err.response?.data?.errors) {
         err.response.data.errors.forEach(e => toast.error(e));
       } else {
@@ -168,7 +174,7 @@ export default function AddQuiz() {
                 <label className="form-label">Course *</label>
                 <select id="quiz-course" className="form-input" name="courseId" value={form.courseId} onChange={handleFormChange}>
                   <option value="">-- Select course --</option>
-                  {courses.map((c) => <option key={c._id} value={c._id}>{c.title}</option>)}
+                  {courses?.map((c) => <option key={c._id} value={c._id}>{c.title}</option>)}
                 </select>
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
@@ -187,7 +193,7 @@ export default function AddQuiz() {
           </div>
 
           {/* Questions */}
-          {questions.map((q, qIdx) => (
+          {questions?.map((q, qIdx) => (
             <div key={qIdx} className="card" style={{ maxWidth: 780, marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, borderBottom: '1px solid #eee', paddingBottom: 8 }}>
                 <p style={{ fontWeight: 800, fontSize: '0.8rem' }}>QUESTION {qIdx + 1}</p>
@@ -211,7 +217,7 @@ export default function AddQuiz() {
 
               <label className="form-label">Options — click the letter badge to mark correct answer</label>
               <div className="options-row">
-                {q.options.map((opt, oIdx) => (
+                {q.options?.map((opt, oIdx) => (
                   <div key={oIdx} className="option-row">
                     <div
                       className={`option-label-badge ${q.correctAnswer === oIdx ? 'correct' : ''}`}

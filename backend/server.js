@@ -34,6 +34,8 @@ app.use('/api/courses', require('./routes/courses'));
 app.use('/api/content', require('./routes/content'));
 app.use('/api/quiz', require('./routes/quiz'));
 app.use('/api/submit', require('./routes/submit'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/assignments', require('./routes/assignments'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -58,3 +60,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 LMS Server running on http://localhost:${PORT}`);
 });
+ 

@@ -1,163 +1,183 @@
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import { motion } from 'framer-motion';
+import AnimatedImage from './AnimatedImage';
 
+/**
+ * ResultPage Component
+ * Professional LMS Assessment Completion Screen
+ */
 export default function ResultPage() {
-  const { state } = useLocation();
-  const { quizId } = useParams();
   const navigate = useNavigate();
+  const { state } = useLocation();
 
-  const submission = state?.submission;
-  const courseId = state?.courseId;
-  const forcedReason = state?.forcedReason; // 'violation', 'timeout', or null
+  // Get result data from navigation state
+  // New API returns: { submission: { status, _id, quizId, submittedAt }, submissionStatus }
+  // Legacy API may return: { submission: { ...stats } }
+  const result = state?.submission || {};
+  const submissionStatus = state?.submissionStatus || result.status || (state?.forcedReason === 'violation' ? 'TERMINATED' : 'COMPLETED');
+  const isTerminated = submissionStatus === 'TERMINATED' || state?.forcedReason === 'violation';
 
-  if (!submission) {
-    return (
-      <div className="app-layout">
-        <Sidebar />
-        <main className="main-content">
-          <div className="card">
-            <h3 style={{ marginBottom: 12 }}>No result data found</h3>
-            <button className="btn btn-primary" onClick={() => navigate('/student')}>
-              Go to Dashboard
-            </button>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  const { score, total, percentage, passed, timeTaken } = submission;
-
-  const formatTime = (s) => {
-    if (!s) return '—';
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+  // Content Configuration
+  const config = {
+    COMPONENT: {
+      heading: "ASSESSMENT\nCOMPLETED",
+      subtext: "You have successfully completed the training assessment. Your submission has been recorded.",
+      accent: "#8DC63F",
+      muted: false
+    },
+    TERMINATED: {
+      heading: "ASSESSMENT\nTERMINATED",
+      subtext: "This assessment was ended due to a violation of the exam guidelines. Your session has been closed.",
+      accent: "#ef4444",
+      muted: true
+    }
   };
 
-  // Determine which graffiti message to show
-  const renderGraffiti = () => {
-    if (forcedReason === 'violation') {
-      return (
-        <motion.div
-          initial={{ scale: 0.5, rotate: -10, opacity: 0 }}
-          animate={{ scale: 1, rotate: 0, opacity: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 10 }}
-          style={{ color: '#ef4444', textAlign: 'center', margin: '40px 0 60px' }}
-        >
-          <div style={{ fontSize: '4rem', marginBottom: 10 }}>🚨</div>
-          <h1 style={{ fontSize: '3rem', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-1px' }}>
-            TERMINATED
-          </h1>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginTop: 8 }}>
-            You are terminated due to violation of rules.
-          </h2>
-        </motion.div>
-      );
-    }
+  const { heading, subtext, accent, muted } = isTerminated ? config.TERMINATED : config.COMPONENT;
 
-    if (passed) {
-      return (
-        <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
-          <motion.div
-            initial={{ scale: 0.3, y: 50, opacity: 0 }}
-            animate={{ scale: 1, y: 0, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 150, damping: 12 }}
-            style={{ color: 'var(--accent)', textAlign: 'center', margin: '40px 0 60px', zIndex: 10, position: 'relative' }}
-          >
-            <motion.div
-              animate={{ rotate: [0, -15, 15, -15, 15, 0], scale: [1, 1.1, 1] }}
-              transition={{ duration: 1.5, delay: 0.3, ease: "easeInOut" }}
-              style={{ fontSize: '6rem', marginBottom: 10, textShadow: '0 10px 20px rgba(0,0,0,0.15)' }}
-            >
-              🏆
-            </motion.div>
-            <h1 style={{
-              fontSize: '2.8rem',
-              fontWeight: 900,
-              fontFamily: '"Comic Sans MS", "Marker Felt", cursive, sans-serif',
-              background: 'linear-gradient(135deg, #8DC63F, #22c55e)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              textShadow: '0 4px 12px rgba(141, 198, 63, 0.2)'
-            }}>
-              Yayy! You successfully completed the course! 🎉
-            </h1>
-          </motion.div>
-        </div>
-      );
-    }
+  // Image path with handled space
+  const illustrationSrc = `/assets/result_page%20.png`;
 
-    // Default Fail
-    return (
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 100 }}
-        style={{ color: '#f97316', textAlign: 'center', margin: '40px 0 60px' }}
-      >
-        <motion.div style={{ fontSize: '5rem', marginBottom: 10 }}>😢</motion.div>
-        <h1 style={{ fontSize: '2.5rem', fontWeight: 900, fontFamily: '"Comic Sans MS", "Marker Felt", cursive, sans-serif' }}>
-          Oops! You have failed the test.
-        </h1>
-      </motion.div>
-    );
-  };
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   return (
-    <div className="app-layout">
+    <div className="app-layout" style={{ background: '#ffffff', minHeight: '100vh', overflow: 'hidden' }}>
       <Sidebar />
-      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-        {/* Graffiti Animation Zone */}
-        {renderGraffiti()}
+      <main className="main-content" style={{ position: 'relative', display: 'flex', alignItems: 'center', padding: 0 }}>
 
-        {/* Minimal Stats Box */}
-        <div style={{ maxWidth: 500, width: '100%' }}>
-          <div className="card" style={{ padding: 0 }}>
-            <div style={{ padding: 16, background: '#f8fafc', fontWeight: 700, borderBottom: '1px solid #ddd', textAlign: 'center', fontSize: '1.1rem' }}>
-              Result Summary
-            </div>
-            <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: '16px', borderBottom: '1px solid #eee' }}>Time Taken</td>
-                  <td style={{ padding: '16px', borderBottom: '1px solid #eee', fontWeight: 700, textAlign: 'right' }}>
-                    {formatTime(timeTaken)}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '16px', borderBottom: '1px solid #eee' }}>No. of Questions</td>
-                  <td style={{ padding: '16px', borderBottom: '1px solid #eee', fontWeight: 700, textAlign: 'right' }}>
-                    {total}
-                  </td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '16px' }}>Result Stats</td>
-                  <td style={{ padding: '16px', fontWeight: 800, fontSize: '1.2rem', textAlign: 'right', color: passed ? 'var(--accent)' : '#f97316' }}>
-                    {percentage}%
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ marginTop: 32, display: 'flex', gap: 12, justifyContent: 'center' }}>
-            <button className="btn btn-secondary" onClick={() => navigate(courseId ? `/student/courses/${courseId}` : '/student')}>
-              Back to Course
-            </button>
-            {!passed && forcedReason !== 'violation' && (
-              <button className="btn btn-primary" onClick={() => navigate(`/student/quiz/${quizId}`, { state: { courseId } })}>
-                Retake Assessment
-              </button>
-            )}
-            <button className="btn btn-secondary" onClick={() => navigate('/student')}>
-              Dashboard
-            </button>
-          </div>
+        {/* --- DECORATIVE BACKGROUND BLOBS --- */}
+        <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+          <div style={{
+            position: 'absolute', top: '-10%', left: '-5%', width: '40%', height: '40%',
+            background: `radial-gradient(circle, ${isTerminated ? 'rgba(239,68,68,0.05)' : 'rgba(141,198,63,0.05)'} 0%, transparent 70%)`, 
+            filter: 'blur(40px)'
+          }} />
+          <div style={{
+            position: 'absolute', bottom: '10%', right: '5%', width: '30%', height: '30%',
+            background: 'radial-gradient(circle, rgba(226,232,240,0.4) 0%, transparent 70%)', filter: 'blur(30px)'
+          }} />
         </div>
+
+        {/* --- MAIN SPLIT LAYOUT --- */}
+        <motion.div
+          initial={{ opacity: 0, y: 40 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          style={{
+            display: 'flex',
+            width: '100%',
+            minHeight: '100vh',
+            padding: '0 64px', // px-16
+            gap: '48px', // gap-12
+            alignItems: 'center',
+            zIndex: 1
+          }}
+        >
+          {/* --- LEFT SECTION (55%) --- */}
+          <div style={{ flex: '0 0 55%', maxWidth: '650px' }}>
+            {/* Dynamic Accent Line */}
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: 60 }}
+              transition={{ delay: 0.4, duration: 0.8 }}
+              style={{ height: '4px', background: accent, marginBottom: '32px' }}
+            />
+
+            <motion.h1
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.8 }}
+              style={{
+                fontSize: '3.5rem', // text-5xl
+                fontWeight: 900,
+                color: '#1a2f23',
+                lineHeight: 1.1,
+                marginBottom: '24px',
+                letterSpacing: '-1px',
+                whiteSpace: 'pre-line'
+              }}
+            >
+              {heading}
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7, duration: 0.8 }}
+              style={{
+                fontSize: '1.2rem',
+                color: '#4b5563', // text-gray-600
+                lineHeight: 1.6,
+                marginBottom: '40px'
+              }}
+            >
+              {subtext}
+            </motion.p>
+
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.9, duration: 0.8 }}
+              whileHover={{ scale: 1.03 }}
+              whileActive={{ scale: 0.98 }}
+              onClick={() => navigate('/student')}
+              style={{
+                background: isTerminated ? '#ef4444' : '#1a2f23',
+                color: '#fff',
+                padding: '16px 40px',
+                borderRadius: '8px',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                transition: 'background 0.3s ease'
+              }}
+            >
+              Go to Dashboard
+            </motion.button>
+          </div>
+
+          {/* --- RIGHT SECTION (45%) --- */}
+          <div style={{ 
+            flex: '0 0 45%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            filter: muted ? 'grayscale(0.4) opacity(0.8)' : 'none'
+          }}>
+            <div style={{ width: '100%', maxWidth: '550px' }}>
+              <AnimatedImage src={illustrationSrc} gridSize={5} />
+            </div>
+          </div>
+
+        </motion.div>
       </main>
+
+      <style>{`
+        /* Responsive Overrides */
+        @media (max-width: 1024px) {
+          .main-content > div {
+            flex-direction: column;
+            padding: 80px 24px;
+            gap: 60px;
+          }
+          .main-content > div > div {
+            flex: 1 1 100% !important;
+            max-width: 100% !important;
+            text-align: center;
+          }
+          .main-content > div > div div {
+            margin-left: auto;
+            margin-right: auto;
+          }
+        }
+      `}</style>
     </div>
   );
 }

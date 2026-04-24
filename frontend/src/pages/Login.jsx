@@ -70,7 +70,7 @@ export default function Login() {
       const { data } = await api.post('/auth/login', form);
       login(data.user, data.token);
       toast.success(`Welcome back, ${data.user.name}!`);
-      navigate(data.user.role === 'admin' ? '/admin' : '/student');
+      navigate(data.user.role === 'admin' ? '/admin' : '/student/assessments');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     } finally {
@@ -78,19 +78,6 @@ export default function Login() {
     }
   };
 
-  // Form Stagger Animation Variants
-  const formContainerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1, delayChildren: 0.6 }
-    }
-  };
-
-  const formItemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 150, damping: 15 } }
-  };
 
   return (
     <div className="auth-page">
@@ -232,19 +219,18 @@ export default function Login() {
 
           <form onSubmit={handleSubmit}>
             <div className="form-group">
-              <label className="form-label">Email Address</label>
+              <label className="form-label">Email or Mobile</label>
               <div style={{ position: 'relative' }}>
                 <Mail size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
                 <input
                   id="login-email"
                   className="form-input"
                   style={{ paddingLeft: 40 }}
-                  type="email"
+                  type="text"
                   name="email"
-                  placeholder="admin@test.com"
+                  placeholder="Email or Mobile"
                   value={form.email}
                   onChange={handleChange}
-                  autoComplete="email"
                 />
               </div>
             </div>
@@ -280,7 +266,7 @@ export default function Login() {
           </form>
 
           <div className="auth-link" style={{ textAlign: 'center', marginTop: 24, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Don't have an account? <Link to="/register" style={{ color: 'var(--accent)', fontWeight: 700 }}>Create one</Link>
+            Don&apos;t have an account? <Link to="/register" style={{ color: 'var(--accent)', fontWeight: 700 }}>Create one</Link>
           </div>
         </div>
       </div>

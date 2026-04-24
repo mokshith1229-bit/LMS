@@ -1,0 +1,222 @@
+const express = require('express');
+const router = express.Router();
+const mongoose = require('mongoose');
+const User = require('../models/User');
+const Quiz = require('../models/Quiz');
+const Assignment = require('../models/Assignment');
+const Submission = require('../models/Submission');
+const { protect } = require('../middleware/auth');
+const { checkRole } = require('../middleware/role');
+
+// All admin routes require authentication + admin role
+router.use(protect, checkRole('admin'));
+
+// @route   POST /api/admin/assign
+// @desc    Assign a quiz to a user by email
+// @access  Admin only
+router.post('/assign', async (req, res) => {
+  try {
+    const { email, quizId } = req.body;
+
+    if (!email || !quizId) {
+      return res.status(400).json({ success: false, message: 'email and quizId are required' });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(quizId)) {
+      return res.status(400).json({ success: false, message: 'Invalid quizId' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found with that email' });
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    // Prevent duplicate assignments
+    const existing = await Assignment.findOne({ userId: user._id, quizId });
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'Quiz already assigned to this user' });
+    }
+
+    const assignment = await Assignment.create({
+      userId: user._id,
+      quizId,
+      status: 'NOT_STARTED',
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Quiz "${quiz.title}" assigned to ${user.email}`,
+      assignment,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/results
+// @desc    Get all submission results with user and quiz info
+// @access  Admin only
+router.get('/results', async (req, res) => {
+  try {
+    const submissions = await Submission.find({})
+      .populate('userId', 'email name')
+      .populate({
+        path: 'quizId',
+        select: 'title courseId',
+        populate: { path: 'courseId', select: 'title' }
+      })
+      .sort({ submittedAt: -1 })
+      .lean();
+
+    const results = submissions.map((sub) => {
+      return {
+        submissionId: sub._id,
+        userName: sub.userId?.name || 'Unknown',
+        userEmail: sub.userId?.email || '',
+        userMobile: sub.userId?.mobile || '',
+        quizTitle: sub.quizId?.title || 'Unknown',
+        courseTitle: sub.quizId?.courseId?.title || '',
+        correct: sub.correct,
+        wrong: sub.wrong,
+        unattempted: sub.unattempted,
+        total: sub.correct + sub.wrong + sub.unattempted,
+        percentage: sub.percentage,
+        passed: sub.passed,
+        timeTaken: sub.timeTaken,
+        status: sub.status || 'COMPLETED',
+        submittedAt: sub.submittedAt,
+      };
+    });
+
+    res.json({ success: true, results, count: results.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/assignments
+// @desc    Get all assignments with user and quiz info
+// @access  Admin only
+router.get('/assignments', async (req, res) => {
+  try {
+    const assignments = await Assignment.find({})
+      .populate('userId', 'email name')
+      .populate({
+        path: 'quizId',
+        select: 'title duration courseId',
+        populate: { path: 'courseId', select: 'title' }
+      })
+      .sort({ assignedAt: -1 })
+      .lean();
+
+    res.json({ success: true, assignments, count: assignments.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/users
+// @desc    Get all student users (supports ?query= search by name or email)
+// @access  Admin only
+router.get('/users', async (req, res) => {
+  try {
+    const { query } = req.query;
+    const filter = { role: 'student' };
+
+    if (query && query.trim()) {
+      const regex = new RegExp(query.trim(), 'i');
+      filter.$or = [{ name: regex }, { email: regex }];
+    }
+
+    const users = await User.find(filter)
+      .select('_id name email createdAt')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, users, count: users.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   POST /api/admin/assign-batch
+// @desc    Assign a quiz to multiple users at once
+// @access  Admin only
+router.post('/assign-batch', async (req, res) => {
+  try {
+    const { userIds, quizId } = req.body;
+
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'userIds must be a non-empty array' });
+    }
+    if (!quizId || !mongoose.Types.ObjectId.isValid(quizId)) {
+      return res.status(400).json({ success: false, message: 'Valid quizId is required' });
+    }
+
+    // Validate all userIds are valid ObjectIds
+    const invalidIds = userIds.filter(id => !mongoose.Types.ObjectId.isValid(id));
+    if (invalidIds.length > 0) {
+      return res.status(400).json({ success: false, message: `Invalid user IDs: ${invalidIds.join(', ')}` });
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    // Find which assignments already exist in one query
+    const existingAssignments = await Assignment.find(
+      { userId: { $in: userIds }, quizId },
+      { userId: 1 }
+    ).lean();
+
+    const alreadyAssignedSet = new Set(
+      existingAssignments.map(a => a.userId.toString())
+    );
+
+    const toCreate = userIds.filter(id => !alreadyAssignedSet.has(id.toString()));
+    const skippedCount = userIds.length - toCreate.length;
+
+    let assignedCount = 0;
+    if (toCreate.length > 0) {
+      const docs = toCreate.map(userId => ({
+        userId,
+        quizId,
+        status: 'NOT_STARTED',
+        assignedAt: new Date(),
+      }));
+      const result = await Assignment.insertMany(docs, { ordered: false });
+      assignedCount = result.length;
+    }
+
+    res.status(201).json({
+      success: true,
+      assignedCount,
+      skippedCount,
+      message: `${assignedCount} assigned, ${skippedCount} skipped (already assigned)`,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   DELETE /api/admin/assign/:assignmentId
+// @desc    Remove an assignment
+// @access  Admin only
+router.delete('/assign/:assignmentId', async (req, res) => {
+  try {
+    const assignment = await Assignment.findByIdAndDelete(req.params.assignmentId);
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: 'Assignment not found' });
+    }
+    res.json({ success: true, message: 'Assignment removed' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+module.exports = router;

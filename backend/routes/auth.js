@@ -13,18 +13,22 @@ const generateToken = (id) => {
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, mobile, password, role } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide all fields' });
+    if (!name || (!email && !mobile) || !password) {
+      return res.status(400).json({ success: false, message: 'Please provide name, email/mobile, and password' });
     }
 
-    const existingUser = await User.findOne({ email });
+    const query = [];
+    if (email) query.push({ email });
+    if (mobile) query.push({ mobile });
+
+    const existingUser = await User.findOne({ $or: query });
     if (existingUser) {
-      return res.status(409).json({ success: false, message: 'Email already registered' });
+      return res.status(409).json({ success: false, message: 'Email or Mobile already registered' });
     }
 
-    const user = await User.create({ name, email, password, role: role || 'student' });
+    const user = await User.create({ name, email, mobile, password, role: role || 'student' });
     const token = generateToken(user._id);
 
     res.status(201).json({
@@ -34,6 +38,7 @@ router.post('/register', async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        mobile: user.mobile,
         role: user.role,
       },
     });
@@ -46,10 +51,10 @@ router.post('/register', async (req, res) => {
 // @access  Public
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body; // email field here acts as a general identifier (email or mobile)
 
     if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide email and password' });
+      return res.status(400).json({ success: false, message: 'Please provide credentials' });
     }
 
     // --- Development Mock Login (Bypass DB if needed) ---
@@ -58,14 +63,13 @@ router.post('/login', async (req, res) => {
         const mockUser = { _id: 'demo_admin_123', name: 'Admin', email: 'admin@test.com', role: 'admin' };
         return res.json({ success: true, token: generateToken(mockUser._id), user: mockUser });
       }
-      if (email === 'student@test.com') {
-        const mockUser = { _id: 'demo_student_123', name: 'Student', email: 'student@test.com', role: 'student' };
-        return res.json({ success: true, token: generateToken(mockUser._id), user: mockUser });
-      }
     }
     // ----------------------------------------------------
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      $or: [{ email: email.toLowerCase().trim() }, { mobile: email.trim() }]
+    });
+
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
@@ -84,6 +88,7 @@ router.post('/login', async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        mobile: user.mobile,
         role: user.role,
       },
     });

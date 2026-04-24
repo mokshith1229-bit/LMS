@@ -10,9 +10,15 @@ const userSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
       unique: true,
       lowercase: true,
+      trim: true,
+      sparse: true, // Allow multiple nulls/missing but unique if present
+    },
+    mobile: {
+      type: String,
+      unique: true,
+      sparse: true, // allows multiple documents to not have a mobile field
       trim: true,
     },
     password: {

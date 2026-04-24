@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { Zap, Mail, Lock, User, Eye, EyeOff, Shield } from 'lucide-react';
 
 export default function Register() {
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' });
+  const [form, setForm] = useState({ name: '', email: '', mobile: '', password: '', role: 'student' });
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -20,8 +20,8 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.email || !form.password) {
-      setError('Please fill in all fields');
+    if (!form.name || (!form.email && !form.mobile) || !form.password) {
+      setError('Please fill in Name, Password, and at least one contact (Email or Mobile)');
       return;
     }
     if (form.password.length < 6) {
@@ -33,7 +33,7 @@ export default function Register() {
       const { data } = await api.post('/auth/register', form);
       login(data.user, data.token);
       toast.success(`Welcome to LearnFlow, ${data.user.name}!`);
-      navigate(data.user.role === 'admin' ? '/admin' : '/student');
+      navigate(data.user.role === 'admin' ? '/admin' : '/student/assessments');
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
     } finally {
@@ -95,6 +95,23 @@ export default function Register() {
                   name="email"
                   placeholder="you@example.com"
                   value={form.email}
+                  onChange={handleChange}
+                />
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Mobile Number</label>
+              <div style={{ position: 'relative' }}>
+                <Zap size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                <input
+                  id="reg-mobile"
+                  className="form-input"
+                  style={{ paddingLeft: 40 }}
+                  type="text"
+                  name="mobile"
+                  placeholder="e.g. 9876543210"
+                  value={form.mobile}
                   onChange={handleChange}
                 />
               </div>

@@ -17,22 +17,28 @@ export default function AssessmentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [visited, setVisited] = useState(new Set([0]));
   const [examStarted, setExamStarted] = useState(false);
-  const [violations, setViolations] = useState(0);
+  const [_violations, setViolations] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
-  const startTime = useRef(Date.now());
+  const [startTime] = useState(() => Date.now());
   const timerRef = useRef(null);
+  const isSubmittingRef = useRef(false);
 
   const handleSubmit = useCallback(
     async (forcedReason = null) => {
-      if (submitting) return;
+      if (submitting || isSubmittingRef.current) return;
       setSubmitting(true);
+      isSubmittingRef.current = true;
       clearInterval(timerRef.current);
 
       if (document.fullscreenElement) {
-        document.exitFullscreen().catch(err => console.log(err));
+        try {
+          await document.exitFullscreen();
+        } catch (err) {
+          console.log("Exit fullscreen error:", err);
+        }
       }
 
-      const timeTaken = Math.round((Date.now() - startTime.current) / 1000);
+      const timeTaken = Math.round((Date.now() - startTime) / 1000);
       const formattedAnswers = Object.entries(answers).map(([qi, si]) => ({
         questionIndex: Number(qi),
         selectedOption: Number(si),
@@ -44,9 +50,13 @@ export default function AssessmentPage() {
           courseId,
           answers: formattedAnswers,
           timeTaken,
+          startTime,
+          forcedReason: forcedReason || null,
         });
+
         if (forcedReason === 'timeout') toast.success("Time's up! Assessment submitted.");
         if (forcedReason === 'violation') toast.error("Assessment terminated due to security violation.");
+
         navigate(`/student/result/${quizId}`, { state: { submission: data.submission, courseId, forcedReason } });
       } catch (err) {
         if (err.response?.data?.submission) {
@@ -54,6 +64,7 @@ export default function AssessmentPage() {
         } else {
           toast.error(err.response?.data?.message || 'Submission failed');
           setSubmitting(false);
+          isSubmittingRef.current = false;
         }
       }
     },
@@ -92,7 +103,7 @@ export default function AssessmentPage() {
     let violationHandled = false;
 
     const handleViolation = () => {
-      if (violationHandled) return;
+      if (violationHandled || isSubmittingRef.current) return;
       violationHandled = true; // Prevent duplicate triggers simultaneously
 
       setViolations(prev => {
@@ -111,7 +122,11 @@ export default function AssessmentPage() {
 
     const handleVisibilityChange = () => { if (document.hidden) handleViolation(); };
     const handleBlur = () => { handleViolation(); };
-    const handleFullscreenChange = () => { if (!document.fullscreenElement && !showWarning) handleViolation(); };
+    const handleFullscreenChange = () => { 
+      if (!document.fullscreenElement && !showWarning && !isSubmittingRef.current) {
+        handleViolation(); 
+      }
+    };
     const handleContextMenu = (e) => e.preventDefault();
     const handleKeyDown = (e) => {
       if (
@@ -158,7 +173,7 @@ export default function AssessmentPage() {
     try {
       await document.documentElement.requestFullscreen();
       setExamStarted(true);
-    } catch (err) {
+    } catch (_err) {
       toast.error('You must allow fullscreen to take this assessment. Click anywhere and try again.');
     }
   };
@@ -238,21 +253,16 @@ export default function AssessmentPage() {
       <div className="exam-main">
         {/* Background Watermarks */}
         <div className="exam-watermark-overlay" />
-        <img
-          src="/assets/branding_logo.png"
-          alt="Watermark"
-          className="exam-center-watermark"
-        />
 
         {/* Left Side: Question Area (70%) */}
         <div className="exam-content">
-          
+
           {/* Top Navigation Bar - Replaced Footer */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
             <div className="exam-q-number" style={{ margin: 0 }}>
               Question No. {current + 1} of {total}
             </div>
-            
+
             <div style={{ display: 'flex', gap: 12 }}>
               <button
                 className="btn btn-secondary"
@@ -261,7 +271,7 @@ export default function AssessmentPage() {
               >
                 Previous
               </button>
-              
+
               {current === total - 1 ? (
                 <button
                   className="btn btn-success"
@@ -352,6 +362,14 @@ export default function AssessmentPage() {
                 </div>
               );
             })}
+          </div>
+
+          <div style={{ marginTop: 'auto', textAlign: 'center', paddingTop: 32 }}>
+            <img
+              src="/assets/branding_logo.png"
+              alt="Cube Logo"
+              style={{ width: '90%', opacity: 0.5, filter: 'brightness(1.1)' }}
+            />
           </div>
         </aside>
       </div>

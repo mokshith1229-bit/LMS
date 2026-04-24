@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, BookOpen, Upload, ClipboardList,
-  LogOut, Award,
+  LogOut, Award, UserPlus, BarChart2, ClipboardCheck,
 } from 'lucide-react';
 
 const adminLinks = [
@@ -12,10 +12,12 @@ const adminLinks = [
   { to: '/admin/create-course', icon: <BookOpen size={18} />, label: 'Create Course' },
   { to: '/admin/upload', icon: <Upload size={18} />, label: 'Upload Content' },
   { to: '/admin/add-quiz', icon: <ClipboardList size={18} />, label: 'Add Quiz' },
+  { to: '/admin/assign', icon: <UserPlus size={18} />, label: 'Assign Quiz' },
+  { to: '/admin/results', icon: <BarChart2 size={18} />, label: 'Results' },
 ];
 
 const studentLinks = [
-  { to: '/student', icon: <LayoutDashboard size={18} />, label: 'Dashboard' },
+  { to: '/student/assessments', icon: <ClipboardCheck size={18} />, label: 'My Assessments' },
   { to: '/student/certificates', icon: <Award size={18} />, label: 'GetMy Certificate' },
 ];
 

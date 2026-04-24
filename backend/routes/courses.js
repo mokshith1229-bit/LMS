@@ -73,6 +73,44 @@ router.get('/', protect, async (req, res) => {
   }
 });
 
+// @route   GET /api/courses/admin/stats
+// @access  Private Admin
+router.get('/admin/stats', protect, async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({
+        success: true,
+        stats: {
+          totalCourses: demoStore.courses.length,
+          totalStudents: demoStore.courses.reduce((acc, c) => acc + c.enrolledStudents.length, 0),
+          totalSubmissions: 0
+        }
+      });
+    }
+
+    const totalCourses = await Course.countDocuments();
+    
+    // Count total unique student users in the system
+    const User = require('../models/User');
+    const totalStudents = await User.countDocuments({ role: 'student' });
+    
+    const Submission = require('../models/Submission');
+    const totalSubmissions = await Submission.countDocuments();
+
+    res.json({
+      success: true,
+      stats: {
+        totalCourses,
+        totalStudents,
+        totalSubmissions
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // @route   GET /api/courses/:id
 // @access  Private
 router.get('/:id', protect, async (req, res) => {
@@ -116,6 +154,31 @@ router.get('/:id', protect, async (req, res) => {
     }
 
     res.json({ success: true, course });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   DELETE /api/courses/:id
+// @access  Admin only
+router.delete('/:id', protect, checkRole('admin'), async (req, res) => {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState !== 1 || req.params.id.startsWith('demo')) {
+      const idx = demoStore.courses.findIndex(c => c._id === req.params.id);
+      if (idx !== -1) {
+        demoStore.courses.splice(idx, 1);
+        return res.json({ success: true, message: 'Course deleted (Simulation Mode)' });
+      }
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    const course = await Course.findByIdAndDelete(req.params.id);
+    if (!course) {
+      return res.status(404).json({ success: false, message: 'Course not found' });
+    }
+
+    res.json({ success: true, message: 'Course deleted successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

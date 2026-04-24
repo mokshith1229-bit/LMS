@@ -17,7 +17,7 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const startTime = useRef(Date.now());
+  const [startTime] = useState(() => Date.now());
   const timerRef = useRef(null);
 
   // Submit handler (memoized so timer can call it)
@@ -27,7 +27,7 @@ export default function QuizPage() {
       setSubmitting(true);
       clearInterval(timerRef.current);
 
-      const timeTaken = Math.round((Date.now() - startTime.current) / 1000);
+      const timeTaken = Math.round((Date.now() - startTime) / 1000);
       const formattedAnswers = Object.entries(answers).map(([qi, si]) => ({
         questionIndex: Number(qi),
         selectedOption: Number(si),

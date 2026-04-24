@@ -2,166 +2,187 @@ const express = require('express');
 const router = express.Router();
 const Submission = require('../models/Submission');
 const Quiz = require('../models/Quiz');
-const User = require('../models/User');
-const { protect } = require('../middleware/auth');
-const { checkRole } = require('../middleware/role');
-const demoStore = require('./demoStore');
+const Assignment = require('../models/Assignment');
 const mongoose = require('mongoose');
+const demoStore = require('./demoStore');
+const { protect } = require('../middleware/auth');
 
 // @route   POST /api/submit
-// @access  Student only
-router.post('/', protect, checkRole('student'), async (req, res) => {
+// @desc    Calculate score and save submission
+// @access  Protected (student must be authenticated)
+router.post('/', protect, async (req, res) => {
   try {
-    const { quizId, courseId, answers, timeTaken } = req.body;
+    const { quizId, answers, startTime, courseId } = req.body;
+    const userId = req.user._id;
+    const forcedReason = req.body.forcedReason || null;
 
-    if (!quizId || !courseId || !answers) {
-      return res.status(400).json({ success: false, message: 'quizId, courseId, and answers are required' });
+    if (!quizId || !Array.isArray(answers)) {
+      return res.status(400).json({ success: false, message: 'quizId and answers array are required' });
     }
 
-    // --- Simulation Handling ---
-    if (mongoose.connection.readyState !== 1 || quizId.startsWith('demo') || quizId.startsWith('mock')) {
-      const quiz = demoStore.quizzes.find(q => q._id === quizId);
-      
-      if (!quiz) {
-        return res.status(404).json({ success: false, message: 'Assessment not found in simulation data' });
+    const isDemo = quizId.toString().startsWith('demo');
+    const isDbConnected = mongoose.connection.readyState === 1;
+
+    // === ASSIGNMENT CHECK (only for real DB, non-demo) ===
+    let assignment = null;
+    if (isDbConnected && !isDemo && mongoose.Types.ObjectId.isValid(quizId)) {
+      assignment = await Assignment.findOne({ userId, quizId });
+
+      if (!assignment) {
+        return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
       }
 
+      // Prevent multiple submissions
+      if (assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') {
+        return res.status(400).json({ success: false, message: 'You have already submitted this assessment' });
+      }
+    }
 
-      // Grade provided answers
-      let score = 0;
-      const total = quiz.questions.length;
-
-      answers.forEach((ans) => {
-        const question = quiz.questions[ans.questionIndex];
-        if (question && question.correctAnswer === ans.selectedOption) {
-          score++;
+    // Check for existing submission (only if DB is connected and not a demo)
+    if (isDbConnected && !isDemo && mongoose.Types.ObjectId.isValid(quizId)) {
+      try {
+        const existingSubmission = await Submission.findOne({ userId, quizId });
+        if (existingSubmission) {
+          return res.status(400).json({ success: false, message: 'Already submitted' });
         }
-      });
-
-      const percentage = Math.round((score / total) * 100);
-      const passed = percentage >= (quiz.passingScore || 60);
-
-      return res.status(201).json({
-        success: true,
-        submission: {
-          _id: 'demo_sub_' + Date.now(),
-          score,
-          total,
-          percentage,
-          passed,
-          timeTaken: timeTaken || 0,
-          createdAt: new Date(),
-        },
-      });
+      } catch (err) {
+        console.error('Error checking existing submission:', err);
+      }
     }
 
-    // ----------------------------
-
-    // Check if already submitted
-    const existing = await Submission.findOne({ userId: req.user._id, quizId });
-    if (existing) {
-      return res.status(409).json({
-        success: false,
-        message: 'You have already submitted this quiz',
-        submission: existing,
-      });
+    let quiz;
+    if (!isDbConnected || isDemo) {
+      quiz = demoStore.quizzes.find(q => q._id === quizId);
+    } else {
+      quiz = await Quiz.findById(quizId);
     }
 
-    const quiz = await Quiz.findById(quizId);
     if (!quiz) {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    // Grade answers
-    let score = 0;
-    const total = quiz.questions.length;
-
-    const gradedAnswers = answers.map((ans) => {
-      const question = quiz.questions[ans.questionIndex];
-      const isCorrect = question && question.correctAnswer === ans.selectedOption;
-      if (isCorrect) score++;
-      return { questionIndex: ans.questionIndex, selectedOption: ans.selectedOption };
-    });
-
-    const percentage = Math.round((score / total) * 100);
-    const passed = percentage >= (quiz.passingScore || 60);
-
-    const submission = await Submission.create({
-      userId: req.user._id,
-      courseId,
-      quizId,
-      answers: gradedAnswers,
-      score,
-      total,
-      percentage,
-      passed,
-      timeTaken: timeTaken || 0,
-    });
-
-    // Track course completion in User
-    const user = await User.findById(req.user._id);
-    const enrollment = user.enrolledCourses.find(
-      (e) => e.courseId.toString() === courseId
-    );
-    if (passed) {
-      if (enrollment) {
-        enrollment.completedAt = new Date();
-        await user.save();
+    // Backend Timer Validation
+    if (startTime && quiz.duration) {
+      const endTime = Number(startTime) + (quiz.duration * 1000);
+      // Allow a tiny 5s grace period for network latency
+      if (Date.now() > endTime + 5000) {
+        // Mark as TERMINATED due to timeout instead of rejecting
+        if (assignment) {
+          assignment.status = 'TERMINATED';
+          assignment.submittedAt = new Date();
+          await assignment.save();
+        }
+        return res.status(400).json({ success: false, message: 'Time expired' });
       }
     }
 
+    // Rebuild the full answers array from sparse input (frontend sends only answered questions)
+    const fullAnswers = new Array(quiz.questions.length).fill(null);
+    answers.forEach(ans => {
+      if (typeof ans === 'object' && ans !== null && ans.questionIndex !== undefined) {
+        if (ans.questionIndex >= 0 && ans.questionIndex < fullAnswers.length) {
+          fullAnswers[ans.questionIndex] = ans.selectedOption;
+        }
+      }
+    });
+
+    let correct = 0;
+    let wrong = 0;
+    let unattempted = 0;
+    const total = quiz.questions.length;
+
+    fullAnswers.forEach((ans, index) => {
+      const q = quiz.questions[index];
+
+      if (ans === null || ans === undefined || ans === '') {
+        unattempted++;
+      } else {
+        const normalizedAns = ans.toString().trim().toUpperCase();
+        const correctAnswer = q.correctAnswer.toString().trim().toUpperCase();
+
+        if (normalizedAns === correctAnswer) {
+          correct++;
+        } else {
+          wrong++;
+        }
+      }
+    });
+
+    const { timeTaken } = req.body;
+    const percentage = total > 0 ? Number(((correct / total) * 100).toFixed(2)) : 0;
+    const passed = percentage >= (quiz.passingScore || 60);
+
+    // Determine final status
+    const finalStatus = forcedReason === 'violation' ? 'TERMINATED' : 'COMPLETED';
+
+    const stats = {
+      total,
+      correct,
+      score: correct,
+      wrong,
+      unattempted,
+      percentage,
+      timeTaken: timeTaken || 0,
+      passed,
+      status: finalStatus,
+      submittedAt: new Date(),
+    };
+
+    let savedSubmission = null;
+    if (isDbConnected && !isDemo) {
+      savedSubmission = await Submission.create({
+        userId,
+        quizId,
+        answers: fullAnswers,
+        ...stats
+      });
+
+      // Update assignment status
+      if (assignment) {
+        assignment.status = finalStatus;
+        assignment.submittedAt = new Date();
+        await assignment.save();
+      }
+    } else {
+      // Mock submission object for simulation mode
+      savedSubmission = {
+        _id: 'sim_' + Date.now(),
+        userId,
+        quizId,
+        answers: fullAnswers,
+        ...stats
+      };
+    }
+
+    // === ROLE-BASED RESPONSE ===
+    // Students only see status, not scores
+    const isStudent = req.user.role === 'student';
+
+    if (isStudent) {
+      return res.status(201).json({
+        success: true,
+        status: 'submitted',
+        submissionStatus: finalStatus,
+        submission: {
+          _id: savedSubmission._id,
+          quizId,
+          status: finalStatus,
+          submittedAt: savedSubmission.submittedAt,
+        },
+      });
+    }
+
+    // Admin gets full stats
     res.status(201).json({
       success: true,
-      submission: {
-        _id: submission._id,
-        score,
-        total,
-        percentage,
-        passed,
-        timeTaken: submission.timeTaken,
-        createdAt: submission.createdAt,
-      },
+      submission: savedSubmission,
+      ...stats,
     });
+
   } catch (error) {
+    console.error('Submission Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
-
-// @route   GET /api/submit/my/:courseId
-// @access  Student
-router.get('/my/:courseId', protect, checkRole('student'), async (req, res) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.json({ success: true, submission: null });
-    }
-    const submission = await Submission.findOne({
-      userId: req.user._id,
-      courseId: req.params.courseId,
-    }).sort({ createdAt: -1 });
-
-    res.json({ success: true, submission });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-
-// @route   GET /api/submit/results/:courseId
-// @access  Admin
-router.get('/results/:courseId', protect, checkRole('admin'), async (req, res) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.json({ success: true, submissions: [] });
-    }
-    const submissions = await Submission.find({ courseId: req.params.courseId })
-      .populate('userId', 'name email')
-      .sort({ createdAt: -1 });
-
-    res.json({ success: true, submissions });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
 
 module.exports = router;
