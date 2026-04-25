@@ -198,7 +198,6 @@ export default function AssessmentPage() {
             <ul style={{ color: '#0c4a6e', fontSize: '0.92rem', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 10, lineHeight: 1.6 }}>
               <li><strong>Total Duration:</strong> 1 hour</li>
               <li><strong>Total Marks:</strong> 100 marks</li>
-
               <li><strong>Key Rules:</strong>
                 <ul style={{ paddingLeft: 20, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <li>All questions are compulsory.</li>
