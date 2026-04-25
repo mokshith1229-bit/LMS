@@ -190,6 +190,30 @@ export default function AssessmentPage() {
             <img src="/assets/cube_tech_logo.png" alt="Cube Highways Logo" style={{ height: 50, objectFit: 'contain' }} />
           </div>
 
+          {/* New Examination Details Block */}
+          <div style={{ textAlign: 'left', background: '#f0f9ff', padding: '20px 24px', borderRadius: 12, marginBottom: 20, border: '1px solid #bae6fd', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+            <h4 style={{ color: '#0369a1', marginBottom: 14, fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Examination Details
+            </h4>
+            <ul style={{ color: '#0c4a6e', fontSize: '0.92rem', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 10, lineHeight: 1.6 }}>
+              <li><strong>Total Duration:</strong> 1 hour</li>
+              <li><strong>Total Marks:</strong> 100 marks</li>
+              <li><strong>Question Paper Structure:</strong>
+                <ul style={{ paddingLeft: 20, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <li><strong>Section A (Online Questions):</strong> 40 questions × 2 marks each = 80 marks</li>
+                  <li><strong>Section B (Descriptive Questions):</strong> 2 questions × 5 marks each = 10 marks</li>
+                </ul>
+              </li>
+              <li><strong>Key Rules:</strong>
+                <ul style={{ paddingLeft: 20, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <li>All questions are compulsory.</li>
+                  <li>Each online question carries 2 marks, and each descriptive question carries 5 marks.</li>
+                  <li>There is <strong>no negative marking</strong> for incorrect answers.</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+
           <div style={{ textAlign: 'left', background: '#fff3cd', padding: 20, borderRadius: 8, marginBottom: 28, border: '1px solid #ffeeba' }}>
             <h4 style={{ color: '#856404', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>Instructions</h4>
             <ul style={{ color: '#856404', fontSize: '0.9rem', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8, lineHeight: 1.5 }}>
