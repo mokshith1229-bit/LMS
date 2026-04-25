@@ -46,8 +46,8 @@ export default function MyAssessments() {
         <div className="simulation-banner fade-in">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h1>My Assessments</h1>
-              <p>Quizzes assigned to you by your administrator.</p>
+              <h1>Welcome, {user?.name || 'Student'}</h1>
+              <p>Here are the assessments assigned to you by your administrator.</p>
             </div>
             <img src="/assets/cube_tech_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
           </div>
