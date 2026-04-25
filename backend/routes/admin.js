@@ -7,6 +7,7 @@ const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
 const { protect } = require('../middleware/auth');
 const { checkRole } = require('../middleware/role');
+const xlsx = require('xlsx');
 
 // All admin routes require authentication + admin role
 router.use(protect, checkRole('admin'));
@@ -99,7 +100,50 @@ router.get('/results', async (req, res) => {
   }
 });
 
-// @route   GET /api/admin/assignments
+// @route   GET /api/admin/results/export
+// @desc    Export results as Excel
+// @access  Admin only
+router.get('/results/export', async (req, res) => {
+  try {
+    const submissions = await Submission.find({})
+      .populate('userId', 'email name')
+      .populate({
+        path: 'quizId',
+        select: 'title courseId',
+        populate: { path: 'courseId', select: 'title' }
+      })
+      .sort({ submittedAt: -1 })
+      .lean();
+
+    const data = submissions.map((s) => ({
+      'Student Name': s.userId?.name || 'Unknown',
+      'Email': s.userId?.email || '',
+      'Quiz Title': s.quizId?.title || 'Unknown',
+      'Course': s.quizId?.courseId?.title || '',
+      'Correct Answers': s.correct,
+      'Wrong Answers': s.wrong,
+      'Unattempted': s.unattempted,
+      'Total Questions': s.correct + s.wrong + s.unattempted,
+      'Percentage (%)': s.percentage,
+      'Result': s.passed ? 'PASS' : 'FAIL',
+      'Status': s.status || 'COMPLETED',
+      'Time Taken (secs)': s.timeTaken,
+      'Submitted At': s.submittedAt ? new Date(s.submittedAt).toLocaleString() : 'N/A'
+    }));
+
+    const workbook = xlsx.utils.book_new();
+    const worksheet = xlsx.utils.json_to_sheet(data);
+    xlsx.utils.book_append_sheet(workbook, worksheet, 'Assessment Results');
+
+    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=LMS_Assessment_Results.xlsx');
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 // @desc    Get all assignments with user and quiz info
 // @access  Admin only
 router.get('/assignments', async (req, res) => {

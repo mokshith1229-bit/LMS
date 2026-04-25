@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { RefreshCw, BarChart2, CheckCircle, XCircle } from 'lucide-react';
+import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown } from 'lucide-react';
 
 export default function AdminResults() {
   const [results, setResults] = useState([]);
@@ -17,6 +17,25 @@ export default function AdminResults() {
       toast.error('Failed to load results');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const response = await api.get('/admin/results/export', {
+        responseType: 'blob', // Important for handling binary data
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `LMS_Results_${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success('Excel file downloaded successfully!');
+    } catch (err) {
+      toast.error('Failed to export Excel file');
     }
   };
 
@@ -44,13 +63,23 @@ export default function AdminResults() {
             <h2 className="title-sm" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BarChart2 size={20} /> All Submissions
             </h2>
-            <button
-              className="btn btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: '0.85rem' }}
-              onClick={loadResults}
-            >
-              <RefreshCw size={14} /> Refresh
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className="btn btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: '0.85rem' }}
+                onClick={handleExportExcel}
+                disabled={results.length === 0}
+              >
+                <FileDown size={14} /> Export Excel
+              </button>
+              <button
+                className="btn btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: '0.85rem' }}
+                onClick={loadResults}
+              >
+                <RefreshCw size={14} /> Refresh
+              </button>
+            </div>
           </div>
 
           {loading ? (
