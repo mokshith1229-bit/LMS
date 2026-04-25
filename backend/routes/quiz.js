@@ -55,7 +55,7 @@ router.post('/', async (req, res) => {
       courseId,
       title,
       questions,
-      timeLimitSeconds,
+      duration: timeLimitSeconds || 1800,
       passingScore,
     });
 
@@ -240,7 +240,7 @@ router.post('/parse-excel', upload.single('file'), async (req, res) => {
       const newQuiz = {
         _id: 'demo_uploaded_' + Date.now(),
         title: 'Uploaded Quiz (Simulation)',
-        duration: 1800,
+        duration: 3600,
         questions: questionsForFrontend.map((q, i) => ({ ...q, _id: 'q_' + i })),
         createdAt: new Date(),
       };
@@ -256,7 +256,7 @@ router.post('/parse-excel', upload.single('file'), async (req, res) => {
 
     const newQuiz = await Quiz.create({
       title: 'Uploaded Quiz',
-      duration: 1800,
+      duration: 3600, // Default to 1 hour for uploads
       questions: questionsForFrontend // Save as indices (will be cast to strings "0", "1" etc in DB)
     });
 
