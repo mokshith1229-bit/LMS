@@ -19,66 +19,84 @@ export default function QuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [startTime] = useState(() => Date.now());
   const timerRef = useRef(null);
+  const isSubmittingRef = useRef(false);
+  const answersRef = useRef(answers);
+  const quizRef = useRef(null);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
 
-  // Submit handler (memoized so timer can call it)
-  const handleSubmit = useCallback(
-    async (forced = false) => {
-      if (submitting) return;
-      setSubmitting(true);
-      clearInterval(timerRef.current);
+  // Stable submit — reads from refs, never stale
+  const doSubmit = useCallback(async (forced = false) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setSubmitting(true);
+    clearInterval(timerRef.current);
 
-      const timeTaken = Math.round((Date.now() - startTime) / 1000);
-      const formattedAnswers = Object.entries(answers).map(([qi, si]) => ({
-        questionIndex: Number(qi),
-        selectedOption: Number(si),
-      }));
+    const currentAnswers = answersRef.current;
+    const currentQuiz   = quizRef.current;
+    if (!currentQuiz) {
+      isSubmittingRef.current = false;
+      setSubmitting(false);
+      return;
+    }
 
-      try {
-        const { data } = await api.post('/submit', {
-          quizId,
-          courseId,
-          answers: formattedAnswers,
-          timeTaken,
-        });
-        if (forced) toast.success("Time's up! Submitting your answers…");
-        navigate(`/student/result/${quizId}`, { state: { submission: data.submission, courseId } });
-      } catch (err) {
-        if (err.response?.data?.submission) {
-          navigate(`/student/result/${quizId}`, { state: { submission: err.response.data.submission, courseId } });
-        } else {
-          toast.error(err.response?.data?.message || 'Submission failed');
-          setSubmitting(false);
-        }
+    const timeTaken = Math.round((Date.now() - startTime) / 1000);
+    const formattedAnswers = currentQuiz.questions.map((_, index) =>
+      currentAnswers[index] !== undefined ? currentAnswers[index] : null
+    );
+
+    try {
+      const { data } = await api.post('/submit', {
+        quizId,
+        courseId,
+        answers: formattedAnswers,
+        timeTaken,
+        autoSubmit: forced,
+      });
+      if (forced) toast.success("Time's up! Submitting your answers…");
+      navigate(`/student/result/${quizId}`, { state: { submission: data.submission, courseId } });
+    } catch (err) {
+      if (err.response?.data?.submission) {
+        navigate(`/student/result/${quizId}`, { state: { submission: err.response.data.submission, courseId } });
+      } else {
+        toast.error(err.response?.data?.message || 'Submission failed');
+        isSubmittingRef.current = false;
+        setSubmitting(false);
       }
-    },
-    [answers, quizId, courseId, navigate, submitting]
-  );
+    }
+  }, [quizId, courseId, navigate, startTime]);
+
+  const doSubmitRef = useRef(doSubmit);
+  useEffect(() => { doSubmitRef.current = doSubmit; }, [doSubmit]);
 
   useEffect(() => {
     api.get(`/quiz/single/${quizId}`)
       .then(({ data }) => {
+        quizRef.current = data.quiz;
         setQuiz(data.quiz);
-        setTimeLeft(data.quiz.timeLimitSeconds);
+        setTimeLeft(data.quiz.timeLimitSeconds || data.quiz.duration);
         setLoading(false);
       })
       .catch(() => { toast.error('Failed to load quiz'); setLoading(false); });
   }, [quizId]);
 
-  // Countdown timer
+  // Countdown timer — fires auto-submit via ref (never stale)
   useEffect(() => {
     if (timeLeft === null || timeLeft <= 0) return;
+    if (isSubmittingRef.current) return;
+
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
-          handleSubmit(true);
+          doSubmitRef.current(true);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
+
     return () => clearInterval(timerRef.current);
-  }, [timeLeft === null]); // only start once
+  }, [timeLeft === null]);
 
   const formatTime = (secs) => {
     const m = Math.floor(secs / 60);
@@ -169,7 +187,7 @@ export default function QuizPage() {
               <button
                 id="submit-quiz-btn"
                 className="btn btn-primary btn-lg"
-                onClick={() => handleSubmit(false)}
+                onClick={() => doSubmit(false)}
                 disabled={submitting}
               >
                 <Send size={16} />

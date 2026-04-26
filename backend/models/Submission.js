@@ -12,10 +12,17 @@ const submissionSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
-  answers: {
-    type: [mongoose.Schema.Types.Mixed],
-    required: true,
-  },
+  answers: [
+    {
+      questionId: {
+        type: String,
+        required: true,
+      },
+      selectedOption: {
+        type: String,
+      }
+    }
+  ],
   correct: {
     type: Number,
     required: true,

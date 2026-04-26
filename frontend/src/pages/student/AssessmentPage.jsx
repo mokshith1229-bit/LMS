@@ -25,79 +25,98 @@ export default function AssessmentPage() {
   const [isCalcOpen, setIsCalcOpen] = useState(false);
   const timerRef = useRef(null);
   const isSubmittingRef = useRef(false);
+  // Always keep a live ref to answers so the timer callback never reads stale state
+  const answersRef = useRef(answers);
+  const quizRef = useRef(null);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
 
-  const handleSubmit = useCallback(
-    async (forcedReason = null) => {
-      if (submitting || isSubmittingRef.current) return;
-      setSubmitting(true);
-      isSubmittingRef.current = true;
-      clearInterval(timerRef.current);
+  // Stable submit function — reads from refs, never stale
+  const doSubmit = useCallback(async (forcedReason = null) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setSubmitting(true);
+    clearInterval(timerRef.current);
 
-      if (document.fullscreenElement) {
-        try {
-          await document.exitFullscreen();
-        } catch (err) {
-          console.log("Exit fullscreen error:", err);
-        }
-      }
+    if (document.fullscreenElement) {
+      try { await document.exitFullscreen(); } catch (_) {}
+    }
 
-      const timeTaken = Math.round((Date.now() - startTime) / 1000);
-      const formattedAnswers = Object.entries(answers).map(([qi, si]) => ({
-        questionIndex: Number(qi),
-        selectedOption: Number(si),
-      }));
+    const currentAnswers = answersRef.current;   // always fresh
+    const currentQuiz   = quizRef.current;        // always fresh
+    if (!currentQuiz) {
+      isSubmittingRef.current = false;
+      setSubmitting(false);
+      return;
+    }
 
-      try {
-        const { data } = await api.post('/submit', {
-          quizId,
-          courseId,
-          answers: formattedAnswers,
-          timeTaken,
-          startTime,
-          forcedReason: forcedReason || null,
+    const timeTaken = Math.round((Date.now() - startTime) / 1000);
+    const formattedAnswers = currentQuiz.questions.map((_, index) =>
+      currentAnswers[index] !== undefined ? currentAnswers[index] : null
+    );
+
+    try {
+      const { data } = await api.post('/submit', {
+        quizId,
+        courseId,
+        answers: formattedAnswers,
+        timeTaken,
+        startTime,
+        forcedReason: forcedReason || null,
+        autoSubmit: forcedReason === 'timeout' || forcedReason === 'violation',
+      });
+
+      if (forcedReason === 'timeout') toast.success("Time's up! Assessment submitted.");
+      if (forcedReason === 'violation') toast.error('Assessment terminated due to security violation.');
+
+      navigate(`/student/result/${quizId}`, {
+        state: { submission: data.submission, courseId, forcedReason },
+      });
+    } catch (err) {
+      if (err.response?.data?.submission) {
+        navigate(`/student/result/${quizId}`, {
+          state: { submission: err.response.data.submission, courseId, forcedReason },
         });
-
-        if (forcedReason === 'timeout') toast.success("Time's up! Assessment submitted.");
-        if (forcedReason === 'violation') toast.error("Assessment terminated due to security violation.");
-
-        navigate(`/student/result/${quizId}`, { state: { submission: data.submission, courseId, forcedReason } });
-      } catch (err) {
-        if (err.response?.data?.submission) {
-          navigate(`/student/result/${quizId}`, { state: { submission: err.response.data.submission, courseId, forcedReason } });
-        } else {
-          toast.error(err.response?.data?.message || 'Submission failed');
-          setSubmitting(false);
-          isSubmittingRef.current = false;
-        }
+      } else {
+        toast.error(err.response?.data?.message || 'Submission failed');
+        isSubmittingRef.current = false;
+        setSubmitting(false);
       }
-    },
-    [answers, quizId, courseId, navigate, submitting]
-  );
+    }
+  }, [quizId, courseId, navigate, startTime]);
+
+  // Keep a ref to doSubmit so the timer always has the latest version
+  const doSubmitRef = useRef(doSubmit);
+  useEffect(() => { doSubmitRef.current = doSubmit; }, [doSubmit]);
 
   useEffect(() => {
     api.get(`/quiz/single/${quizId}`)
       .then(({ data }) => {
+        quizRef.current = data.quiz;
         setQuiz(data.quiz);
-        setTimeLeft(data.quiz.timeLimitSeconds);
+        setTimeLeft(data.quiz.timeLimitSeconds || data.quiz.duration);
         setLoading(false);
       })
       .catch(() => { toast.error('Failed to load assessment'); setLoading(false); });
   }, [quizId]);
 
+  // Countdown timer — fires auto-submit via ref (never stale)
   useEffect(() => {
-    if (!examStarted || timeLeft === null || timeLeft <= 0 || submitting) return;
+    if (!examStarted || timeLeft === null || timeLeft <= 0) return;
+    if (isSubmittingRef.current) return;
+
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current);
-          handleSubmit('timeout');
+          doSubmitRef.current('timeout');
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
+
     return () => clearInterval(timerRef.current);
-  }, [examStarted, timeLeft === null, handleSubmit, submitting]);
+  }, [examStarted, timeLeft === null]);
 
   // Security Mechanisms
   useEffect(() => {
@@ -107,27 +126,26 @@ export default function AssessmentPage() {
 
     const handleViolation = () => {
       if (violationHandled || isSubmittingRef.current) return;
-      violationHandled = true; // Prevent duplicate triggers simultaneously
+      violationHandled = true;
 
       setViolations(prev => {
         const next = prev + 1;
         if (next === 1) {
           setShowWarning(true);
         } else if (next >= 2) {
-          handleSubmit('violation'); // Strike 2 -> Auto-submit
+          doSubmitRef.current('violation'); // Strike 2 -> Auto-submit via stable ref
         }
         return next;
       });
 
-      // Cooldown to prevent blur + visibility triggering two violations instantly
       setTimeout(() => { violationHandled = false; }, 500);
     };
 
     const handleVisibilityChange = () => { if (document.hidden) handleViolation(); };
     const handleBlur = () => { handleViolation(); };
-    const handleFullscreenChange = () => { 
+    const handleFullscreenChange = () => {
       if (!document.fullscreenElement && !showWarning && !isSubmittingRef.current) {
-        handleViolation(); 
+        handleViolation();
       }
     };
     const handleContextMenu = (e) => e.preventDefault();
@@ -155,7 +173,7 @@ export default function AssessmentPage() {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [examStarted, submitting, showWarning, handleSubmit]);
+  }, [examStarted, submitting, showWarning]);
 
   const formatTime = (secs) => {
     const m = Math.floor(secs / 60);
@@ -308,7 +326,7 @@ export default function AssessmentPage() {
               {current === total - 1 ? (
                 <button
                   className="btn btn-success"
-                  onClick={() => handleSubmit(null)}
+                  onClick={() => doSubmit(null)}
                   disabled={submitting}
                   style={{ padding: '8px 24px' }}
                 >

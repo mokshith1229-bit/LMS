@@ -94,7 +94,7 @@ export default function AdminResults() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                    {['Student', 'Quiz', 'Score', 'Correct', 'Wrong', 'Percentage', 'Result', 'Status', 'Submitted'].map((h) => (
+                    {['Student', 'Quiz', 'Score', 'Correct', 'Wrong', 'Percentage', 'Result', 'Status', 'Submitted', 'Actions'].map((h) => (
                       <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
@@ -131,6 +131,20 @@ export default function AdminResults() {
                         </td>
                         <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                           {r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'}
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <a 
+                            href={`/admin/results/${r.submissionId}`}
+                            className="btn btn-secondary"
+                            style={{ 
+                              padding: '4px 8px', 
+                              fontSize: '0.75rem', 
+                              textDecoration: 'none',
+                              display: 'inline-block'
+                            }}
+                          >
+                            View Answers
+                          </a>
                         </td>
                       </tr>
                     );

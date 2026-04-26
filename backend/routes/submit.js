@@ -7,12 +7,64 @@ const mongoose = require('mongoose');
 const demoStore = require('./demoStore');
 const { protect } = require('../middleware/auth');
 
+function processSubmission({ quiz, answers }) {
+  let correct = 0;
+  let wrong = 0;
+
+  const formattedAnswers = quiz.questions.map((q, index) => {
+    // Check old sparse format vs new dense format
+    let userAnswer = null;
+    
+    // Support both `[{ questionIndex: 0, selectedOption: 1 }]` and `[1, null, 2]`
+    if (answers && answers.length > 0 && typeof answers[0] === 'object' && answers[0] !== null && 'questionIndex' in answers[0]) {
+      const match = answers.find(a => a.questionIndex === index);
+      if (match) userAnswer = match.selectedOption;
+    } else if (Array.isArray(answers) && index < answers.length) {
+      userAnswer = answers[index];
+    }
+
+    if (userAnswer === null || userAnswer === undefined || userAnswer === '') {
+      return {
+        questionId: q._id.toString(),
+        selectedOption: null
+      };
+    }
+
+    const normalizedAns = userAnswer.toString().trim().toUpperCase();
+    const correctAnswer = q.correctAnswer.toString().trim().toUpperCase();
+
+    if (normalizedAns === correctAnswer) {
+      correct++;
+    } else {
+      wrong++;
+    }
+
+    return {
+      questionId: q._id.toString(),
+      selectedOption: userAnswer.toString()
+    };
+  });
+
+  const total = quiz.questions.length;
+  const unattempted = total - (correct + wrong);
+  const percentage = total > 0 ? Number(((correct / total) * 100).toFixed(2)) : 0;
+
+  return {
+    formattedAnswers,
+    correct,
+    wrong,
+    unattempted,
+    percentage,
+    total
+  };
+}
+
 // @route   POST /api/submit
 // @desc    Calculate score and save submission
 // @access  Protected (student must be authenticated)
 router.post('/', protect, async (req, res) => {
   try {
-    const { quizId, answers, startTime, courseId } = req.body;
+    const { quizId, answers, startTime, courseId, autoSubmit } = req.body;
     const userId = req.user._id;
     const forcedReason = req.body.forcedReason || null;
 
@@ -32,21 +84,9 @@ router.post('/', protect, async (req, res) => {
         return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
       }
 
-      // Prevent multiple submissions
-      if (assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') {
+      // Prevent multiple submissions if manually requested, but allow autoSubmit to finalize
+      if ((assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') && !autoSubmit) {
         return res.status(400).json({ success: false, message: 'You have already submitted this assessment' });
-      }
-    }
-
-    // Check for existing submission (only if DB is connected and not a demo)
-    if (isDbConnected && !isDemo && mongoose.Types.ObjectId.isValid(quizId)) {
-      try {
-        const existingSubmission = await Submission.findOne({ userId, quizId });
-        if (existingSubmission) {
-          return res.status(400).json({ success: false, message: 'Already submitted' });
-        }
-      } catch (err) {
-        console.error('Error checking existing submission:', err);
       }
     }
 
@@ -62,7 +102,7 @@ router.post('/', protect, async (req, res) => {
     }
 
     // Backend Timer Validation
-    if (startTime && quiz.duration) {
+    if (startTime && quiz.duration && !autoSubmit) {
       const endTime = Number(startTime) + (quiz.duration * 1000);
       // Allow a tiny 5s grace period for network latency
       if (Date.now() > endTime + 5000) {
@@ -76,52 +116,22 @@ router.post('/', protect, async (req, res) => {
       }
     }
 
-    // Rebuild the full answers array from sparse input (frontend sends only answered questions)
-    const fullAnswers = new Array(quiz.questions.length).fill(null);
-    answers.forEach(ans => {
-      if (typeof ans === 'object' && ans !== null && ans.questionIndex !== undefined) {
-        if (ans.questionIndex >= 0 && ans.questionIndex < fullAnswers.length) {
-          fullAnswers[ans.questionIndex] = ans.selectedOption;
-        }
-      }
-    });
-
-    let correct = 0;
-    let wrong = 0;
-    let unattempted = 0;
-    const total = quiz.questions.length;
-
-    fullAnswers.forEach((ans, index) => {
-      const q = quiz.questions[index];
-
-      if (ans === null || ans === undefined || ans === '') {
-        unattempted++;
-      } else {
-        const normalizedAns = ans.toString().trim().toUpperCase();
-        const correctAnswer = q.correctAnswer.toString().trim().toUpperCase();
-
-        if (normalizedAns === correctAnswer) {
-          correct++;
-        } else {
-          wrong++;
-        }
-      }
-    });
+    // SHARED SCORING FUNCTION
+    const result = processSubmission({ quiz, answers });
 
     const { timeTaken } = req.body;
-    const percentage = total > 0 ? Number(((correct / total) * 100).toFixed(2)) : 0;
-    const passed = percentage >= (quiz.passingScore || 60);
+    const passed = result.percentage >= (quiz.passingScore || 60);
 
     // Determine final status
     const finalStatus = forcedReason === 'violation' ? 'TERMINATED' : 'COMPLETED';
 
     const stats = {
-      total,
-      correct,
-      score: correct,
-      wrong,
-      unattempted,
-      percentage,
+      total: result.total,
+      correct: result.correct,
+      score: result.correct,
+      wrong: result.wrong,
+      unattempted: result.unattempted,
+      percentage: result.percentage,
       timeTaken: timeTaken || 0,
       passed,
       status: finalStatus,
@@ -130,12 +140,17 @@ router.post('/', protect, async (req, res) => {
 
     let savedSubmission = null;
     if (isDbConnected && !isDemo) {
-      savedSubmission = await Submission.create({
-        userId,
-        quizId,
-        answers: fullAnswers,
-        ...stats
-      });
+      // Find and update, or create if not exists
+      savedSubmission = await Submission.findOneAndUpdate(
+        { userId, quizId },
+        {
+          userId,
+          quizId,
+          answers: result.formattedAnswers,
+          ...stats
+        },
+        { new: true, upsert: true }
+      );
 
       // Update assignment status
       if (assignment) {
@@ -149,7 +164,7 @@ router.post('/', protect, async (req, res) => {
         _id: 'sim_' + Date.now(),
         userId,
         quizId,
-        answers: fullAnswers,
+        answers: result.formattedAnswers,
         ...stats
       };
     }

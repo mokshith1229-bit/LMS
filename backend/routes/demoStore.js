@@ -18,7 +18,7 @@ const initialQuizzes = [
     _id: 'demo-quiz-123',
     title: 'CUBE HIGHWAYS',
     courseId: 'demo-course-123',
-    timeLimitSeconds: 1200,
+    timeLimitSeconds: 3600,
     questions: Array.from({ length: 15 }, (_, i) => ({
       _id: `q${i}`,
       question: i === 0 

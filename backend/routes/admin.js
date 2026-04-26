@@ -76,7 +76,7 @@ router.get('/results', async (req, res) => {
 
     const results = submissions.map((sub) => {
       return {
-        submissionId: sub._id,
+        submissionId: sub._id.toString(),
         userName: sub.userId?.name || 'Unknown',
         userEmail: sub.userId?.email || '',
         userMobile: sub.userId?.mobile || '',
@@ -259,6 +259,84 @@ router.delete('/assign/:assignmentId', async (req, res) => {
     }
     res.json({ success: true, message: 'Assignment removed' });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/submissions/debug
+// @desc    List last 10 submission IDs for debugging
+// @access  Admin only
+router.get('/submissions/debug', async (req, res) => {
+  try {
+    const subs = await Submission.find({}).sort({ submittedAt: -1 }).limit(10).lean();
+    res.json({
+      success: true,
+      count: subs.length,
+      ids: subs.map(s => ({ _id: s._id.toString(), userId: s.userId?.toString(), submittedAt: s.submittedAt }))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/submissions/:id
+// @desc    Get detailed submission answers for admin review
+// @access  Admin only
+router.get('/submissions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate ObjectId before querying
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: `Invalid submission ID: ${id}` });
+    }
+
+    const submission = await Submission.findById(id)
+      .populate('userId', 'name email')
+      .populate('quizId');
+
+    if (!submission) {
+      return res.status(404).json({ success: false, message: `Submission with ID ${id} not found. It may have been deleted or not yet saved.` });
+    }
+
+    const quiz = submission.quizId;
+    const user = submission.userId;
+
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz associated with this submission no longer exists.' });
+    }
+
+    // Map answers to include question text and options
+    const answers = quiz.questions.map((q) => {
+      const userAnswerObj = submission.answers.find(a => a.questionId === q._id.toString());
+      const userAnswer = userAnswerObj ? userAnswerObj.selectedOption : null;
+      const correctAnswer = q.correctAnswer.toString().trim();
+      const isCorrect = userAnswer !== null && userAnswer.toString().trim().toUpperCase() === correctAnswer.toUpperCase();
+
+      return {
+        question: q.question,
+        options: q.options,
+        correctAnswer,
+        userAnswer,
+        isCorrect,
+        isUnattempted: userAnswer === null
+      };
+    });
+
+    res.json({
+      success: true,
+      user: { name: user?.name || 'Unknown', email: user?.email || '' },
+      quizTitle: quiz.title,
+      correct: submission.correct,
+      wrong: submission.wrong,
+      unattempted: submission.unattempted,
+      percentage: submission.percentage,
+      status: submission.status,
+      submittedAt: submission.submittedAt,
+      answers
+    });
+  } catch (error) {
+    console.error('Submission View Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
