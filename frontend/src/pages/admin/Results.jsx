@@ -7,6 +7,7 @@ import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown } from 'lucide-rea
 export default function AdminResults() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filterExam, setFilterExam] = useState('');
 
   const loadResults = async () => {
     setLoading(true);
@@ -63,7 +64,18 @@ export default function AdminResults() {
             <h2 className="title-sm" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <BarChart2 size={20} /> All Submissions
             </h2>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <select 
+                className="input" 
+                style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto', minWidth: 150 }}
+                value={filterExam}
+                onChange={(e) => setFilterExam(e.target.value)}
+              >
+                <option value="">All Exams</option>
+                {[...new Set(results.map(r => r.quizTitle))].sort().map(title => (
+                  <option key={title} value={title}>{title}</option>
+                ))}
+              </select>
               <button
                 className="btn btn-secondary"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: '0.85rem' }}
@@ -100,7 +112,9 @@ export default function AdminResults() {
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((r) => {
+                  {results
+                    .filter(r => filterExam === '' || r.quizTitle === filterExam)
+                    .map((r) => {
                     const s = statusColors[r.status] || statusColors.COMPLETED;
                     return (
                       <tr key={r.submissionId} style={{ borderBottom: '1px solid var(--border)' }}>
