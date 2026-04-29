@@ -14,6 +14,7 @@ export default function DetailedReports() {
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [downloading, setDownloading] = useState(false);
+  const [filterTitle, setFilterTitle] = useState('');
 
   useEffect(() => {
     loadQuizzes();
@@ -114,7 +115,20 @@ export default function DetailedReports() {
           {!selectedQuiz ? (
             // VIEW 1: Assessment List
             <>
-              <h2 style={{ fontSize: '1.25rem', marginBottom: 20 }}>Select an Assessment</h2>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Select an Assessment</h2>
+                <select 
+                  className="input"
+                  value={filterTitle}
+                  onChange={(e) => setFilterTitle(e.target.value)}
+                  style={{ width: 250, padding: '8px 12px', fontSize: '0.9rem' }}
+                >
+                  <option value="">All Assessments</option>
+                  {[...new Set(quizzes.map(q => q.title))].sort().map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
               {loading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
                   <Loader2 className="spinner" size={32} color="var(--accent)" />
@@ -134,7 +148,9 @@ export default function DetailedReports() {
                       </tr>
                     </thead>
                     <tbody>
-                      {quizzes.map((quiz) => (
+                      {quizzes
+                        .filter(quiz => filterTitle === '' || quiz.title === filterTitle)
+                        .map((quiz) => (
                         <tr key={quiz._id}>
                           <td style={{ fontWeight: 600 }}>{quiz.title}</td>
                           <td>{quiz.courseId?.title || 'Unknown Course'}</td>
