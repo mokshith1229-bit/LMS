@@ -373,7 +373,12 @@ router.post('/export/detailed/:quizId', async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Detailed Results');
 
-    // Removed getLetter helper
+    // Helper: Map index to Letter (0 -> A, 1 -> B, ...)
+    const getLetter = (index) => {
+      if (index === null || index === undefined || index === '') return '';
+      // Support if answer is text instead of index. Try to find index if it's text.
+      return String.fromCharCode(65 + parseInt(index));
+    };
 
     // Prepare columns
     const columns = [
@@ -389,18 +394,19 @@ router.post('/export/detailed/:quizId', async (req, res) => {
 
     // Row 2: Correct Answers
     const correctAnswersRow = { studentName: 'Correct Answers' };
-    const correctTexts = [];
+    const correctLetters = [];
     
     quiz.questions.forEach((q, idx) => {
-      // Find the correct text robustly. If it's an index, grab the option text.
-      let correctText = String(q.correctAnswer || '');
       let correctIdx = parseInt(q.correctAnswer);
-      if (!isNaN(correctIdx) && correctIdx >= 0 && correctIdx < q.options.length) {
-         correctText = String(q.options[correctIdx] || '');
+      if (isNaN(correctIdx)) {
+         correctIdx = q.options.findIndex(opt => 
+            opt && q.correctAnswer && String(opt).trim().toUpperCase() === String(q.correctAnswer).trim().toUpperCase()
+         );
       }
       
-      correctTexts.push(correctText);
-      correctAnswersRow[`q${idx + 1}`] = correctText;
+      const letter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : String(q.correctAnswer || '');
+      correctLetters.push(letter);
+      correctAnswersRow[`q${idx + 1}`] = letter;
     });
 
     correctAnswersRow.score = '';
@@ -429,19 +435,21 @@ router.post('/export/detailed/:quizId', async (req, res) => {
         const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
         const userAns = ansObj ? ansObj.selectedOption : null;
         
-        let userText = 'NA';
+        let userLetter = 'NA';
         if (userAns !== null && userAns !== undefined && userAns !== '') {
-          userText = String(userAns);
           let userIdx = parseInt(userAns);
-          if (!isNaN(userIdx) && userIdx >= 0 && userIdx < q.options.length) {
-            userText = String(q.options[userIdx] || '');
+          if (isNaN(userIdx)) {
+            userIdx = q.options.findIndex(opt => 
+               opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
+            );
           }
+          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
         }
 
-        studentRow[`q${idx + 1}`] = userText;
+        studentRow[`q${idx + 1}`] = userLetter;
         rowValues.push({ 
-          text: userText, 
-          isCorrect: userText.trim().toUpperCase() === correctTexts[idx].trim().toUpperCase() 
+          text: userLetter, 
+          isCorrect: userLetter.trim().toUpperCase() === correctLetters[idx].trim().toUpperCase() 
         });
       });
 
