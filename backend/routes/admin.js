@@ -341,15 +341,20 @@ router.get('/submissions/:id', async (req, res) => {
   }
 });
 
-// @route   GET /api/admin/export/detailed/:quizId
-// @desc    Export detailed question-by-question results as Excel
+// @route   POST /api/admin/export/detailed/:quizId
+// @desc    Export detailed question-by-question results for selected submissions as Excel
 // @access  Admin only
-router.get('/export/detailed/:quizId', async (req, res) => {
+router.post('/export/detailed/:quizId', async (req, res) => {
   try {
     const { quizId } = req.params;
+    const { submissionIds } = req.body;
     
     if (!mongoose.Types.ObjectId.isValid(quizId)) {
       return res.status(400).json({ success: false, message: 'Invalid quizId' });
+    }
+    
+    if (!Array.isArray(submissionIds) || submissionIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'submissionIds array is required' });
     }
 
     const quiz = await Quiz.findById(quizId);
@@ -357,7 +362,10 @@ router.get('/export/detailed/:quizId', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    const submissions = await Submission.find({ quizId })
+    const submissions = await Submission.find({ 
+      _id: { $in: submissionIds }, 
+      quizId 
+    })
       .populate('userId', 'email name')
       .sort({ submittedAt: -1 })
       .lean();
