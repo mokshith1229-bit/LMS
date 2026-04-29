@@ -403,10 +403,12 @@ router.post('/export/detailed/:quizId', async (req, res) => {
       // We will try to map it robustly.
       let correctIdx = parseInt(q.correctAnswer);
       if (isNaN(correctIdx)) {
-         correctIdx = q.options.findIndex(opt => opt.trim().toUpperCase() === q.correctAnswer.trim().toUpperCase());
+         correctIdx = q.options.findIndex(opt => 
+            opt && q.correctAnswer && String(opt).trim().toUpperCase() === String(q.correctAnswer).trim().toUpperCase()
+         );
       }
       
-      const letter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : q.correctAnswer;
+      const letter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : String(q.correctAnswer || '');
       correctLetters.push(letter);
       correctAnswersRow[`q${idx + 1}`] = letter;
     });
@@ -431,19 +433,22 @@ router.post('/export/detailed/:quizId', async (req, res) => {
       };
 
       const rowValues = [];
+      const answersList = sub.answers || [];
       
       quiz.questions.forEach((q, idx) => {
         // Find user answer
-        const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
+        const ansObj = answersList.find(a => a.questionId === q._id.toString());
         const userAns = ansObj ? ansObj.selectedOption : null;
         
         let userLetter = '';
-        if (userAns !== null) {
+        if (userAns !== null && userAns !== undefined) {
           let userIdx = parseInt(userAns);
           if (isNaN(userIdx)) {
-            userIdx = q.options.findIndex(opt => opt.trim().toUpperCase() === userAns.trim().toUpperCase());
+            userIdx = q.options.findIndex(opt => 
+               opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
+            );
           }
-          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : userAns;
+          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
         }
 
         studentRow[`q${idx + 1}`] = userLetter;
