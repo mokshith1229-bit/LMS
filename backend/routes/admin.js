@@ -348,11 +348,11 @@ router.post('/export/detailed/:quizId', async (req, res) => {
   try {
     const { quizId } = req.params;
     const { submissionIds } = req.body;
-    
+
     if (!mongoose.Types.ObjectId.isValid(quizId)) {
       return res.status(400).json({ success: false, message: 'Invalid quizId' });
     }
-    
+
     if (!Array.isArray(submissionIds) || submissionIds.length === 0) {
       return res.status(400).json({ success: false, message: 'submissionIds array is required' });
     }
@@ -362,9 +362,9 @@ router.post('/export/detailed/:quizId', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    const submissions = await Submission.find({ 
-      _id: { $in: submissionIds }, 
-      quizId 
+    const submissions = await Submission.find({
+      _id: { $in: submissionIds },
+      quizId
     })
       .populate('userId', 'email name')
       .sort({ submittedAt: -1 })
@@ -373,50 +373,40 @@ router.post('/export/detailed/:quizId', async (req, res) => {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Detailed Results');
 
-    // Helper: Map index to Letter (0 -> A, 1 -> B, ...)
-    const getLetter = (index) => {
-      if (index === null || index === undefined || index === '') return '';
-      // Support if answer is text instead of index. Try to find index if it's text.
-      return String.fromCharCode(65 + parseInt(index));
-    };
+    // Removed getLetter helper
 
     // Prepare columns
     const columns = [
       { header: 'Student Name', key: 'studentName', width: 25 }
     ];
-    
+
     quiz.questions.forEach((q, idx) => {
       columns.push({ header: `Q${idx + 1}`, key: `q${idx + 1}`, width: 10 });
     });
-    
+
     columns.push({ header: 'Score', key: 'score', width: 15 });
     worksheet.columns = columns;
 
     // Row 2: Correct Answers
     const correctAnswersRow = { studentName: 'Correct Answers' };
-    const correctLetters = [];
+    const correctTexts = [];
     
     quiz.questions.forEach((q, idx) => {
-      // Find the index of the correct answer in the options array
-      // q.correctAnswer is usually a string. Let's see if we can find its index.
-      // In many implementations, q.correctAnswer is the option text itself or the index as string.
-      // We will try to map it robustly.
+      // Find the correct text robustly. If it's an index, grab the option text.
+      let correctText = String(q.correctAnswer || '');
       let correctIdx = parseInt(q.correctAnswer);
-      if (isNaN(correctIdx)) {
-         correctIdx = q.options.findIndex(opt => 
-            opt && q.correctAnswer && String(opt).trim().toUpperCase() === String(q.correctAnswer).trim().toUpperCase()
-         );
+      if (!isNaN(correctIdx) && correctIdx >= 0 && correctIdx < q.options.length) {
+         correctText = String(q.options[correctIdx] || '');
       }
       
-      const letter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : String(q.correctAnswer || '');
-      correctLetters.push(letter);
-      correctAnswersRow[`q${idx + 1}`] = letter;
+      correctTexts.push(correctText);
+      correctAnswersRow[`q${idx + 1}`] = correctText;
     });
-    
+
     correctAnswersRow.score = '';
-    
+
     const row2 = worksheet.addRow(correctAnswersRow);
-    
+
     // Style Row 2: green and bold
     row2.eachCell((cell) => {
       cell.font = {
@@ -433,33 +423,33 @@ router.post('/export/detailed/:quizId', async (req, res) => {
       };
 
       const rowValues = [];
-      const answersList = sub.answers || [];
-      
+
       quiz.questions.forEach((q, idx) => {
         // Find user answer
-        const ansObj = answersList.find(a => a.questionId === q._id.toString());
+        const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
         const userAns = ansObj ? ansObj.selectedOption : null;
         
-        let userLetter = '';
-        if (userAns !== null && userAns !== undefined) {
+        let userText = 'NA';
+        if (userAns !== null && userAns !== undefined && userAns !== '') {
+          userText = String(userAns);
           let userIdx = parseInt(userAns);
-          if (isNaN(userIdx)) {
-            userIdx = q.options.findIndex(opt => 
-               opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
-            );
+          if (!isNaN(userIdx) && userIdx >= 0 && userIdx < q.options.length) {
+            userText = String(q.options[userIdx] || '');
           }
-          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
         }
 
-        studentRow[`q${idx + 1}`] = userLetter;
-        rowValues.push({ letter: userLetter, isCorrect: userLetter === correctLetters[idx] });
+        studentRow[`q${idx + 1}`] = userText;
+        rowValues.push({ 
+          text: userText, 
+          isCorrect: userText.trim().toUpperCase() === correctTexts[idx].trim().toUpperCase() 
+        });
       });
 
       const addedRow = worksheet.addRow(studentRow);
-      
+
       // Style incorrect answers
       rowValues.forEach((val, idx) => {
-        if (!val.isCorrect && val.letter !== '') { // Highlight wrong answers
+        if (!val.isCorrect && val.text !== 'NA') { // Highlight wrong answers
           // +2 because column 1 is Student Name, so Q1 is column 2
           const cell = addedRow.getCell(idx + 2);
           cell.font = { color: { argb: 'FFFF0000' } }; // Red
