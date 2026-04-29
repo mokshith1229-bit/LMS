@@ -8,6 +8,7 @@ const Submission = require('../models/Submission');
 const { protect } = require('../middleware/auth');
 const { checkRole } = require('../middleware/role');
 const xlsx = require('xlsx');
+const ExcelJS = require('exceljs');
 
 // All admin routes require authentication + admin role
 router.use(protect, checkRole('admin'));
@@ -37,21 +38,23 @@ router.post('/assign', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    // Prevent duplicate assignments
-    const existing = await Assignment.findOne({ userId: user._id, quizId });
-    if (existing) {
-      return res.status(409).json({ success: false, message: 'Quiz already assigned to this user' });
-    }
+    // Upsert assignment (Create if new, Reset if exists)
+    const assignment = await Assignment.findOneAndUpdate(
+      { userId: user._id, quizId },
+      {
+        status: 'NOT_STARTED',
+        assignedAt: new Date(),
+        $unset: { startedAt: 1, submittedAt: 1 }
+      },
+      { upsert: true, new: true }
+    );
 
-    const assignment = await Assignment.create({
-      userId: user._id,
-      quizId,
-      status: 'NOT_STARTED',
-    });
+    // Clear existing submission to allow fresh start
+    await Submission.deleteOne({ userId: user._id, quizId });
 
     res.status(201).json({
       success: true,
-      message: `Quiz "${quiz.title}" assigned to ${user.email}`,
+      message: `Quiz "${quiz.title}" assigned/reassigned to ${user.email}`,
       assignment,
     });
   } catch (error) {
@@ -212,36 +215,33 @@ router.post('/assign-batch', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    // Find which assignments already exist in one query
-    const existingAssignments = await Assignment.find(
-      { userId: { $in: userIds }, quizId },
-      { userId: 1 }
-    ).lean();
+    // Prepare bulk operations to reset/create assignments
+    const ops = userIds.map(userId => ({
+      updateOne: {
+        filter: { userId, quizId },
+        update: {
+          $set: {
+            status: 'NOT_STARTED',
+            assignedAt: new Date(),
+          },
+          $unset: {
+            startedAt: 1,
+            submittedAt: 1
+          }
+        },
+        upsert: true
+      }
+    }));
 
-    const alreadyAssignedSet = new Set(
-      existingAssignments.map(a => a.userId.toString())
-    );
+    await Assignment.bulkWrite(ops);
 
-    const toCreate = userIds.filter(id => !alreadyAssignedSet.has(id.toString()));
-    const skippedCount = userIds.length - toCreate.length;
-
-    let assignedCount = 0;
-    if (toCreate.length > 0) {
-      const docs = toCreate.map(userId => ({
-        userId,
-        quizId,
-        status: 'NOT_STARTED',
-        assignedAt: new Date(),
-      }));
-      const result = await Assignment.insertMany(docs, { ordered: false });
-      assignedCount = result.length;
-    }
+    // Clear existing submissions for these users to allow fresh start
+    await Submission.deleteMany({ userId: { $in: userIds }, quizId });
 
     res.status(201).json({
       success: true,
-      assignedCount,
-      skippedCount,
-      message: `${assignedCount} assigned, ${skippedCount} skipped (already assigned)`,
+      assignedCount: userIds.length,
+      message: `Successfully assigned/reassigned quiz to ${userIds.length} student(s)`,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -337,6 +337,136 @@ router.get('/submissions/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Submission View Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/export/detailed/:quizId
+// @desc    Export detailed question-by-question results as Excel
+// @access  Admin only
+router.get('/export/detailed/:quizId', async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    
+    if (!mongoose.Types.ObjectId.isValid(quizId)) {
+      return res.status(400).json({ success: false, message: 'Invalid quizId' });
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    const submissions = await Submission.find({ quizId })
+      .populate('userId', 'email name')
+      .sort({ submittedAt: -1 })
+      .lean();
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Detailed Results');
+
+    // Helper: Map index to Letter (0 -> A, 1 -> B, ...)
+    const getLetter = (index) => {
+      if (index === null || index === undefined || index === '') return '';
+      // Support if answer is text instead of index. Try to find index if it's text.
+      return String.fromCharCode(65 + parseInt(index));
+    };
+
+    // Prepare columns
+    const columns = [
+      { header: 'Student Name', key: 'studentName', width: 25 }
+    ];
+    
+    quiz.questions.forEach((q, idx) => {
+      columns.push({ header: `Q${idx + 1}`, key: `q${idx + 1}`, width: 10 });
+    });
+    
+    columns.push({ header: 'Score', key: 'score', width: 15 });
+    worksheet.columns = columns;
+
+    // Row 2: Correct Answers
+    const correctAnswersRow = { studentName: 'Correct Answers' };
+    const correctLetters = [];
+    
+    quiz.questions.forEach((q, idx) => {
+      // Find the index of the correct answer in the options array
+      // q.correctAnswer is usually a string. Let's see if we can find its index.
+      // In many implementations, q.correctAnswer is the option text itself or the index as string.
+      // We will try to map it robustly.
+      let correctIdx = parseInt(q.correctAnswer);
+      if (isNaN(correctIdx)) {
+         correctIdx = q.options.findIndex(opt => opt.trim().toUpperCase() === q.correctAnswer.trim().toUpperCase());
+      }
+      
+      const letter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : q.correctAnswer;
+      correctLetters.push(letter);
+      correctAnswersRow[`q${idx + 1}`] = letter;
+    });
+    
+    correctAnswersRow.score = '';
+    
+    const row2 = worksheet.addRow(correctAnswersRow);
+    
+    // Style Row 2: green and bold
+    row2.eachCell((cell) => {
+      cell.font = {
+        color: { argb: 'FF008000' }, // Green
+        bold: true
+      };
+    });
+
+    // Row 3+: Student Rows
+    submissions.forEach(sub => {
+      const studentRow = {
+        studentName: sub.userId?.name || 'Unknown',
+        score: sub.percentage + '%'
+      };
+
+      const rowValues = [];
+      
+      quiz.questions.forEach((q, idx) => {
+        // Find user answer
+        const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
+        const userAns = ansObj ? ansObj.selectedOption : null;
+        
+        let userLetter = '';
+        if (userAns !== null) {
+          let userIdx = parseInt(userAns);
+          if (isNaN(userIdx)) {
+            userIdx = q.options.findIndex(opt => opt.trim().toUpperCase() === userAns.trim().toUpperCase());
+          }
+          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : userAns;
+        }
+
+        studentRow[`q${idx + 1}`] = userLetter;
+        rowValues.push({ letter: userLetter, isCorrect: userLetter === correctLetters[idx] });
+      });
+
+      const addedRow = worksheet.addRow(studentRow);
+      
+      // Style incorrect answers
+      rowValues.forEach((val, idx) => {
+        if (!val.isCorrect && val.letter !== '') { // Highlight wrong answers
+          // +2 because column 1 is Student Name, so Q1 is column 2
+          const cell = addedRow.getCell(idx + 2);
+          cell.font = { color: { argb: 'FFFF0000' } }; // Red
+        }
+      });
+    });
+
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename=' + 'Detailed_Results.xlsx'
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Detailed Export Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

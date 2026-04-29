@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Calculator from '../../components/Calculator';
-import { Calculator as CalcIcon } from 'lucide-react';
+import { Calculator as CalcIcon, AlertTriangle, X, Send } from 'lucide-react';
 
 export default function AssessmentPage() {
   const { quizId } = useParams();
@@ -23,6 +23,7 @@ export default function AssessmentPage() {
   const [showWarning, setShowWarning] = useState(false);
   const [startTime] = useState(() => Date.now());
   const [isCalcOpen, setIsCalcOpen] = useState(false);
+  const [confirmStep, setConfirmStep] = useState(0); // 0=none, 1=first confirm, 2=second confirm
   const timerRef = useRef(null);
   const isSubmittingRef = useRef(false);
   // Always keep a live ref to answers so the timer callback never reads stale state
@@ -326,7 +327,7 @@ export default function AssessmentPage() {
               {current === total - 1 ? (
                 <button
                   className="btn btn-success"
-                  onClick={() => doSubmit(null)}
+                  onClick={() => setConfirmStep(1)}
                   disabled={submitting}
                   style={{ padding: '8px 24px' }}
                 >
@@ -425,6 +426,225 @@ export default function AssessmentPage() {
         </aside>
       </div>
 
+      {/* Modals */}
+      {confirmStep === 1 && (
+        <FirstConfirmModal 
+          onCancel={() => setConfirmStep(0)} 
+          onConfirm={() => setConfirmStep(2)} 
+          answered={answeredCount}
+          total={total}
+        />
+      )}
+      {confirmStep === 2 && (
+        <FinalConfirmModal 
+          onCancel={() => setConfirmStep(0)} 
+          onConfirm={() => { setConfirmStep(0); doSubmit(null); }}
+          submitting={submitting}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── STEP 1: First Confirmation Modal ── */
+function FirstConfirmModal({ onCancel, onConfirm, answered, total }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(26, 32, 44, 0.75)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      backdropFilter: 'blur(8px)',
+      animation: 'fadeIn 0.3s ease',
+    }}>
+      <div style={{
+        background: '#fff',
+        borderRadius: 4,
+        padding: 0,
+        maxWidth: 500,
+        width: '90%',
+        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+        position: 'relative',
+        animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        overflow: 'hidden',
+        border: '1px solid var(--border-light)'
+      }}>
+        {/* Top Branding Strip */}
+        <div style={{ background: 'var(--bg-sidebar)', height: 6, width: '100%' }} />
+        
+        <div style={{ padding: '40px 40px 32px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 4,
+              background: '#f8fafc', border: '1px solid var(--border-light)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <AlertTriangle size={28} color="var(--accent)" />
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--bg-sidebar)', margin: 0, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Confirm Submission
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                ASSESSMENT PORTAL • CUBE HIGHWAYS
+              </p>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div style={{ marginBottom: 32 }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: 1.6, marginBottom: 20 }}>
+              You are about to submit your assessment. Please review your attempt summary below:
+            </p>
+            
+            <div style={{ 
+              background: '#f8fafc', border: '1px solid var(--border-light)', 
+              borderRadius: 4, padding: '20px', display: 'flex', flexDirection: 'column', gap: 12
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Questions Answered</span>
+                <span style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--success)' }}>{answered} / {total}</span>
+              </div>
+              <div style={{ height: 1, background: 'var(--border-light)' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status</span>
+                <span style={{ 
+                  fontSize: '0.75rem', fontWeight: 800, 
+                  color: answered < total ? '#e11d48' : 'var(--success)',
+                  background: answered < total ? '#fff1f2' : '#f0fdf4',
+                  padding: '4px 10px', borderRadius: 4, textTransform: 'uppercase'
+                }}>
+                  {answered < total ? 'Incomplete' : 'Complete'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button
+              onClick={onCancel}
+              className="btn btn-secondary"
+              style={{
+                flex: 1, padding: '14px', borderRadius: 4,
+                fontWeight: 700, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px'
+              }}
+            >
+              Back to Test
+            </button>
+            <button
+              onClick={onConfirm}
+              className="btn btn-primary"
+              style={{
+                flex: 1, padding: '14px', borderRadius: 4,
+                fontWeight: 700, fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '1px',
+                background: 'var(--accent)'
+              }}
+            >
+              Confirm & Next
+            </button>
+          </div>
+        </div>
+        
+        {/* Logo Watermark */}
+        <div style={{ 
+          position: 'absolute', bottom: -20, right: -20, opacity: 0.03, pointerEvents: 'none'
+        }}>
+          <img src="/assets/cube_tech_logo.png" alt="" style={{ width: 150 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── STEP 2: Final Confirmation Modal ── */
+function FinalConfirmModal({ onCancel, onConfirm, submitting }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(26, 32, 44, 0.85)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      backdropFilter: 'blur(12px)',
+      animation: 'fadeIn 0.3s ease',
+    }}>
+      <div style={{
+        background: '#fff',
+        borderRadius: 4,
+        padding: 0,
+        maxWidth: 480,
+        width: '90%',
+        boxShadow: '0 30px 60px -12px rgba(0, 0, 0, 0.6)',
+        position: 'relative',
+        animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        overflow: 'hidden',
+        border: '1px solid #fee2e2'
+      }}>
+        {/* Warning Strip */}
+        <div style={{ background: '#ef4444', height: 6, width: '100%' }} />
+
+        <div style={{ padding: '44px 40px 36px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: '50%',
+              background: '#fff1f2', border: '2px solid #fee2e2',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 20px'
+            }}>
+              <Send size={32} color="#ef4444" />
+            </div>
+            <h2 style={{ fontSize: '1.4rem', fontWeight: 900, color: '#991b1b', margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Final Submission
+            </h2>
+            <div style={{ height: 2, width: 40, background: '#fee2e2', margin: '0 auto' }} />
+          </div>
+
+          <p style={{ 
+            color: 'var(--text-secondary)', textAlign: 'center', fontSize: '1rem', 
+            lineHeight: 1.6, marginBottom: 32, padding: '0 10px'
+          }}>
+            This action <strong style={{ color: '#ef4444' }}>cannot be undone</strong>. Your assessment will be locked and sent for evaluation immediately.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <button
+              onClick={onConfirm}
+              disabled={submitting}
+              style={{
+                width: '100%', padding: '16px', borderRadius: 4,
+                border: 'none', background: '#ef4444',
+                fontWeight: 800, fontSize: '1rem', cursor: submitting ? 'not-allowed' : 'pointer',
+                color: '#fff', textTransform: 'uppercase', letterSpacing: '1px',
+                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.4)',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              {submitting ? 'Processing Submission...' : 'Yes, End Assessment Now'}
+            </button>
+            <button
+              onClick={onCancel}
+              style={{
+                width: '100%', background: 'transparent', border: 'none',
+                color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.85rem',
+                cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px',
+                padding: '10px'
+              }}
+            >
+              Cancel & Return
+            </button>
+          </div>
+        </div>
+
+        {/* Small security footer */}
+        <div style={{ 
+          background: '#fcfcfc', borderTop: '1px solid #f1f1f1', 
+          padding: '12px', textAlign: 'center', fontSize: '0.7rem', 
+          color: '#999', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px'
+        }}>
+          Secure Submission Channel • ID: {Math.random().toString(36).substring(7).toUpperCase()}
+        </div>
+      </div>
     </div>
   );
 }

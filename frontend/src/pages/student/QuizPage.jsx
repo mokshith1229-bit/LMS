@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { Timer, ChevronRight, Send } from 'lucide-react';
+import { Timer, ChevronRight, Send, AlertTriangle, X } from 'lucide-react';
 
 export default function QuizPage() {
   const { quizId } = useParams();
@@ -17,6 +17,7 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmStep, setConfirmStep] = useState(0); // 0=none, 1=first confirm, 2=second confirm
   const [startTime] = useState(() => Date.now());
   const timerRef = useRef(null);
   const isSubmittingRef = useRef(false);
@@ -187,7 +188,7 @@ export default function QuizPage() {
               <button
                 id="submit-quiz-btn"
                 className="btn btn-primary btn-lg"
-                onClick={() => doSubmit(false)}
+                onClick={() => setConfirmStep(1)}
                 disabled={submitting}
               >
                 <Send size={16} />
@@ -230,6 +231,168 @@ export default function QuizPage() {
           </div>
         </div>
       </main>
+
+      {/* ── STEP 1: First Confirmation Modal ── */}
+      {confirmStep === 1 && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.55)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(4px)',
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: '40px 36px',
+            maxWidth: 460,
+            width: '90%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            position: 'relative',
+            animation: 'slideUp 0.25s ease',
+          }}>
+            {/* Close */}
+            <button
+              onClick={() => setConfirmStep(0)}
+              style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4 }}
+            >
+              <X size={20} />
+            </button>
+
+            {/* Icon */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%',
+                background: '#fff8e1',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <AlertTriangle size={32} color="#f59e0b" />
+              </div>
+            </div>
+
+            {/* Text */}
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1a202c', textAlign: 'center', marginBottom: 10 }}>
+              Submit Assessment?
+            </h2>
+            <p style={{ color: '#64748b', textAlign: 'center', fontSize: '0.95rem', lineHeight: 1.6, marginBottom: 8 }}>
+              You still have time remaining on your assessment.
+            </p>
+            <p style={{ color: '#64748b', textAlign: 'center', fontSize: '0.92rem', marginBottom: 28 }}>
+              Answered: <strong style={{ color: '#1a202c' }}>{answered}</strong> of <strong style={{ color: '#1a202c' }}>{quiz.questions.length}</strong> questions.
+            </p>
+
+            {/* Unanswered warning */}
+            {answered < quiz.questions.length && (
+              <div style={{
+                background: '#fff5f5', border: '1px solid #fecaca',
+                borderRadius: 8, padding: '10px 16px',
+                fontSize: '0.85rem', color: '#dc2626',
+                textAlign: 'center', marginBottom: 24,
+              }}>
+                ⚠️ {quiz.questions.length - answered} question{quiz.questions.length - answered !== 1 ? 's' : ''} left unanswered.
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                id="confirm-cancel-btn"
+                onClick={() => setConfirmStep(0)}
+                style={{
+                  flex: 1, padding: '12px 0', borderRadius: 8,
+                  border: '1.5px solid #cbd5e1', background: '#fff',
+                  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
+                  color: '#334155', transition: 'background 0.15s',
+                }}
+              >
+                Continue Test
+              </button>
+              <button
+                id="confirm-yes-btn"
+                onClick={() => setConfirmStep(2)}
+                style={{
+                  flex: 1, padding: '12px 0', borderRadius: 8,
+                  border: 'none', background: '#f59e0b',
+                  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
+                  color: '#fff', transition: 'opacity 0.15s',
+                }}
+              >
+                Yes, I want to submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── STEP 2: Final Confirmation Modal ── */}
+      {confirmStep === 2 && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.65)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(6px)',
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: '40px 36px',
+            maxWidth: 440,
+            width: '90%',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.3)',
+            position: 'relative',
+            animation: 'slideUp 0.25s ease',
+          }}>
+            {/* Icon */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: '50%',
+                background: '#fff1f2',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Send size={28} color="#ef4444" />
+              </div>
+            </div>
+
+            {/* Text */}
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#1a202c', textAlign: 'center', marginBottom: 10 }}>
+              Final Confirmation
+            </h2>
+            <p style={{ color: '#64748b', textAlign: 'center', fontSize: '0.93rem', lineHeight: 1.6, marginBottom: 28 }}>
+              This is your <strong style={{ color: '#ef4444' }}>final chance</strong> to review. Once you end the assessment, you <strong>cannot</strong> go back.
+            </p>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                id="final-cancel-btn"
+                onClick={() => setConfirmStep(0)}
+                style={{
+                  flex: 1, padding: '12px 0', borderRadius: 8,
+                  border: '1.5px solid #cbd5e1', background: '#fff',
+                  fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
+                  color: '#334155',
+                }}
+              >
+                Go Back
+              </button>
+              <button
+                id="final-submit-btn"
+                onClick={() => { setConfirmStep(0); doSubmit(false); }}
+                disabled={submitting}
+                style={{
+                  flex: 1, padding: '12px 0', borderRadius: 8,
+                  border: 'none', background: '#ef4444',
+                  fontWeight: 700, fontSize: '0.95rem', cursor: submitting ? 'not-allowed' : 'pointer',
+                  color: '#fff', opacity: submitting ? 0.7 : 1,
+                }}
+              >
+                {submitting ? 'Submitting…' : 'Yes, End Assessment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

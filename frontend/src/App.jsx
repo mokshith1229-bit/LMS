@@ -15,6 +15,7 @@ import AddQuiz from './pages/admin/AddQuiz';
 import AssignQuiz from './pages/admin/AssignQuiz';
 import AdminResults from './pages/admin/Results';
 import AdminSubmissionView from './pages/admin/AdminSubmissionView';
+import DetailedReports from './pages/admin/DetailedReports';
 
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard';
@@ -85,6 +86,10 @@ function App() {
           <Route
             path="/admin/results/:id"
             element={<ProtectedRoute role="admin"><AdminSubmissionView /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/detailed-reports"
+            element={<ProtectedRoute role="admin"><DetailedReports /></ProtectedRoute>}
           />
 
           {/* Student Routes */}

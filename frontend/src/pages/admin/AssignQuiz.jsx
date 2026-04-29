@@ -130,9 +130,6 @@ export default function AssignQuiz() {
         quizId: selectedQuizId,
       });
       toast.success(data.message || `Assigned to ${data.assignedCount} student(s)`);
-      if (data.skippedCount > 0) {
-        toast(`${data.skippedCount} already assigned — skipped`, { icon: 'ℹ️' });
-      }
       setSelectedIds(new Set());
       setSelectedQuizId('');
       loadAssignments();
