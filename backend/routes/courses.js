@@ -173,12 +173,59 @@ router.delete('/:id', protect, checkRole('admin'), async (req, res) => {
       return res.status(404).json({ success: false, message: 'Course not found' });
     }
 
-    const course = await Course.findByIdAndDelete(req.params.id);
+    const course = await Course.findById(req.params.id);
     if (!course) {
       return res.status(404).json({ success: false, message: 'Course not found' });
     }
 
-    res.json({ success: true, message: 'Course deleted successfully' });
+    const fs = require('fs');
+    const path = require('path');
+    const Module = require('../models/Module');
+    const Quiz = require('../models/Quiz');
+    const Submission = require('../models/Submission');
+
+    // 1. Delete course thumbnail if it's a local file
+    if (course.thumbnail && course.thumbnail.startsWith('/uploads/')) {
+      const thumbFile = course.thumbnail.split('/uploads/')[1];
+      const thumbPath = path.join(__dirname, '..', 'uploads', thumbFile);
+      if (fs.existsSync(thumbPath)) {
+        try { fs.unlinkSync(thumbPath); } catch (e) { console.error('Failed to delete thumbnail:', e); }
+      }
+    }
+
+    // 2. Find all modules for this course
+    const modules = await Module.find({ courseId: course._id });
+
+    // 3. Delete associated files for modules
+    modules.forEach(mod => {
+      if (mod.url && mod.url.startsWith('/uploads/')) {
+        const filename = mod.url.split('/uploads/')[1];
+        const filePath = path.join(__dirname, '..', 'uploads', filename);
+        if (fs.existsSync(filePath)) {
+          try { fs.unlinkSync(filePath); } catch (e) { console.error('Failed to delete module file:', e); }
+        }
+      }
+    });
+
+    // 4. Find all related quizzes
+    const quizIdsFromModules = modules.filter(m => m.quizId).map(m => m.quizId);
+    const quizzesByCourseId = await Quiz.find({ courseId: course._id }).select('_id');
+    const allQuizIds = [...new Set([...quizIdsFromModules.map(String), ...quizzesByCourseId.map(q => String(q._id))])];
+
+    if (allQuizIds.length > 0) {
+      // 5. Delete all submissions for these quizzes
+      await Submission.deleteMany({ quizId: { $in: allQuizIds } });
+      // 6. Delete the quizzes themselves
+      await Quiz.deleteMany({ _id: { $in: allQuizIds } });
+    }
+
+    // 7. Delete all modules
+    await Module.deleteMany({ courseId: course._id });
+
+    // 8. Delete the course
+    await Course.findByIdAndDelete(req.params.id);
+
+    res.json({ success: true, message: 'Course and all related files, quizzes, and submissions deleted completely' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
