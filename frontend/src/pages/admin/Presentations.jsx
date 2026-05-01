@@ -32,22 +32,69 @@ export default function Presentations() {
       toast.error('Title and file are required');
       return;
     }
+    
     setUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', title);
+    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
     try {
-      const { data } = await api.post('/presentation/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      if (data.success) {
-        toast.success('Presentation uploaded & converted!');
-        setTitle('');
-        setFile(null);
-        fetchPresentations();
+      if (isPDF) {
+        // Client-side PDF to Image conversion for 100% reliability
+        const toastId = toast.loading('Processing PDF slides in browser...');
+        
+        // Load PDF.js from CDN to avoid worker issues
+        const pdfjsLib = await import('pdfjs-dist/build/pdf');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const formData = new FormData();
+        formData.append('title', title);
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 2.0 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          await page.render({ canvasContext: context, viewport }).promise;
+          
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+          formData.append('slides', blob, `slide-${i}.png`);
+          toast.loading(`Processing slide ${i}/${pdf.numPages}...`, { id: toastId });
+        }
+
+        const { data } = await api.post('/presentation/upload-images', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        if (data.success) {
+          toast.success('Presentation created successfully!', { id: toastId });
+          setTitle('');
+          setFile(null);
+          fetchPresentations();
+        }
+      } else {
+        // Fallback to backend conversion for PPTX
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('title', title);
+        
+        const { data } = await api.post('/presentation/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        
+        if (data.success) {
+          toast.success('Presentation uploaded & converted!');
+          setTitle('');
+          setFile(null);
+          fetchPresentations();
+        }
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Upload failed');
+      console.error('Upload error:', err);
+      toast.error(err.response?.data?.message || err.message || 'Upload failed. Please try saving your PPTX as PDF first.');
     } finally {
       setUploading(false);
     }

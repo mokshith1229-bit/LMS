@@ -143,6 +143,42 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// @route   POST /api/presentation/upload-images
+// @desc    Create presentation from already converted images (sent from frontend)
+// @access  Admin
+router.post('/upload-images', upload.array('slides', 100), async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!req.files || req.files.length === 0) return res.status(400).json({ success: false, message: 'No images uploaded' });
+    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
+
+    const slideId = `slides_${Date.now()}`;
+    const slideOutputDir = path.join(__dirname, `../uploads/slides/${slideId}`);
+    if (!fs.existsSync(slideOutputDir)) fs.mkdirSync(slideOutputDir, { recursive: true });
+
+    const slidePaths = [];
+    req.files.forEach((file, index) => {
+      const ext = path.extname(file.originalname);
+      const filename = `slide-${index + 1}${ext}`;
+      const newPath = path.join(slideOutputDir, filename);
+      fs.renameSync(file.path, newPath);
+      slidePaths.push(`/uploads/slides/${slideId}/${filename}`);
+    });
+
+    const presentation = new Presentation({
+      title: title.trim(),
+      slides: slidePaths,
+      slidePolls: []
+    });
+    await presentation.save();
+
+    res.status(201).json({ success: true, presentation });
+  } catch (err) {
+    console.error('Direct image upload error:', err);
+    res.status(500).json({ success: false, message: 'Failed to save presentation images' });
+  }
+});
+
 // @route   GET /api/presentation/all
 // @desc    Get all presentations (admin list)
 // @access  Admin
