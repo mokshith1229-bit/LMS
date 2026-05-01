@@ -1,25 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
-const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F43F5E'];
 
 export default function PresentationMode() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [presentation, setPresentation] = useState(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState([]);
   const [showPoll, setShowPoll] = useState(false);
-  const [activePollCode, setActivePollCode] = useState(null);
-  const [activePollQuestions, setActivePollQuestions] = useState([]);
+  const [activePoll, setActivePoll] = useState(null);
   const [socketRef, setSocketRef] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showQR, setShowQR] = useState(true);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const FRONTEND_ORIGIN = window.location.origin;
@@ -40,11 +41,10 @@ export default function PresentationMode() {
     }
   };
 
-  // When slide changes, check if it has an attached poll
+  // When slide changes, check for poll
   useEffect(() => {
     if (!presentation) return;
 
-    // Disconnect previous socket room
     if (socketRef) {
       socketRef.disconnect();
       setSocketRef(null);
@@ -52,23 +52,21 @@ export default function PresentationMode() {
 
     setChartData([]);
     setShowPoll(false);
-    setActivePollCode(null);
+    setActivePoll(null);
+    setCurrentQuestionIndex(0);
 
     const linkedSlidePoll = presentation.slidePolls?.find(sp => sp.slideIndex === currentSlide);
 
     if (linkedSlidePoll?.pollId) {
       const poll = linkedSlidePoll.pollId;
-      setActivePollCode(poll.code);
-      setActivePollQuestions(poll.questions || []);
+      setActivePoll(poll);
 
-      // Initialize empty chart data
       const initialChartData = (poll.questions || []).map(q =>
         q.options.map(opt => ({ name: opt, value: 0 }))
       );
       setChartData(initialChartData);
       setShowPoll(true);
 
-      // Connect socket for live updates
       const socket = io(API_BASE);
       socket.emit('join_poll', poll.code);
       socket.on('poll_update', (data) => {
@@ -76,7 +74,6 @@ export default function PresentationMode() {
       });
       setSocketRef(socket);
 
-      // Fetch current results immediately
       api.get(`/poll/${poll.code}`)
         .then(({ data }) => { if (data.success) setChartData(data.results); })
         .catch(() => {});
@@ -85,24 +82,36 @@ export default function PresentationMode() {
 
   const goNext = useCallback(() => {
     if (!presentation) return;
+    // If poll has multiple questions, cycle through them before moving to next slide
+    if (showPoll && activePoll && currentQuestionIndex < activePoll.questions.length - 1) {
+      setCurrentQuestionIndex(i => i + 1);
+      return;
+    }
     setCurrentSlide(s => Math.min(s + 1, presentation.slides.length - 1));
-  }, [presentation]);
+  }, [presentation, showPoll, activePoll, currentQuestionIndex]);
 
   const goPrev = useCallback(() => {
+    if (showPoll && activePoll && currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(i => i - 1);
+      return;
+    }
     setCurrentSlide(s => Math.max(s - 1, 0));
-  }, []);
+  }, [showPoll, activePoll, currentQuestionIndex]);
 
-  // Keyboard navigation
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') goNext();
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goPrev();
       if (e.key === 'f' || e.key === 'F') toggleFullscreen();
-      if (e.key === 'Escape') document.exitFullscreen?.();
+      if (e.key === 'q' || e.key === 'Q') setShowPoll(p => !p); // Toggle poll overlay manually if needed
+      if (e.key === 'Escape') {
+        if (document.fullscreenElement) document.exitFullscreen?.();
+        else navigate('/admin/presentations');
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goNext, goPrev]);
+  }, [goNext, goPrev, navigate]);
 
   const toggleFullscreen = () => {
     const el = document.documentElement;
@@ -115,216 +124,169 @@ export default function PresentationMode() {
     }
   };
 
-  const downloadQR = () => {
-    const svg = document.getElementById('present-qr');
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    img.onload = () => {
-      canvas.width = img.width; canvas.height = img.height;
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      const link = document.createElement('a');
-      link.download = `poll-qr-${activePollCode}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    };
-    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-  };
-
-  if (loading) {
+  if (loading || !presentation) {
     return (
-      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', background: '#0f172a', color: '#fff' }}>
-        Loading Presentation...
+      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', background: '#000', color: '#fff' }}>
+        {loading ? 'Initializing Presentation...' : 'Presentation not found'}
       </div>
     );
   }
 
-  if (!presentation) {
-    return (
-      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', background: '#0f172a', color: '#ef4444' }}>
-        Presentation not found.
-      </div>
-    );
-  }
-
-  const pollUrl = activePollCode ? `${FRONTEND_ORIGIN}/poll/${activePollCode}` : '';
+  const pollUrl = activePoll ? `${FRONTEND_ORIGIN}/poll/${activePoll.code}` : '';
+  const currentQuestion = activePoll?.questions?.[currentQuestionIndex];
+  const currentQuestionData = chartData[currentQuestionIndex] || [];
+  const totalResponses = currentQuestionData.reduce((acc, curr) => acc + curr.value, 0);
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', height: '100vh',
-      background: '#000', color: '#fff', fontFamily: 'Inter, sans-serif', overflow: 'hidden'
+      height: '100vh', width: '100vw', background: '#000', color: '#fff',
+      overflow: 'hidden', position: 'relative', fontFamily: 'Outfit, sans-serif'
     }}>
-      {/* Top Bar */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '0.75rem 1.5rem',
-        background: 'rgba(255,255,255,0.05)',
-        backdropFilter: 'blur(10px)',
-        borderBottom: '1px solid rgba(255,255,255,0.1)',
-        zIndex: 10
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <img src="/assets/minds_logo.png" alt="Logo" style={{ height: '32px', filter: 'brightness(0) invert(1)' }} />
-          <span style={{ fontWeight: 600, fontSize: '1rem' }}>{presentation.title}</span>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
-            Slide {currentSlide + 1} / {presentation.slides.length}
-          </span>
-          <button onClick={goPrev} disabled={currentSlide === 0} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>◀ Prev</button>
-          <button onClick={goNext} disabled={currentSlide === presentation.slides.length - 1} className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>Next ▶</button>
-          <button onClick={toggleFullscreen} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>⛶ Fullscreen</button>
-        </div>
-      </div>
-
-      {/* Main Stage */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
-
-        {/* Slide Viewer */}
-        <div style={{
-          flex: showPoll ? '1 1 60%' : '1 1 100%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: '#111',
-          transition: 'flex 0.4s ease'
-        }}>
-          <img
-            key={currentSlide}
-            src={`${API_BASE}${presentation.slides[currentSlide]}`}
-            alt={`Slide ${currentSlide + 1}`}
+      
+      <AnimatePresence mode="wait">
+        {!showPoll ? (
+          /* SLIDE VIEW */
+          <motion.div
+            key={`slide-${currentSlide}`}
+            initial={{ opacity: 0, scale: 1.05 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+            style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111' }}
+          >
+            <img
+              src={`${API_BASE}${presentation.slides[currentSlide]}`}
+              alt={`Slide ${currentSlide + 1}`}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+            />
+          </motion.div>
+        ) : (
+          /* FULLSCREEN POLL VIEW (Mentimeter Style) */
+          <motion.div
+            key={`poll-${activePoll?.code}-${currentQuestionIndex}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
             style={{
-              maxWidth: '100%', maxHeight: '100%',
-              objectFit: 'contain',
-              animation: 'fadeSlide 0.3s ease-in-out'
+              height: '100%', width: '100%',
+              background: 'radial-gradient(circle at center, #1e293b 0%, #0f172a 100%)',
+              display: 'flex', flexDirection: 'column', padding: '4rem'
             }}
-          />
-        </div>
-
-        {/* Live Poll Panel (right side) */}
-        {showPoll && activePollCode && (
-          <div style={{
-            flex: '0 0 38%',
-            display: 'flex',
-            flexDirection: 'column',
-            background: '#1e293b',
-            borderLeft: '1px solid #334155',
-            overflow: 'auto',
-            padding: '1.5rem'
-          }}>
-            {/* Poll Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <div>
-                <h2 style={{ fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8', marginBottom: '4px' }}>Live Poll</h2>
-                <span style={{ fontSize: '1.5rem', fontWeight: 800, letterSpacing: '6px', color: '#8DC63F' }}>{activePollCode}</span>
+          >
+            {/* Top Join Instructions */}
+            <div style={{ position: 'absolute', top: '2rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
+              <div style={{
+                background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)',
+                padding: '0.75rem 2rem', borderRadius: '100px', border: '1px solid rgba(255,255,255,0.2)',
+                display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>Join at</span>
+                  <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</span>
+                </div>
+                <div style={{ height: '20px', width: '1px', background: 'rgba(255,255,255,0.2)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>Use code</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.4rem', color: '#8DC63F', letterSpacing: '2px' }}>{activePoll.code}</span>
+                </div>
               </div>
-              <button
-                onClick={() => setShowQR(s => !s)}
-                className="btn btn-secondary"
-                style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+            </div>
+
+            {/* Question Header */}
+            <div style={{ marginTop: '4rem', textAlign: 'center' }}>
+              <motion.h1
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                style={{ fontSize: '3.5rem', fontWeight: 800, marginBottom: '1rem', lineHeight: 1.1, maxWidth: '900px', margin: '0 auto' }}
               >
-                {showQR ? 'Hide QR' : 'Show QR'}
-              </button>
+                {currentQuestion?.text}
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                style={{ fontSize: '1.2rem', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}
+              >
+                {totalResponses} response{totalResponses !== 1 ? 's' : ''}
+              </motion.p>
             </div>
 
-            {/* QR Code */}
-            {showQR && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <div style={{ background: '#fff', padding: '16px', borderRadius: '12px', display: 'inline-block' }}>
-                  <QRCodeSVG id="present-qr" value={pollUrl} size={140} />
-                </div>
-                <button onClick={downloadQR} className="btn btn-secondary" style={{ marginTop: '10px', fontSize: '0.75rem', padding: '4px 12px' }}>
-                  📥 Download QR
-                </button>
-                <p style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '6px', textAlign: 'center' }}>
-                  Scan to join at {pollUrl}
-                </p>
-              </div>
-            )}
-
-            {/* Live Pie Charts — one per question */}
-            <div style={{ flex: 1 }}>
-              <h3 style={{ fontSize: '0.85rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Live Results</h3>
-              {activePollQuestions.map((q, qIndex) => (
-                <div key={qIndex} style={{ marginBottom: '2.5rem' }}>
-                  <p style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.75rem', color: '#e2e8f0', lineHeight: 1.4 }}>
-                    {qIndex + 1}. {q.text}
-                  </p>
-                  <div style={{ height: '220px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={chartData[qIndex] || []}
-                          cx="50%" cy="50%"
-                          outerRadius={80} innerRadius={40}
-                          dataKey="value" nameKey="name"
-                          labelLine={false}
-                          label={({ name, percent }) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ''}
-                          animationBegin={0} animationDuration={600}
-                        >
-                          {(chartData[qIndex] || []).map((_, i) => (
-                            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#fff' }}
-                          itemStyle={{ color: '#fff' }}
-                        />
-                        <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#94a3b8', fontSize: '0.75rem' }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              ))}
+            {/* Results Chart */}
+            <div style={{ flex: 1, marginTop: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={currentQuestionData}
+                    cx="50%" cy="50%"
+                    outerRadius="75%"
+                    innerRadius="45%"
+                    dataKey="value"
+                    nameKey="name"
+                    paddingAngle={5}
+                    animationDuration={1500}
+                    stroke="none"
+                  >
+                    {currentQuestionData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ background: '#1e293b', border: 'none', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', color: '#fff' }}
+                    itemStyle={{ color: '#fff' }}
+                  />
+                  <Legend 
+                    verticalAlign="bottom" 
+                    height={100}
+                    formatter={(value, entry) => {
+                      const item = currentQuestionData.find(d => d.name === value);
+                      const percentage = totalResponses > 0 ? ((item?.value / totalResponses) * 100).toFixed(0) : 0;
+                      return <span style={{ color: '#e2e8f0', fontSize: '1.2rem', fontWeight: 600, marginLeft: '8px' }}>{value} ({percentage}%)</span>;
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* Bottom Slide Navigator */}
-      <div style={{
-        padding: '0.5rem 1.5rem',
-        background: 'rgba(255,255,255,0.03)',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
-        display: 'flex',
-        gap: '0.5rem',
-        overflowX: 'auto'
-      }}>
-        {presentation.slides.map((_, i) => {
-          const hasLinkedPoll = presentation.slidePolls?.some(sp => sp.slideIndex === i);
-          return (
-            <button
-              key={i}
-              onClick={() => setCurrentSlide(i)}
+            {/* Bottom Right QR Code */}
+            <motion.div
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.8, type: 'spring' }}
               style={{
-                flex: '0 0 auto',
-                width: '40px', height: '28px',
-                borderRadius: '4px',
-                border: i === currentSlide ? '2px solid #8DC63F' : '1px solid #334155',
-                background: i === currentSlide ? 'rgba(141,198,63,0.15)' : 'rgba(255,255,255,0.05)',
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: '0.7rem',
-                fontWeight: i === currentSlide ? 700 : 400,
-                position: 'relative'
+                position: 'absolute', bottom: '3rem', right: '3rem',
+                background: '#fff', padding: '1.5rem', borderRadius: '24px',
+                boxShadow: '0 20px 50px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem'
               }}
             >
-              {i + 1}
-              {hasLinkedPoll && (
-                <span style={{ position: 'absolute', top: '-4px', right: '-4px', width: '8px', height: '8px', background: '#8DC63F', borderRadius: '50%' }} />
-              )}
-            </button>
-          );
-        })}
+              <QRCodeSVG value={pollUrl} size={150} />
+              <span style={{ color: '#000', fontWeight: 800, fontSize: '0.9rem' }}>SCAN TO VOTE</span>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Discreet Navigation Overlay (visible on bottom hover) */}
+      <div className="presentation-controls" style={{
+        position: 'absolute', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)',
+        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 1.5rem',
+        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', borderRadius: '100px',
+        border: '1px solid rgba(255,255,255,0.1)', opacity: 0, transition: 'opacity 0.3s',
+        zIndex: 100
+      }}>
+        <button onClick={goPrev} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}>←</button>
+        <span style={{ fontSize: '0.9rem', fontWeight: 600, minWidth: '80px', textAlign: 'center' }}>
+          {currentSlide + 1} / {presentation.slides.length}
+        </span>
+        <button onClick={goNext} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}>→</button>
+        <div style={{ width: '1px', height: '15px', background: 'rgba(255,255,255,0.2)' }} />
+        <button onClick={toggleFullscreen} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1rem' }}>⛶</button>
       </div>
 
       <style>{`
-        @keyframes fadeSlide {
-          from { opacity: 0; transform: scale(0.98); }
-          to { opacity: 1; transform: scale(1); }
-        }
+        .presentation-controls:hover { opacity: 1 !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
       `}</style>
     </div>
   );
