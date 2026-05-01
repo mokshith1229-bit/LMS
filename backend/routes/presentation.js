@@ -13,8 +13,10 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, `ppt_${Date.now()}${path.extname(file.originalname)}`)
+  filename: (req, file, cb) => cb(null, `ppt_${Date.now()}_${Math.random().toString(36).slice(2,6)}${path.extname(file.originalname)}`)
 });
+
+// Multer for PPT/PDF uploads (server-side conversion)
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
@@ -23,6 +25,20 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Only .pptx and .pdf files are allowed'));
+    }
+  }
+});
+
+// Multer for slide image uploads (client-side conversion)
+const uploadImages = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.png', '.jpg', '.jpeg', '.webp'];
+    if (allowed.includes(path.extname(file.originalname).toLowerCase())) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
     }
   }
 });
@@ -146,7 +162,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // @route   POST /api/presentation/upload-images
 // @desc    Create presentation from already converted images (sent from frontend)
 // @access  Admin
-router.post('/upload-images', upload.array('slides', 100), async (req, res) => {
+router.post('/upload-images', uploadImages.array('slides', 100), async (req, res) => {
   try {
     const { title } = req.body;
     if (!req.files || req.files.length === 0) return res.status(400).json({ success: false, message: 'No images uploaded' });
