@@ -16,6 +16,7 @@ import AssignQuiz from './pages/admin/AssignQuiz';
 import AdminResults from './pages/admin/Results';
 import AdminSubmissionView from './pages/admin/AdminSubmissionView';
 import DetailedReports from './pages/admin/DetailedReports';
+import LivePoll from './pages/admin/LivePoll';
 
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard';
@@ -25,6 +26,7 @@ import AssessmentPage from './pages/student/AssessmentPage';
 import ResultPage from './pages/student/ResultPage';
 import GetCertificates from './pages/student/GetCertificates';
 import MyAssessments from './pages/student/MyAssessments';
+import StudentPoll from './pages/student/StudentPoll';
 
 function RootRedirect() {
   const { user, token } = useAuth();
@@ -58,6 +60,9 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
+          {/* Public Live Poll Route */}
+          <Route path="/poll/:code" element={<StudentPoll />} />
+
           {/* Admin Routes */}
           <Route
             path="/admin"
@@ -90,6 +95,10 @@ function App() {
           <Route
             path="/admin/detailed-reports"
             element={<ProtectedRoute role="admin"><DetailedReports /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/polls"
+            element={<ProtectedRoute role="admin"><LivePoll /></ProtectedRoute>}
           />
 
           {/* Student Routes */}

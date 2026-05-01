@@ -7,7 +7,35 @@ const connectDB = require('./config/db');
 // Connect to MongoDB
 connectDB();
 
+const http = require('http');
+const { Server } = require('socket.io');
+
 const app = express();
+const server = http.createServer(app);
+
+// Socket.io Setup
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+// Attach io to app so routes can access it
+app.set('io', io);
+
+io.on('connection', (socket) => {
+  console.log('A user connected via socket:', socket.id);
+
+  socket.on('join_poll', (code) => {
+    socket.join(code);
+    console.log(`Socket ${socket.id} joined poll room ${code}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+  });
+});
 
 // Middleware
 app.use(cors({
@@ -28,6 +56,7 @@ app.use('/api/quiz', require('./routes/quiz'));
 app.use('/api/submit', require('./routes/submit'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/assignments', require('./routes/assignments'));
+app.use('/api/poll', require('./routes/poll'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -49,7 +78,7 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 LMS Server running on http://localhost:${PORT}`);
 });
  

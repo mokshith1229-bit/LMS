@@ -135,12 +135,13 @@ export default function Login() {
           >
             {/* Base Logo with Cinematic Mask Reveal */}
             <motion.img 
-              src="/assets/cube_tech_logo.png" 
-              alt="Cube Tech" 
+              src="/assets/minds_logo.png" 
+              alt="Minds Logo" 
               style={{ 
-                width: '100%', 
+                width: '125%', 
                 height: 'auto', 
                 display: 'block',
+                marginLeft: '-15%',
                 filter: dynamicFilter
               }}
               initial={{ clipPath: 'inset(0% 0% 100% 0%)', opacity: 0, scale: 0.95 }}
