@@ -17,6 +17,9 @@ import AdminResults from './pages/admin/Results';
 import AdminSubmissionView from './pages/admin/AdminSubmissionView';
 import DetailedReports from './pages/admin/DetailedReports';
 import LivePoll from './pages/admin/LivePoll';
+import Presentations from './pages/admin/Presentations';
+import PresentationSetup from './pages/admin/PresentationSetup';
+import PresentationMode from './pages/admin/PresentationMode';
 
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard';
@@ -99,6 +102,19 @@ function App() {
           <Route
             path="/admin/polls"
             element={<ProtectedRoute role="admin"><LivePoll /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/presentations"
+            element={<ProtectedRoute role="admin"><Presentations /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/presentations/:id/setup"
+            element={<ProtectedRoute role="admin"><PresentationSetup /></ProtectedRoute>}
+          />
+          {/* Presentation Mode is fullscreen — no sidebar shell needed */}
+          <Route
+            path="/admin/presentations/:id/present"
+            element={<ProtectedRoute role="admin"><PresentationMode /></ProtectedRoute>}
           />
 
           {/* Student Routes */}

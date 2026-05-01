@@ -57,6 +57,7 @@ app.use('/api/submit', require('./routes/submit'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/assignments', require('./routes/assignments'));
 app.use('/api/poll', require('./routes/poll'));
+app.use('/api/presentation', require('./routes/presentation'));
 
 // Health check
 app.get('/api/health', (req, res) => {
