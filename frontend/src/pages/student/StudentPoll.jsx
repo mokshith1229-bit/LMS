@@ -15,6 +15,7 @@ export default function StudentPoll() {
   const [hasVoted, setHasVoted] = useState(false);
   const [chartData, setChartData] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [answers, setAnswers] = useState({});
 
   // Generate or retrieve a persistent user key for anonymous voting
   const getUserKey = () => {
@@ -67,19 +68,33 @@ export default function StudentPoll() {
     };
   }, [poll?.code]);
 
-  const handleVote = async (option) => {
+  const handleOptionSelect = (qIndex, option) => {
+    setAnswers({ ...answers, [qIndex]: option });
+  };
+
+  const handleSubmitVotes = async () => {
+    if (Object.keys(answers).length !== poll.questions.length) {
+      toast.error('Please answer all questions before submitting.');
+      return;
+    }
+
     setSubmitting(true);
     try {
+      const formattedAnswers = Object.entries(answers).map(([qIndex, selectedOption]) => ({
+        questionIndex: Number(qIndex),
+        selectedOption
+      }));
+
       const { data } = await api.post('/poll/respond', {
         code: poll.code,
         userKey: getUserKey(),
-        selectedOption: option
+        answers: formattedAnswers
       });
 
       if (data.success) {
         setHasVoted(true);
         localStorage.setItem(`voted_${code}`, 'true');
-        toast.success('Vote submitted successfully!');
+        toast.success('Votes submitted successfully!');
       }
     } catch (err) {
       if (err.response?.status === 400 && err.response?.data?.message.includes('already voted')) {
@@ -87,7 +102,7 @@ export default function StudentPoll() {
         localStorage.setItem(`voted_${code}`, 'true');
         toast.error('You have already voted in this poll.');
       } else {
-        toast.error('Failed to submit vote');
+        toast.error('Failed to submit votes');
       }
     } finally {
       setSubmitting(false);
@@ -118,76 +133,95 @@ export default function StudentPoll() {
         <h1 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 600 }}>Live Interactive Poll</h1>
       </div>
 
-      <div className="card" style={{ width: '100%', maxWidth: '600px', padding: '2.5rem', background: '#1e293b', border: '1px solid #334155' }}>
-        <h2 style={{ color: '#fff', fontSize: '1.5rem', marginBottom: '2rem', textAlign: 'center', lineHeight: 1.4 }}>
-          {poll.question}
-        </h2>
-
+      <div className="card" style={{ width: '100%', maxWidth: '700px', padding: '2.5rem', background: '#1e293b', border: '1px solid #334155' }}>
         {!hasVoted ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {poll.options.map((opt, idx) => (
-              <button
-                key={idx}
-                className="btn btn-secondary"
-                onClick={() => handleVote(opt)}
-                disabled={submitting}
-                style={{ 
-                  padding: '1rem', 
-                  fontSize: '1.1rem', 
-                  background: 'rgba(255,255,255,0.05)', 
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = 'rgba(56, 189, 248, 0.1)';
-                  e.currentTarget.style.borderColor = '#38bdf8';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                }}
-              >
-                {submitting ? 'Submitting...' : opt}
-              </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+            {poll.questions.map((q, qIndex) => (
+              <div key={qIndex}>
+                <h2 style={{ color: '#fff', fontSize: '1.25rem', marginBottom: '1.5rem', lineHeight: 1.4, fontWeight: 500 }}>
+                  {qIndex + 1}. {q.text}
+                </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {q.options.map((opt, idx) => {
+                    const isSelected = answers[qIndex] === opt;
+                    return (
+                      <button
+                        key={idx}
+                        className="btn"
+                        onClick={() => handleOptionSelect(qIndex, opt)}
+                        disabled={submitting}
+                        style={{ 
+                          padding: '1rem', 
+                          fontSize: '1.1rem', 
+                          background: isSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.05)', 
+                          border: `1px solid ${isSelected ? '#38bdf8' : 'rgba(255,255,255,0.1)'}`,
+                          color: isSelected ? '#38bdf8' : '#fff',
+                          textAlign: 'left',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
+            
+            <button 
+              className="btn btn-primary btn-full" 
+              style={{ padding: '1rem', fontSize: '1.1rem', marginTop: '1rem' }}
+              onClick={handleSubmitVotes}
+              disabled={submitting || Object.keys(answers).length !== poll.questions.length}
+            >
+              {submitting ? 'Submitting...' : 'Submit All Votes'}
+            </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeIn 0.5s ease-out' }}>
-            <div style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', padding: '10px 20px', borderRadius: '30px', fontWeight: 600, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>✓</span> Vote recorded successfully
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeIn 0.5s ease-out', width: '100%' }}>
+            <div style={{ background: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', padding: '10px 20px', borderRadius: '30px', fontWeight: 600, marginBottom: '3rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>✓</span> Votes recorded successfully
             </div>
             
-            <div style={{ width: '100%', height: '350px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    innerRadius={50}
-                    dataKey="value"
-                    nameKey="name"
-                    labelLine={false}
-                    label={({ name, percent }) => percent > 0 ? `${name} (${(percent * 100).toFixed(0)}%)` : ''}
-                    animationBegin={0}
-                    animationDuration={800}
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#fff' }}
-                    itemStyle={{ color: '#fff' }}
-                  />
-                  <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#94a3b8' }}/>
-                </PieChart>
-              </ResponsiveContainer>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4rem', width: '100%' }}>
+              {poll.questions.map((q, qIndex) => (
+                <div key={qIndex} style={{ width: '100%' }}>
+                  <h3 style={{ color: '#fff', fontSize: '1.1rem', marginBottom: '1rem', textAlign: 'center' }}>
+                    {qIndex + 1}. {q.text}
+                  </h3>
+                  <div style={{ width: '100%', height: '300px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData[qIndex] || []}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          innerRadius={50}
+                          dataKey="value"
+                          nameKey="name"
+                          labelLine={false}
+                          label={({ name, percent }) => percent > 0 ? `${name} (${(percent * 100).toFixed(0)}%)` : ''}
+                          animationBegin={0}
+                          animationDuration={800}
+                        >
+                          {(chartData[qIndex] || []).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#fff' }}
+                          itemStyle={{ color: '#fff' }}
+                        />
+                        <Legend verticalAlign="bottom" height={36} wrapperStyle={{ color: '#94a3b8' }}/>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

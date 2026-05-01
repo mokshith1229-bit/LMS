@@ -12,10 +12,10 @@ const generateCode = () => {
 // @access  Private (Admin only - assuming middleware added if needed, or open for now if handled by client)
 router.post('/create', async (req, res) => {
   try {
-    const { question, options } = req.body;
+    const { questions } = req.body;
     
-    if (!question || !options || options.length < 2) {
-      return res.status(400).json({ success: false, message: 'Question and at least 2 options are required' });
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ success: false, message: 'At least one question is required' });
     }
 
     let code = generateCode();
@@ -27,8 +27,7 @@ router.post('/create', async (req, res) => {
     }
 
     const poll = new Poll({
-      question,
-      options,
+      questions,
       code,
       isActive: true,
       responses: []
@@ -52,11 +51,16 @@ router.get('/:code', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Poll not found or inactive' });
     }
 
-    // Format response data for initial pie chart load if needed
-    const results = poll.options.map(opt => ({
-      name: opt,
-      value: poll.responses.filter(r => r.selectedOption === opt).length
-    }));
+    // Format response data for initial pie chart load (array of arrays)
+    const results = poll.questions.map((q, qIndex) => {
+      return q.options.map(opt => ({
+        name: opt,
+        value: poll.responses.reduce((acc, r) => {
+          const answer = r.answers.find(a => a.questionIndex === qIndex);
+          return acc + (answer && answer.selectedOption === opt ? 1 : 0);
+        }, 0)
+      }));
+    });
 
     res.json({ success: true, poll, results });
   } catch (error) {
@@ -66,14 +70,14 @@ router.get('/:code', async (req, res) => {
 });
 
 // @route   POST /api/poll/respond
-// @desc    Submit an answer to a poll
+// @desc    Submit answers to a poll
 // @access  Public
 router.post('/respond', async (req, res) => {
   try {
-    const { code, userKey, selectedOption } = req.body;
+    const { code, userKey, answers } = req.body;
 
-    if (!code || !userKey || !selectedOption) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (!code || !userKey || !answers || !Array.isArray(answers)) {
+      return res.status(400).json({ success: false, message: 'Missing required fields or invalid answers' });
     }
 
     const poll = await Poll.findOne({ code: code.toUpperCase(), isActive: true });
@@ -87,19 +91,19 @@ router.post('/respond', async (req, res) => {
       return res.status(400).json({ success: false, message: 'You have already voted in this poll' });
     }
 
-    // Ensure valid option
-    if (!poll.options.includes(selectedOption)) {
-      return res.status(400).json({ success: false, message: 'Invalid option' });
-    }
-
-    poll.responses.push({ userKey, selectedOption });
+    poll.responses.push({ userKey, answers });
     await poll.save();
 
-    // Calculate real-time counts
-    const results = poll.options.map(opt => ({
-      name: opt,
-      value: poll.responses.filter(r => r.selectedOption === opt).length
-    }));
+    // Calculate real-time counts (array of arrays)
+    const results = poll.questions.map((q, qIndex) => {
+      return q.options.map(opt => ({
+        name: opt,
+        value: poll.responses.reduce((acc, r) => {
+          const ans = r.answers.find(a => a.questionIndex === qIndex);
+          return acc + (ans && ans.selectedOption === opt ? 1 : 0);
+        }, 0)
+      }));
+    });
 
     // Emit socket event
     const io = req.app.get('io');

@@ -8,10 +8,9 @@ import toast from 'react-hot-toast';
 const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
 export default function LivePoll() {
-  const [question, setQuestion] = useState('');
-  const [options, setOptions] = useState(['', '']);
+  const [questions, setQuestions] = useState([{ text: '', options: ['', ''] }]);
   const [activePoll, setActivePoll] = useState(null);
-  const [chartData, setChartData] = useState([]);
+  const [chartData, setChartData] = useState([]); // This will now be an array of arrays
 
   // Socket connection effect
   useEffect(() => {
@@ -31,31 +30,56 @@ export default function LivePoll() {
     };
   }, [activePoll?.code]);
 
-  const handleOptionChange = (index, value) => {
-    const newOptions = [...options];
-    newOptions[index] = value;
-    setOptions(newOptions);
+  const handleQuestionTextChange = (qIndex, value) => {
+    const newQs = [...questions];
+    newQs[qIndex].text = value;
+    setQuestions(newQs);
   };
 
-  const addOption = () => setOptions([...options, '']);
-  const removeOption = (index) => setOptions(options.filter((_, i) => i !== index));
+  const handleOptionChange = (qIndex, oIndex, value) => {
+    const newQs = [...questions];
+    newQs[qIndex].options[oIndex] = value;
+    setQuestions(newQs);
+  };
+
+  const addOption = (qIndex) => {
+    const newQs = [...questions];
+    newQs[qIndex].options.push('');
+    setQuestions(newQs);
+  };
+
+  const removeOption = (qIndex, oIndex) => {
+    const newQs = [...questions];
+    newQs[qIndex].options = newQs[qIndex].options.filter((_, i) => i !== oIndex);
+    setQuestions(newQs);
+  };
+
+  const addQuestion = () => setQuestions([...questions, { text: '', options: ['', ''] }]);
+  const removeQuestion = (qIndex) => setQuestions(questions.filter((_, i) => i !== qIndex));
 
   const handleCreatePoll = async (e) => {
     e.preventDefault();
-    const validOptions = options.filter(o => o.trim() !== '');
-    if (!question.trim() || validOptions.length < 2) {
-      toast.error('Question and at least 2 options are required');
+    
+    // Validate all questions
+    const validQuestions = questions.map(q => ({
+      text: q.text.trim(),
+      options: q.options.filter(o => o.trim() !== '')
+    }));
+
+    const isValid = validQuestions.every(q => q.text && q.options.length >= 2);
+    if (!isValid || validQuestions.length === 0) {
+      toast.error('All questions must have text and at least 2 options.');
       return;
     }
 
     try {
       const { data } = await api.post('/poll/create', {
-        question,
-        options: validOptions
+        questions: validQuestions
       });
       if (data.success) {
         setActivePoll(data.poll);
-        setChartData(validOptions.map(opt => ({ name: opt, value: 0 })));
+        // Initialize chart data (array of arrays)
+        setChartData(validQuestions.map(q => q.options.map(opt => ({ name: opt, value: 0 }))));
         toast.success('Poll created successfully!');
       }
     } catch (err) {
@@ -79,37 +103,51 @@ export default function LivePoll() {
           <div className="card" style={{ padding: '2rem' }}>
             <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold' }}>Create New Poll</h2>
             <form onSubmit={handleCreatePoll}>
-              <div className="form-group">
-                <label className="form-label">Question</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. What is your favorite framework?"
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                />
-              </div>
-
-              <div className="form-group" style={{ marginTop: '1.5rem' }}>
-                <label className="form-label">Options</label>
-                {options.map((opt, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              {questions.map((q, qIndex) => (
+                <div key={qIndex} style={{ padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ fontWeight: 600 }}>Question {qIndex + 1}</h3>
+                    {questions.length > 1 && (
+                      <button type="button" className="btn btn-danger" style={{ padding: '4px 8px', fontSize: '0.8rem' }} onClick={() => removeQuestion(qIndex)}>Remove Question</button>
+                    )}
+                  </div>
+                  
+                  <div className="form-group">
                     <input
                       type="text"
                       className="form-input"
-                      placeholder={`Option ${idx + 1}`}
-                      value={opt}
-                      onChange={(e) => handleOptionChange(idx, e.target.value)}
+                      placeholder="Enter question text..."
+                      value={q.text}
+                      onChange={(e) => handleQuestionTextChange(qIndex, e.target.value)}
                     />
-                    {options.length > 2 && (
-                      <button type="button" className="btn btn-danger" onClick={() => removeOption(idx)} style={{ padding: '0 12px' }}>✕</button>
-                    )}
                   </div>
-                ))}
-                <button type="button" className="btn btn-secondary" onClick={addOption} style={{ marginTop: '10px', width: '100%' }}>
-                  + Add Option
-                </button>
-              </div>
+
+                  <div className="form-group" style={{ marginTop: '1rem' }}>
+                    <label className="form-label" style={{ fontSize: '0.85rem' }}>Options</label>
+                    {q.options.map((opt, oIndex) => (
+                      <div key={oIndex} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          placeholder={`Option ${oIndex + 1}`}
+                          value={opt}
+                          onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)}
+                        />
+                        {q.options.length > 2 && (
+                          <button type="button" className="btn btn-danger" onClick={() => removeOption(qIndex, oIndex)} style={{ padding: '0 12px' }}>✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" className="btn btn-secondary" onClick={() => addOption(qIndex)} style={{ marginTop: '10px', width: '100%' }}>
+                      + Add Option
+                    </button>
+                  </div>
+                </div>
+              ))}
+              
+              <button type="button" className="btn btn-secondary btn-full" onClick={addQuestion} style={{ marginBottom: '1.5rem', borderStyle: 'dashed' }}>
+                + Add Another Question
+              </button>
 
               <button type="submit" className="btn btn-primary btn-full" style={{ marginTop: '2rem' }}>
                 Start Live Poll
@@ -144,35 +182,42 @@ export default function LivePoll() {
         {/* Live Results Section */}
         {activePoll && (
           <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column' }}>
-            <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold' }}>Live Results: {activePoll.question}</h2>
+            <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold' }}>Live Results</h2>
             
-            <div style={{ flex: 1, minHeight: '350px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={120}
-                    innerRadius={60}
-                    dataKey="value"
-                    nameKey="name"
-                    labelLine={false}
-                    label={({ name, percent }) => percent > 0 ? `${name} (${(percent * 100).toFixed(0)}%)` : ''}
-                    animationBegin={0}
-                    animationDuration={800}
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                    itemStyle={{ color: '#1f2937' }}
-                  />
-                  <Legend verticalAlign="bottom" height={36}/>
-                </PieChart>
-              </ResponsiveContainer>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
+              {activePoll.questions.map((q, qIndex) => (
+                <div key={qIndex} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '2rem' }}>
+                  <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 500 }}>{qIndex + 1}. {q.text}</h3>
+                  <div style={{ height: '300px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData[qIndex] || []}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={100}
+                          innerRadius={50}
+                          dataKey="value"
+                          nameKey="name"
+                          labelLine={false}
+                          label={({ name, percent }) => percent > 0 ? `${name} (${(percent * 100).toFixed(0)}%)` : ''}
+                          animationBegin={0}
+                          animationDuration={800}
+                        >
+                          {(chartData[qIndex] || []).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                          itemStyle={{ color: '#1f2937' }}
+                        />
+                        <Legend verticalAlign="bottom" height={36}/>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
