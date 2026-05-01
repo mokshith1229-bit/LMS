@@ -42,7 +42,11 @@ export default function StudentPoll() {
           }
         }
       } catch (err) {
-        setError('Poll not found or inactive');
+        if (err.response?.status === 410) {
+          setError(err.response.data.message || 'This poll has expired.');
+        } else {
+          setError('Poll not found or inactive');
+        }
       } finally {
         setLoading(false);
       }

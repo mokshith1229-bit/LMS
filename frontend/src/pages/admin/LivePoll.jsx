@@ -168,6 +168,9 @@ export default function LivePoll() {
               <h1 style={{ fontSize: '3rem', letterSpacing: '8px', color: 'var(--text)', marginTop: '0.5rem' }}>
                 {activePoll.code}
               </h1>
+              <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '1rem', fontWeight: 500 }}>
+                ⚠️ This poll and QR code will expire 10 hours after creation.
+              </p>
             </div>
             <button 
               className="btn btn-secondary" 

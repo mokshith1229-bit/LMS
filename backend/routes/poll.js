@@ -2,9 +2,12 @@ const express = require('express');
 const router = express.Router();
 const Poll = require('../models/Poll');
 
-// Generate 6-digit alphanumeric code
-const generateCode = () => {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
+// 10 hours in milliseconds
+const EXPIRATION_TIME = 10 * 60 * 60 * 1000;
+
+const checkExpiration = (poll) => {
+  const elapsed = Date.now() - new Date(poll.createdAt).getTime();
+  return elapsed > EXPIRATION_TIME;
 };
 
 // @route   POST /api/poll/create
@@ -51,6 +54,10 @@ router.get('/:code', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Poll not found or inactive' });
     }
 
+    if (checkExpiration(poll)) {
+      return res.status(410).json({ success: false, message: 'This poll has expired (10-hour limit)' });
+    }
+
     // Format response data for initial pie chart load (array of arrays)
     const results = poll.questions.map((q, qIndex) => {
       return q.options.map(opt => ({
@@ -83,6 +90,10 @@ router.post('/respond', async (req, res) => {
     const poll = await Poll.findOne({ code: code.toUpperCase(), isActive: true });
     if (!poll) {
       return res.status(404).json({ success: false, message: 'Poll not found or inactive' });
+    }
+
+    if (checkExpiration(poll)) {
+      return res.status(410).json({ success: false, message: 'This poll has expired and is no longer accepting responses.' });
     }
 
     // Check if user already responded
