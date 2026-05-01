@@ -52,7 +52,7 @@ export default function Presentations() {
 
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 2.0 });
+          const viewport = page.getViewport({ scale: 1.5 }); // Balanced quality vs speed
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
           canvas.height = viewport.height;
@@ -60,14 +60,21 @@ export default function Presentations() {
 
           await page.render({ canvasContext: context, viewport }).promise;
           
-          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.8)); // 80% quality to reduce size
           formData.append('slides', blob, `slide-${i}.png`);
           toast.loading(`Processing slide ${i}/${pdf.numPages}...`, { id: toastId });
+          
+          // Clear canvas memory
+          canvas.width = 0;
+          canvas.height = 0;
         }
+
+        console.log('Finished processing slides, starting upload...');
+        toast.loading(`Uploading ${pdf.numPages} slides...`, { id: toastId });
 
         const { data } = await api.post('/presentation/upload-images', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 300000 // 5 minutes for large uploads
+          timeout: 600000 // 10 minutes just in case
         });
 
         if (data.success) {
