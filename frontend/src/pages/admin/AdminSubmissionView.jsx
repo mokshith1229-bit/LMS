@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
+import Sidebar from '../../components/Sidebar';
 import { ChevronLeft, Download, CheckCircle2, XCircle, User, Mail, BookOpen, Clock, BarChart3 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -75,30 +76,43 @@ export default function AdminSubmissionView() {
 
   if (loading) {
     return (
-      <div className="view-loading">
-        <div className="view-spinner"></div>
-        <p>Loading submission details...</p>
+      <div className="app-layout">
+        <Sidebar />
+        <main className="main-content">
+          <div className="view-loading">
+            <div className="view-spinner"></div>
+            <p>Loading submission details...</p>
+          </div>
+        </main>
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="view-error">
-        <XCircle size={48} color="#ef4444" />
-        <h2 style={{ color: '#1e293b', margin: 0 }}>Submission Not Found</h2>
-        <p style={{ color: '#64748b', maxWidth: 480, textAlign: 'center', margin: 0 }}>
-          {error || 'This submission record could not be loaded. It may have been deleted or the ID is invalid.'}
-        </p>
-        <button onClick={() => navigate('/admin/results')} className="view-btn-back" style={{ border: '1px solid #e2e8f0', padding: '0.6rem 1.2rem', borderRadius: 8 }}>
-          <ChevronLeft size={18} /> Back to Results
-        </button>
+      <div className="app-layout">
+        <Sidebar />
+        <main className="main-content">
+          <div className="view-error">
+            <XCircle size={48} color="#ef4444" />
+            <h2 style={{ color: '#1e293b', margin: 0 }}>Submission Not Found</h2>
+            <p style={{ color: '#64748b', maxWidth: 480, textAlign: 'center', margin: 0 }}>
+              {error || 'This submission record could not be loaded. It may have been deleted or the ID is invalid.'}
+            </p>
+            <button onClick={() => navigate('/admin/results')} className="view-btn-back" style={{ border: '1px solid #e2e8f0', padding: '0.6rem 1.2rem', borderRadius: 8 }}>
+              <ChevronLeft size={18} /> Back to Results
+            </button>
+          </div>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="admin-submission-view">
+    <div className="app-layout">
+      <Sidebar />
+      <main className="main-content">
+        <div className="admin-submission-view">
       {/* Header Controls */}
       <div className="view-controls">
         <button onClick={() => navigate('/admin/results')} className="view-btn-back">
@@ -382,6 +396,8 @@ export default function AdminSubmissionView() {
           .report-wrapper { box-shadow: none; border-radius: 0; }
         }
       ` }} />
+      </div>
+      </main>
     </div>
   );
 }

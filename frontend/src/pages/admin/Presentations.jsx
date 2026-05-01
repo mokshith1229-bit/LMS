@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
+import Sidebar from '../../components/Sidebar';
 
 export default function Presentations() {
   const navigate = useNavigate();
@@ -60,8 +61,11 @@ export default function Presentations() {
   };
 
   return (
-    <div className="admin-page">
-      <div className="admin-header">
+    <div className="app-layout">
+      <Sidebar />
+      <main className="main-content">
+        <div className="admin-page">
+          <div className="admin-header">
         <h1>Presentations</h1>
         <p>Upload slides and attach live polls for interactive presentations.</p>
       </div>
@@ -161,6 +165,8 @@ export default function Presentations() {
           </div>
         )}
       </div>
+      </div>
+      </main>
     </div>
   );
 }

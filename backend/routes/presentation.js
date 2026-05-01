@@ -27,42 +27,85 @@ const upload = multer({
   }
 });
 
+// Helper to check if a command exists
+function commandExists(command) {
+  try {
+    execSync(`${command} --version`, { stdio: 'ignore' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Convert PDF or PPTX to slide images
 async function convertToSlides(filePath, outputDir) {
   const ext = path.extname(filePath).toLowerCase();
   let pdfPath = filePath;
 
-  // If PPTX, convert to PDF first using LibreOffice
+  // 1. If PPTX, convert to PDF first using LibreOffice
   if (ext === '.pptx') {
-    const libreofficeConvert = require('libreoffice-convert');
-    const util = require('util');
-    const convertAsync = util.promisify(libreofficeConvert.convert);
-    const pptxBuf = fs.readFileSync(filePath);
-    const pdfBuf = await convertAsync(pptxBuf, '.pdf', undefined);
-    pdfPath = filePath.replace('.pptx', '.pdf');
-    fs.writeFileSync(pdfPath, pdfBuf);
+    if (!commandExists('soffice') && !commandExists('libreoffice')) {
+      throw new Error('PPTX conversion requires LibreOffice to be installed on the server. Please upload a PDF instead, or contact support to enable PPTX support.');
+    }
+
+    try {
+      const libreofficeConvert = require('libreoffice-convert');
+      const util = require('util');
+      const convertAsync = util.promisify(libreofficeConvert.convert);
+      const pptxBuf = fs.readFileSync(filePath);
+      const pdfBuf = await convertAsync(pptxBuf, '.pdf', undefined);
+      pdfPath = filePath.replace('.pptx', '.pdf');
+      fs.writeFileSync(pdfPath, pdfBuf);
+    } catch (err) {
+      console.error('LibreOffice conversion failed:', err);
+      throw new Error('Failed to convert PPTX to PDF. The server might be missing LibreOffice dependencies.');
+    }
   }
 
-  // Convert PDF to images using pdf-poppler
-  const poppler = require('pdf-poppler');
-  const opts = {
-    format: 'png',
-    out_dir: outputDir,
-    out_prefix: 'slide',
-    page: null  // all pages
-  };
-  await poppler.convert(pdfPath, opts);
+  // 2. Convert PDF to images using pdfjs-dist (Pure JS + Canvas)
+  // This is much more compatible with Render/Cloud than pdf-poppler
+  try {
+    const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+    const { createCanvas } = require('canvas');
 
-  // Collect generated files (slide-1.png, slide-2.png, ...)
-  const files = fs.readdirSync(outputDir)
-    .filter(f => f.startsWith('slide') && f.endsWith('.png'))
-    .sort((a, b) => {
+    const data = new Uint8Array(fs.readFileSync(pdfPath));
+    const loadingTask = pdfjsLib.getDocument({ data });
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages;
+    const files = [];
+
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 2.0 }); // High quality
+      const canvas = createCanvas(viewport.width, viewport.height);
+      const context = canvas.getContext('2d');
+
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+
+      const filename = `slide-${i}.png`;
+      const outPath = path.join(outputDir, filename);
+      const buffer = canvas.toBuffer('image/png');
+      fs.writeFileSync(outPath, buffer);
+      files.push(filename);
+    }
+
+    // Clean up temporary PDF if it was converted from PPTX
+    if (ext === '.pptx' && fs.existsSync(pdfPath)) {
+      fs.unlinkSync(pdfPath);
+    }
+
+    return files.sort((a, b) => {
       const numA = parseInt(a.match(/\d+/)?.[0] || '0');
       const numB = parseInt(b.match(/\d+/)?.[0] || '0');
       return numA - numB;
     });
-
-  return files;
+  } catch (err) {
+    console.error('PDF to Image conversion failed:', err);
+    throw new Error('Failed to extract slides from PDF. ' + err.message);
+  }
 }
 
 // @route   POST /api/presentation/upload

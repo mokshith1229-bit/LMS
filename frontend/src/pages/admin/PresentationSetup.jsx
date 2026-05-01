@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
+import Sidebar from '../../components/Sidebar';
 
 export default function PresentationSetup() {
   const { id } = useParams();
@@ -63,11 +64,21 @@ export default function PresentationSetup() {
     }
   };
 
-  if (loading) return <div className="admin-page" style={{ color: 'var(--text-muted)' }}>Loading...</div>;
+  if (loading) return (
+    <div className="app-layout">
+      <Sidebar />
+      <main className="main-content">
+        <div className="admin-page" style={{ color: 'var(--text-muted)' }}>Loading...</div>
+      </main>
+    </div>
+  );
 
   return (
-    <div className="admin-page">
-      <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+    <div className="app-layout">
+      <Sidebar />
+      <main className="main-content">
+        <div className="admin-page">
+          <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
           <h1>{presentation?.title}</h1>
           <p>Click a slide to attach or remove a live poll from it.</p>
@@ -191,6 +202,8 @@ export default function PresentationSetup() {
           </div>
         </div>
       )}
+      </div>
+      </main>
     </div>
   );
 }

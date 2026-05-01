@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
+import Sidebar from '../../components/Sidebar';
 
 const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -144,8 +145,11 @@ export default function LivePoll() {
   };
 
   return (
-    <div className="admin-page">
-      <div className="admin-header">
+    <div className="app-layout">
+      <Sidebar />
+      <main className="main-content">
+        <div className="admin-page">
+          <div className="admin-header">
         <h1>Live Polls</h1>
         <p>Create and monitor real-time interactive polls.</p>
       </div>
@@ -346,6 +350,8 @@ export default function LivePoll() {
           </div>
         </div>
       )}
+      </div>
+      </main>
     </div>
   );
 }
