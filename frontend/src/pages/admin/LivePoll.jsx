@@ -89,6 +89,28 @@ export default function LivePoll() {
 
   const pollUrl = `${window.location.origin}/poll/${activePoll?.code}`;
 
+  const downloadQRCode = () => {
+    const svg = document.getElementById('poll-qr-code');
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      const pngFile = canvas.toDataURL('image/png');
+      const downloadLink = document.createElement('a');
+      downloadLink.download = `poll-qr-${activePoll.code}.png`;
+      downloadLink.href = pngFile;
+      downloadLink.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
   return (
     <div className="admin-page">
       <div className="admin-header">
@@ -161,8 +183,15 @@ export default function LivePoll() {
               Join at: {pollUrl}
             </h2>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-              <QRCodeSVG value={pollUrl} size={200} />
+              <QRCodeSVG id="poll-qr-code" value={pollUrl} size={200} />
             </div>
+            <button 
+              onClick={downloadQRCode}
+              className="btn btn-secondary"
+              style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.9rem' }}
+            >
+              📥 Download QR Code
+            </button>
             <div style={{ marginTop: '2rem' }}>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Or use join code:</p>
               <h1 style={{ fontSize: '3rem', letterSpacing: '8px', color: 'var(--text)', marginTop: '0.5rem' }}>
