@@ -134,8 +134,12 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 
     res.status(201).json({ success: true, presentation });
   } catch (err) {
-    console.error('Presentation upload error:', err);
-    res.status(500).json({ success: false, message: err.message || 'Server error during conversion' });
+    console.error('Presentation upload error details:', err);
+    res.status(500).json({ 
+      success: false, 
+      message: err.message || 'Server error during conversion',
+      debug: err.stack 
+    });
   }
 });
 
