@@ -66,7 +66,8 @@ export default function Presentations() {
         }
 
         const { data } = await api.post('/presentation/upload-images', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 300000 // 5 minutes for large uploads
         });
 
         if (data.success) {
@@ -82,7 +83,8 @@ export default function Presentations() {
         formData.append('title', title);
         
         const { data } = await api.post('/presentation/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 300000 // 5 minutes
         });
         
         if (data.success) {
