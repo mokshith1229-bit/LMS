@@ -11,6 +11,8 @@ export default function LivePoll() {
   const [questions, setQuestions] = useState([{ text: '', options: ['', ''] }]);
   const [activePoll, setActivePoll] = useState(null);
   const [chartData, setChartData] = useState([]); // This will now be an array of arrays
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Socket connection effect
   useEffect(() => {
@@ -29,6 +31,35 @@ export default function LivePoll() {
       socket.disconnect();
     };
   }, [activePoll?.code]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, []);
+
+  const fetchHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const { data } = await api.get('/poll/admin/all');
+      if (data.success) setHistory(data.polls);
+    } catch (err) {
+      console.error('Failed to fetch poll history');
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const viewPoll = async (poll) => {
+    try {
+      const { data } = await api.get(`/poll/${poll.code}`);
+      if (data.success) {
+        setActivePoll(data.poll);
+        setChartData(data.results);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Could not load poll');
+    }
+  };
 
   const handleQuestionTextChange = (qIndex, value) => {
     const newQs = [...questions];
@@ -81,6 +112,7 @@ export default function LivePoll() {
         // Initialize chart data (array of arrays)
         setChartData(validQuestions.map(q => q.options.map(opt => ({ name: opt, value: 0 }))));
         toast.success('Poll created successfully!');
+        fetchHistory(); // Refresh history list
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create poll');
@@ -255,6 +287,65 @@ export default function LivePoll() {
         )}
 
       </div>
+
+      {/* Poll History Section */}
+      {!activePoll && (
+        <div className="card" style={{ marginTop: '3rem', padding: '2rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Poll History & Recent Quizzes</h2>
+            <button className="btn btn-secondary" onClick={fetchHistory} style={{ padding: '4px 12px', fontSize: '0.85rem' }}>Refresh List</button>
+          </div>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  <th style={{ padding: '1rem' }}>CODE</th>
+                  <th style={{ padding: '1rem' }}>FIRST QUESTION</th>
+                  <th style={{ padding: '1rem' }}>CREATED</th>
+                  <th style={{ padding: '1rem' }}>STATUS</th>
+                  <th style={{ padding: '1rem' }}>ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No polls found yet.</td>
+                  </tr>
+                ) : (
+                  history.map((poll) => (
+                    <tr key={poll._id} style={{ borderBottom: '1px solid var(--border)', fontSize: '0.9rem' }}>
+                      <td style={{ padding: '1rem', fontWeight: 'bold', color: 'var(--accent)' }}>{poll.code}</td>
+                      <td style={{ padding: '1rem' }}>{poll.questions[0]?.text.substring(0, 50)}...</td>
+                      <td style={{ padding: '1rem' }}>{new Date(poll.createdAt).toLocaleString()}</td>
+                      <td style={{ padding: '1rem' }}>
+                        <span style={{ 
+                          padding: '2px 8px', 
+                          borderRadius: '4px', 
+                          fontSize: '0.75rem', 
+                          background: poll.isExpired ? 'rgba(239, 68, 68, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                          color: poll.isExpired ? '#ef4444' : '#22c55e'
+                        }}>
+                          {poll.isExpired ? 'Expired' : 'Active'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '1rem' }}>
+                        <button 
+                          className="btn btn-primary" 
+                          style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                          onClick={() => viewPoll(poll)}
+                        >
+                          View Results & QR
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -10,6 +10,11 @@ const checkExpiration = (poll) => {
   return elapsed > EXPIRATION_TIME;
 };
 
+// Generate 6-digit alphanumeric code
+const generateCode = () => {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+};
+
 // @route   POST /api/poll/create
 // @desc    Create a new live poll
 // @access  Private (Admin only - assuming middleware added if needed, or open for now if handled by client)
@@ -125,6 +130,24 @@ router.post('/respond', async (req, res) => {
     res.json({ success: true, results });
   } catch (error) {
     console.error('Error responding to poll:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   GET /api/poll/admin/all
+// @desc    Get all polls for admin dashboard
+// @access  Private
+router.get('/admin/all', async (req, res) => {
+  try {
+    const polls = await Poll.find().sort({ createdAt: -1 });
+    // Add expiration status to each poll
+    const pollsWithStatus = polls.map(p => ({
+      ...p._doc,
+      isExpired: checkExpiration(p)
+    }));
+    res.json({ success: true, polls: pollsWithStatus });
+  } catch (error) {
+    console.error('Error fetching all polls:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
