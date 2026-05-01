@@ -10,6 +10,7 @@ const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'
 
 export default function LivePoll() {
   const [questions, setQuestions] = useState([{ text: '', options: ['', ''] }]);
+  const [pollTitle, setPollTitle] = useState('');
   const [activePoll, setActivePoll] = useState(null);
   const [chartData, setChartData] = useState([]); // This will now be an array of arrays
   const [history, setHistory] = useState([]);
@@ -106,6 +107,7 @@ export default function LivePoll() {
 
     try {
       const { data } = await api.post('/poll/create', {
+        title: pollTitle,
         questions: validQuestions
       });
       if (data.success) {
@@ -113,6 +115,8 @@ export default function LivePoll() {
         // Initialize chart data (array of arrays)
         setChartData(validQuestions.map(q => q.options.map(opt => ({ name: opt, value: 0 }))));
         toast.success('Poll created successfully!');
+        setPollTitle('');
+        setQuestions([{ text: '', options: ['', ''] }]);
         fetchHistory(); // Refresh history list
       }
     } catch (err) {
@@ -161,6 +165,17 @@ export default function LivePoll() {
           <div className="card" style={{ padding: '2rem' }}>
             <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold' }}>Create New Poll</h2>
             <form onSubmit={handleCreatePoll}>
+              <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                <label className="form-label">Poll Name / Title</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Workshop Feedback, Quiz A, etc."
+                  value={pollTitle}
+                  onChange={(e) => setPollTitle(e.target.value)}
+                  required
+                />
+              </div>
               {questions.map((q, qIndex) => (
                 <div key={qIndex} style={{ padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -215,7 +230,8 @@ export default function LivePoll() {
         ) : (
           /* Active Poll Details */
           <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem', color: 'var(--accent)' }}>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.5rem' }}>{activePoll.title}</h1>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: 'var(--accent)' }}>
               Join at: {pollUrl}
             </h2>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
@@ -305,7 +321,7 @@ export default function LivePoll() {
               <thead>
                 <tr style={{ borderBottom: '2px solid var(--border)', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                   <th style={{ padding: '1rem' }}>CODE</th>
-                  <th style={{ padding: '1rem' }}>FIRST QUESTION</th>
+                  <th style={{ padding: '1rem' }}>POLL NAME</th>
                   <th style={{ padding: '1rem' }}>CREATED</th>
                   <th style={{ padding: '1rem' }}>STATUS</th>
                   <th style={{ padding: '1rem' }}>ACTION</th>
@@ -320,7 +336,7 @@ export default function LivePoll() {
                   history.map((poll) => (
                     <tr key={poll._id} style={{ borderBottom: '1px solid var(--border)', fontSize: '0.9rem' }}>
                       <td style={{ padding: '1rem', fontWeight: 'bold', color: 'var(--accent)' }}>{poll.code}</td>
-                      <td style={{ padding: '1rem' }}>{poll.questions[0]?.text.substring(0, 50)}...</td>
+                      <td style={{ padding: '1rem', fontWeight: 600 }}>{poll.title || 'Untitled Poll'}</td>
                       <td style={{ padding: '1rem' }}>{new Date(poll.createdAt).toLocaleString()}</td>
                       <td style={{ padding: '1rem' }}>
                         <span style={{ 

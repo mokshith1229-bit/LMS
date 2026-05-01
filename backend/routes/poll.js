@@ -20,8 +20,12 @@ const generateCode = () => {
 // @access  Private (Admin only - assuming middleware added if needed, or open for now if handled by client)
 router.post('/create', async (req, res) => {
   try {
-    const { questions } = req.body;
+    const { questions, title } = req.body;
     
+    if (!title || !title.trim()) {
+      return res.status(400).json({ success: false, message: 'Poll name is required' });
+    }
+
     if (!questions || !Array.isArray(questions) || questions.length === 0) {
       return res.status(400).json({ success: false, message: 'At least one question is required' });
     }
@@ -35,6 +39,7 @@ router.post('/create', async (req, res) => {
     }
 
     const poll = new Poll({
+      title: title.trim(),
       questions,
       code,
       isActive: true,

@@ -142,8 +142,8 @@ export default function PresentationSetup() {
               <div style={{ padding: '1rem' }}>
                 {linked ? (
                   <div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 600, marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      📊 {linked.pollId?.questions?.[0]?.text || 'Linked Poll'}
+                    <p style={{ fontSize: '0.9rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      📊 {linked.pollId?.title || linked.pollId?.questions?.[0]?.text || 'Linked Poll'}
                     </p>
                     <button
                       className="btn btn-danger"
@@ -188,9 +188,12 @@ export default function PresentationSetup() {
                   style={{ textAlign: 'left', padding: '1rem', lineHeight: 1.4 }}
                   onClick={() => handleAttachPoll(poll._id)}
                 >
-                  <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{poll.code}</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                    {poll.questions?.[0]?.text?.substring(0, 60)}...
+                  <div style={{ fontWeight: 800, fontSize: '1rem', marginBottom: '0.25rem', color: 'var(--text-primary)' }}>
+                    {poll.title || 'Untitled Poll'}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', gap: '8px' }}>
+                    <span style={{ fontWeight: 700 }}>Code: {poll.code}</span>
+                    <span>• {poll.questions?.length} Questions</span>
                   </div>
                   <div style={{ fontSize: '0.75rem', marginTop: '4px', color: poll.isExpired ? '#ef4444' : '#22c55e' }}>
                     {poll.isExpired ? '⚠ Expired' : '● Active'}
