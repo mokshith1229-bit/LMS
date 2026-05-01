@@ -139,7 +139,7 @@ export default function PresentationMode() {
 
   return (
     <div style={{
-      height: '100vh', width: '100vw', background: '#000', color: '#fff',
+      height: '100vh', width: '100vw', background: '#f8fafc', color: '#1e293b',
       overflow: 'hidden', position: 'relative', fontFamily: 'Outfit, sans-serif'
     }}>
       
@@ -148,11 +148,11 @@ export default function PresentationMode() {
           /* SLIDE VIEW */
           <motion.div
             key={`slide-${currentSlide}`}
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-            style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#111' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}
           >
             <img
               src={`${API_BASE}${presentation.slides[currentSlide]}`}
@@ -161,133 +161,143 @@ export default function PresentationMode() {
             />
           </motion.div>
         ) : (
-          /* FULLSCREEN POLL VIEW (Mentimeter Style) */
+          /* FULLSCREEN POLL VIEW (Professional White Style) */
           <motion.div
             key={`poll-${activePoll?.code}-${currentQuestionIndex}`}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            transition={{ duration: 0.5 }}
             style={{
               height: '100%', width: '100%',
-              background: 'radial-gradient(circle at center, #1e293b 0%, #0f172a 100%)',
-              display: 'flex', flexDirection: 'column', padding: '4rem'
+              background: '#f8fafc',
+              display: 'flex', flexDirection: 'column', padding: '6rem 4rem 4rem 4rem'
             }}
           >
-            {/* Top Join Instructions */}
-            <div style={{ position: 'absolute', top: '2rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
+            {/* Top Join Instructions (Clean Boxed Style) */}
+            <div style={{ position: 'absolute', top: '2.5rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10 }}>
               <div style={{
-                background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)',
-                padding: '0.75rem 2rem', borderRadius: '100px', border: '1px solid rgba(255,255,255,0.2)',
-                display: 'flex', alignItems: 'center', gap: '1.5rem', boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+                background: '#ffffff',
+                padding: '0.8rem 2.5rem', borderRadius: '12px', 
+                border: '1px solid #e2e8f0',
+                display: 'flex', alignItems: 'center', gap: '2rem', 
+                boxShadow: '0 10px 25px rgba(0,0,0,0.05)'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>Join at</span>
-                  <span style={{ fontWeight: 700, fontSize: '1.1rem' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</span>
+                  <span style={{ color: '#64748b', fontSize: '0.95rem', fontWeight: 500 }}>Join at</span>
+                  <span style={{ fontWeight: 800, fontSize: '1.2rem', color: '#334155' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</span>
                 </div>
-                <div style={{ height: '20px', width: '1px', background: 'rgba(255,255,255,0.2)' }} />
+                <div style={{ height: '24px', width: '1px', background: '#e2e8f0' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>Use code</span>
-                  <span style={{ fontWeight: 800, fontSize: '1.4rem', color: '#8DC63F', letterSpacing: '2px' }}>{activePoll.code}</span>
+                  <span style={{ color: '#64748b', fontSize: '0.95rem', fontWeight: 500 }}>Code</span>
+                  <span style={{ fontWeight: 900, fontSize: '1.6rem', color: '#8DC63F', letterSpacing: '1px' }}>{activePoll.code}</span>
                 </div>
               </div>
             </div>
 
-            {/* Question Header */}
-            <div style={{ marginTop: '4rem', textAlign: 'center' }}>
-              <motion.h1
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                style={{ fontSize: '3.5rem', fontWeight: 800, marginBottom: '1rem', lineHeight: 1.1, maxWidth: '900px', margin: '0 auto' }}
-              >
-                {currentQuestion?.text}
-              </motion.h1>
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.5 }}
-                style={{ fontSize: '1.2rem', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}
-              >
-                {totalResponses} response{totalResponses !== 1 ? 's' : ''}
-              </motion.p>
+            {/* Content Box */}
+            <div style={{ 
+              flex: 1, background: '#ffffff', borderRadius: '24px', 
+              border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(0,0,0,0.03)',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden'
+            }}>
+              {/* Question Area */}
+              <div style={{ padding: '3rem 4rem 1rem 4rem', textAlign: 'center' }}>
+                <motion.h1
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  style={{ fontSize: '3rem', fontWeight: 800, color: '#1e293b', marginBottom: '0.75rem', lineHeight: 1.2 }}
+                >
+                  {currentQuestion?.text}
+                </motion.h1>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
+                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#8DC63F' }}></div>
+                   <span style={{ fontSize: '1.1rem', color: '#64748b', fontWeight: 600 }}>
+                    {totalResponses} total response{totalResponses !== 1 ? 's' : ''}
+                   </span>
+                </div>
+              </div>
+
+              {/* Chart Area */}
+              <div style={{ flex: 1, padding: '0 4rem 4rem 4rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={currentQuestionData}
+                      cx="50%" cy="50%"
+                      outerRadius="85%"
+                      innerRadius="55%"
+                      dataKey="value"
+                      nameKey="name"
+                      paddingAngle={4}
+                      animationDuration={1200}
+                      stroke="#fff"
+                      strokeWidth={4}
+                    >
+                      {currentQuestionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 10px 20px rgba(0,0,0,0.05)' }}
+                    />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={80}
+                      formatter={(value, entry) => {
+                        const item = currentQuestionData.find(d => d.name === value);
+                        const percentage = totalResponses > 0 ? ((item?.value / totalResponses) * 100).toFixed(0) : 0;
+                        return <span style={{ color: '#475569', fontSize: '1.1rem', fontWeight: 700, marginLeft: '8px' }}>{value} ({percentage}%)</span>;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
-            {/* Results Chart */}
-            <div style={{ flex: 1, marginTop: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={currentQuestionData}
-                    cx="50%" cy="50%"
-                    outerRadius="75%"
-                    innerRadius="45%"
-                    dataKey="value"
-                    nameKey="name"
-                    paddingAngle={5}
-                    animationDuration={1500}
-                    stroke="none"
-                  >
-                    {currentQuestionData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{ background: '#1e293b', border: 'none', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', color: '#fff' }}
-                    itemStyle={{ color: '#fff' }}
-                  />
-                  <Legend 
-                    verticalAlign="bottom" 
-                    height={100}
-                    formatter={(value, entry) => {
-                      const item = currentQuestionData.find(d => d.name === value);
-                      const percentage = totalResponses > 0 ? ((item?.value / totalResponses) * 100).toFixed(0) : 0;
-                      return <span style={{ color: '#e2e8f0', fontSize: '1.2rem', fontWeight: 600, marginLeft: '8px' }}>{value} ({percentage}%)</span>;
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Bottom Right QR Code */}
+            {/* Bottom Right QR Code (Professional Floating Box) */}
             <motion.div
-              initial={{ scale: 0, opacity: 0 }}
+              initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.8, type: 'spring' }}
+              transition={{ delay: 0.5 }}
               style={{
                 position: 'absolute', bottom: '3rem', right: '3rem',
-                background: '#fff', padding: '1.5rem', borderRadius: '24px',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem'
+                background: '#fff', padding: '1.25rem', borderRadius: '20px',
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 15px 35px rgba(0,0,0,0.08)', 
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem'
               }}
             >
-              <QRCodeSVG value={pollUrl} size={150} />
-              <span style={{ color: '#000', fontWeight: 800, fontSize: '0.9rem' }}>SCAN TO VOTE</span>
+              <QRCodeSVG value={pollUrl} size={130} />
+              <span style={{ color: '#64748b', fontWeight: 800, fontSize: '0.75rem', letterSpacing: '1px' }}>SCAN TO VOTE</span>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Discreet Navigation Overlay (visible on bottom hover) */}
+      {/* Navigation Overlay */}
       <div className="presentation-controls" style={{
         position: 'absolute', bottom: '1.5rem', left: '50%', transform: 'translateX(-50%)',
-        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.5rem 1.5rem',
-        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)', borderRadius: '100px',
-        border: '1px solid rgba(255,255,255,0.1)', opacity: 0, transition: 'opacity 0.3s',
-        zIndex: 100
+        display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.6rem 1.8rem',
+        background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', borderRadius: '100px',
+        border: '1px solid #e2e8f0', opacity: 0, transition: 'all 0.3s',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.05)', zIndex: 100
       }}>
-        <button onClick={goPrev} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}>←</button>
-        <span style={{ fontSize: '0.9rem', fontWeight: 600, minWidth: '80px', textAlign: 'center' }}>
+        <button onClick={goPrev} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1.2rem' }}>←</button>
+        <span style={{ fontSize: '0.9rem', fontWeight: 700, minWidth: '80px', textAlign: 'center', color: '#1e293b' }}>
           {currentSlide + 1} / {presentation.slides.length}
         </span>
-        <button onClick={goNext} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}>→</button>
-        <div style={{ width: '1px', height: '15px', background: 'rgba(255,255,255,0.2)' }} />
-        <button onClick={toggleFullscreen} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1rem' }}>⛶</button>
+        <button onClick={goNext} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1.2rem' }}>→</button>
+        <div style={{ width: '1px', height: '15px', background: '#e2e8f0' }} />
+        <button onClick={toggleFullscreen} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1rem' }}>⛶</button>
       </div>
 
       <style>{`
-        .presentation-controls:hover { opacity: 1 !important; }
+        .presentation-controls:hover { opacity: 1 !important; transform: translateX(-50%) translateY(-5px); }
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap');
       `}</style>
     </div>
   );
+}
 }
