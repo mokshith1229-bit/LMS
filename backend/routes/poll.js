@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Poll = require('../models/Poll');
+const { protect } = require('../middleware/auth');
 
 // 10 hours in milliseconds
 const EXPIRATION_TIME = 10 * 60 * 60 * 1000;
@@ -17,8 +18,8 @@ const generateCode = () => {
 
 // @route   POST /api/poll/create
 // @desc    Create a new live poll
-// @access  Private (Admin only - assuming middleware added if needed, or open for now if handled by client)
-router.post('/create', async (req, res) => {
+// @access  Private
+router.post('/create', protect, async (req, res) => {
   try {
     const { questions, title } = req.body;
     
@@ -43,6 +44,7 @@ router.post('/create', async (req, res) => {
       questions,
       code,
       isActive: true,
+      creator: req.user._id,
       responses: []
     });
 
@@ -142,7 +144,7 @@ router.post('/respond', async (req, res) => {
 // @route   GET /api/poll/admin/all
 // @desc    Get all polls for admin dashboard
 // @access  Private
-router.get('/admin/all', async (req, res) => {
+router.get('/admin/all', protect, async (req, res) => {
   try {
     const polls = await Poll.find().sort({ createdAt: -1 });
     // Add expiration status to each poll
@@ -153,6 +155,33 @@ router.get('/admin/all', async (req, res) => {
     res.json({ success: true, polls: pollsWithStatus });
   } catch (error) {
     console.error('Error fetching all polls:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   DELETE /api/poll/:id
+// @desc    Delete a poll completely
+// @access  Private
+router.delete('/:id', protect, async (req, res) => {
+  try {
+    const poll = await Poll.findById(req.params.id);
+    
+    if (!poll) {
+      return res.status(404).json({ success: false, message: 'Poll not found' });
+    }
+
+    // Check authorization: Admin or Creator
+    const isAdmin = req.user.role === 'admin';
+    const isCreator = poll.creator && poll.creator.toString() === req.user._id.toString();
+
+    if (!isAdmin && !isCreator) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this poll' });
+    }
+
+    await Poll.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Poll deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting poll:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

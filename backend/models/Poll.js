@@ -10,6 +10,7 @@ const pollSchema = new mongoose.Schema({
   ],
   code: { type: String, required: true, unique: true },
   isActive: { type: Boolean, default: true },
+  creator: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   responses: [
     {
       userKey: { type: String, required: true },

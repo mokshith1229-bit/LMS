@@ -5,6 +5,7 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
+import { Trash2 } from 'lucide-react';
 
 const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -121,6 +122,23 @@ export default function LivePoll() {
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create poll');
+    }
+  };
+  
+  const handleDeletePoll = async (pollId) => {
+    if (!window.confirm('Are you sure you want to completely delete this poll? This action cannot be undone.')) return;
+    
+    try {
+      const { data } = await api.delete(`/poll/${pollId}`);
+      if (data.success) {
+        toast.success('Poll deleted successfully');
+        fetchHistory();
+        if (activePoll?._id === pollId) {
+          setActivePoll(null);
+        }
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete poll');
     }
   };
 
@@ -349,13 +367,21 @@ export default function LivePoll() {
                           {poll.isExpired ? 'Expired' : 'Active'}
                         </span>
                       </td>
-                      <td style={{ padding: '1rem' }}>
+                      <td style={{ padding: '1rem', display: 'flex', gap: '8px' }}>
                         <button 
                           className="btn btn-primary" 
                           style={{ padding: '4px 12px', fontSize: '0.8rem' }}
                           onClick={() => viewPoll(poll)}
                         >
                           View Results & QR
+                        </button>
+                        <button 
+                          className="btn btn-danger" 
+                          style={{ padding: '4px 8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          onClick={() => handleDeletePoll(poll._id)}
+                          title="Delete Poll"
+                        >
+                          <Trash2 size={16} />
                         </button>
                       </td>
                     </tr>
