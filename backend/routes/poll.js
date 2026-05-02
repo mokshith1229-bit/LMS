@@ -186,4 +186,56 @@ router.delete('/:id', protect, async (req, res) => {
   }
 });
 
+// @route   POST /api/poll/activate/:id
+// @desc    Activate (or reactivate) a poll by its MongoDB _id
+//          Called automatically when a presentation slide with a linked poll is shown.
+//          - If already active & not expired → reuse (no duplicate, no reset)
+//          - If expired or inactive → reactivate with fresh code
+// @access  Private
+router.post('/activate/:id', protect, async (req, res) => {
+  try {
+    const poll = await Poll.findById(req.params.id);
+    if (!poll) return res.status(404).json({ success: false, message: 'Poll not found' });
+
+    const expired = checkExpiration(poll);
+
+    if (poll.isActive && !expired) {
+      // Already live — just return the existing session (no changes)
+      const results = poll.questions.map((q, qi) =>
+        q.options.map(opt => ({
+          name: opt,
+          value: poll.responses.reduce((acc, r) => {
+            const ans = r.answers.find(a => a.questionIndex === qi);
+            return acc + (ans && ans.selectedOption === opt ? 1 : 0);
+          }, 0)
+        }))
+      );
+      return res.json({ success: true, poll, results, reused: true });
+    }
+
+    // Reactivate: generate fresh code & reset state
+    let code = generateCode();
+    let existing = await Poll.findOne({ code, isActive: true });
+    while (existing) {
+      code = generateCode();
+      existing = await Poll.findOne({ code, isActive: true });
+    }
+
+    poll.code = code;
+    poll.isActive = true;
+    poll.responses = [];
+    poll.createdAt = new Date(); // reset expiration window
+    await poll.save();
+
+    const results = poll.questions.map(q =>
+      q.options.map(opt => ({ name: opt, value: 0 }))
+    );
+
+    res.json({ success: true, poll, results, reused: false });
+  } catch (err) {
+    console.error('[activate poll]', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;

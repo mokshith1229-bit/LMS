@@ -47,6 +47,7 @@ export default function PresentationMode() {
   const [socketRef, setSocketRef] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [pollActivating, setPollActivating] = useState(false);
   const [toolbarVisible, setToolbarVisible] = useState(true);
   const [transitionType, setTransitionType] = useState('slideLeft');
   const [showTransitionPicker, setShowTransitionPicker] = useState(false);
@@ -70,23 +71,47 @@ export default function PresentationMode() {
     return () => { if (socketRef) socketRef.disconnect(); };
   }, [id]);
 
-  // ── Poll socket ─────────────────────────────────────────────────────────────
+  // ── Poll auto-start ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!presentation) return;
+
+    // Tear down previous socket
     if (socketRef) { socketRef.disconnect(); setSocketRef(null); }
-    setChartData([]); setShowPoll(false); setActivePoll(null); setCurrentQuestionIndex(0);
+    setChartData([]); setShowPoll(false); setActivePoll(null); setCurrentQuestionIndex(0); setPollActivating(false);
 
     const linked = presentation.slidePolls?.find(sp => sp.slideIndex === currentSlide);
-    if (linked?.pollId) {
-      const poll = linked.pollId;
-      setActivePoll(poll);
-      setChartData((poll.questions || []).map(q => q.options.map(o => ({ name: o, value: 0 }))));
-      const socket = io(API_BASE);
-      socket.emit('join_poll', poll.code);
-      socket.on('poll_update', d => setChartData(d));
-      setSocketRef(socket);
-      api.get(`/poll/${poll.code}`).then(({ data }) => { if (data.success) setChartData(data.results); }).catch(() => {});
-    }
+    if (!linked?.pollId) return; // no poll on this slide
+
+    // Auto-activate: call backend to start/reuse session
+    const pollId = typeof linked.pollId === 'object' ? linked.pollId._id : linked.pollId;
+
+    (async () => {
+      setPollActivating(true);
+      try {
+        const { data } = await api.post(`/poll/activate/${pollId}`);
+        if (!data.success) return;
+
+        const poll = data.poll;
+        setActivePoll(poll);
+        setChartData(data.results);
+        setShowPoll(true);
+
+        // Connect socket to the live room
+        const socket = io(API_BASE);
+        socket.emit('join_poll', poll.code);
+        socket.on('poll_update', d => setChartData(d));
+        setSocketRef(socket);
+
+        if (!data.reused) {
+          toast.success(`Poll "${poll.title}" started!`, { icon: '📊', duration: 2500 });
+        }
+      } catch (err) {
+        console.error('[auto-start poll]', err);
+        toast.error('Could not start poll for this slide');
+      } finally {
+        setPollActivating(false);
+      }
+    })();
   }, [currentSlide, presentation]);
 
   // ── Auto-hide toolbar ───────────────────────────────────────────────────────
@@ -184,6 +209,7 @@ export default function PresentationMode() {
   const currentQuestionData = chartData[currentQuestionIndex] || [];
   const totalResponses = currentQuestionData.reduce((a, c) => a + c.value, 0);
   const linkedPoll = presentation.slidePolls?.find(sp => sp.slideIndex === currentSlide);
+  const hasLinkedPoll = !!linkedPoll?.pollId;
 
   // build transition props
   const getVariants = () => {
@@ -226,6 +252,14 @@ export default function PresentationMode() {
           <button onClick={goNext} disabled={!showPoll && currentSlide === totalSlides - 1} style={btnStyle(!showPoll && currentSlide === totalSlides - 1)}>›</button>
         </div>
 
+        {/* Poll activating indicator */}
+        {pollActivating && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(141,198,63,0.15)', border: '1px solid rgba(141,198,63,0.4)', borderRadius: 8, padding: '4px 12px' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F', animation: 'pulse 1s infinite' }} />
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#8DC63F' }}>Starting poll…</span>
+          </div>
+        )}
+
         {/* Transitions */}
         <div style={{ position: 'relative' }}>
           <button
@@ -250,15 +284,15 @@ export default function PresentationMode() {
         {/* Thumbnails toggle */}
         <button onClick={() => setThumbnailsOpen(p => !p)} style={toolBtn(thumbnailsOpen)} title="Slide panel">⊞</button>
 
-        {/* Start Poll */}
-        {linkedPoll?.pollId && !showPoll && (
+        {/* Poll controls — auto-started, but allow manual toggle */}
+        {hasLinkedPoll && !showPoll && !pollActivating && (
           <button onClick={() => setShowPoll(true)} style={{ ...toolBtn(), background: 'rgba(141,198,63,0.2)', color: '#8DC63F', border: '1px solid rgba(141,198,63,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
-            📊 Start Poll
+            📊 Show Poll
           </button>
         )}
         {showPoll && (
           <button onClick={() => setShowPoll(false)} style={{ ...toolBtn(), background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
-            ✕ Close Poll
+            🖼 Show Slide
           </button>
         )}
 
