@@ -64,6 +64,22 @@ export default function PresentationSetup() {
     }
   };
 
+  const handleUpdateTransition = async (slideIndex, type) => {
+    try {
+      const { data } = await api.post(`/presentation/${id}/update-transition`, {
+        slideIndex,
+        type,
+        duration: 0.4
+      });
+      if (data.success) {
+        setPresentation(data.presentation);
+        toast.success(`Transition set to ${type}`);
+      }
+    } catch (err) {
+      toast.error('Failed to update transition');
+    }
+  };
+
   if (loading) return (
     <div className="app-layout">
       <Sidebar />
@@ -144,6 +160,24 @@ export default function PresentationSetup() {
 
               {/* Slide Controls */}
               <div style={{ padding: '1rem' }}>
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                    ✨ TRANSITION
+                  </label>
+                  <select
+                    className="form-input"
+                    style={{ fontSize: '0.8rem', padding: '4px 8px' }}
+                    value={presentation?.slideTransitions?.find(st => st.slideIndex === index)?.type || 'none'}
+                    onChange={(e) => handleUpdateTransition(index, e.target.value)}
+                  >
+                    <option value="none">None (Instant)</option>
+                    <option value="fade">Fade</option>
+                    <option value="slideLeft">Slide Left</option>
+                    <option value="slideRight">Slide Right</option>
+                    <option value="zoom">Zoom</option>
+                  </select>
+                </div>
+
                 {linked ? (
                   <div>
                     <p style={{ fontSize: '0.9rem', color: 'var(--accent)', fontWeight: 700, marginBottom: '0.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

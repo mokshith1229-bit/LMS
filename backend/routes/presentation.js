@@ -327,4 +327,23 @@ router.delete('/:id/detach-poll/:slideIndex', async (req, res) => {
   }
 });
 
+router.post('/:id/update-transition', async (req, res) => {
+  try {
+    const { slideIndex, type, duration } = req.body;
+    const presentation = await Presentation.findById(req.params.id);
+    if (!presentation) return res.status(404).json({ success: false, message: 'Presentation not found' });
+    
+    // Remove existing transition for this slide
+    presentation.slideTransitions = presentation.slideTransitions.filter(st => st.slideIndex !== slideIndex);
+    
+    // Add new transition
+    presentation.slideTransitions.push({ slideIndex, type, duration });
+    
+    await presentation.save();
+    res.json({ success: true, presentation });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;

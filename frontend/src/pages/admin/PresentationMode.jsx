@@ -213,12 +213,27 @@ export default function PresentationMode() {
 
   // build transition props
   const getVariants = () => {
-    if (transitionType === 'slideLeft') {
-      const t = TRANSITIONS.slideLeft(slideDir);
-      return { initial: t.enter, animate: t.center, exit: t.exit, transition: t.transition };
+    // Check if current slide has a preset transition
+    const preset = presentation.slideTransitions?.find(st => st.slideIndex === currentSlide);
+    const type = preset ? preset.type : 'none';
+    const duration = preset ? preset.duration : 0.4;
+
+    if (type === 'none') {
+      return { initial: { opacity: 1 }, animate: { opacity: 1 }, exit: { opacity: 1 }, transition: { duration: 0 } };
     }
-    const t = TRANSITIONS[transitionType];
-    return { initial: t.enter, animate: t.center, exit: t.exit, transition: t.transition };
+
+    if (type === 'slideLeft') {
+      const t = TRANSITIONS.slideLeft(slideDir);
+      return { initial: t.enter, animate: t.center, exit: t.exit, transition: { ...t.transition, duration } };
+    }
+    
+    if (type === 'slideRight') {
+      const t = TRANSITIONS.slideLeft(-slideDir); // Inverse of slideLeft
+      return { initial: t.enter, animate: t.center, exit: t.exit, transition: { ...t.transition, duration } };
+    }
+
+    const t = TRANSITIONS[type] || TRANSITIONS.fade;
+    return { initial: t.enter, animate: t.center, exit: t.exit, transition: { ...t.transition, duration } };
   };
 
   const slideImageSrc = (path) =>
