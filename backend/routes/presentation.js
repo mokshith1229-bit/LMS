@@ -3,196 +3,210 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { execSync } = require('child_process');
+const axios = require('axios');
+const FormData = require('form-data');
 const Presentation = require('../models/Presentation');
-const Poll = require('../models/Poll');
 
-// --- Multer Setup ---
+// ─────────────────────────────────────────────
+//  Directory Setup
+// ─────────────────────────────────────────────
 const uploadDir = path.join(__dirname, '../uploads/presentations');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-const storage = multer.diskStorage({
+// ─────────────────────────────────────────────
+//  Multer: PPT / PPTX uploads (for CloudConvert)
+// ─────────────────────────────────────────────
+const pptStorage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, `ppt_${Date.now()}_${Math.random().toString(36).slice(2,6)}${path.extname(file.originalname)}`)
+  filename: (req, file, cb) =>
+    cb(null, `ppt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}${path.extname(file.originalname)}`)
 });
 
-// Multer for PPT/PDF uploads (server-side conversion)
-const upload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.pptx', '.ppt', '.pdf'];
-    if (allowed.includes(path.extname(file.originalname).toLowerCase())) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only .pptx, .ppt and .pdf files are allowed'));
-    }
-  }
-});
-
-// Multer for raw PPTX uploads (no conversion – iframe rendering)
 const uploadPptx = multer({
-  storage: multer.diskStorage({
-    destination: (req, file, cb) => {
-      const dir = path.join(__dirname, '../uploads/pptx');
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      cb(null, dir);
-    },
-    filename: (req, file, cb) => cb(null, `pptx_${Date.now()}_${Math.random().toString(36).slice(2,6)}${path.extname(file.originalname)}`)
-  }),
-  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  storage: pptStorage,
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100 MB
   fileFilter: (req, file, cb) => {
-    const allowed = ['.pptx', '.ppt'];
+    const allowed = ['.ppt', '.pptx'];
     if (allowed.includes(path.extname(file.originalname).toLowerCase())) cb(null, true);
-    else cb(new Error('Only .pptx and .ppt files are allowed'));
+    else cb(new Error('Only .ppt and .pptx files are allowed'));
   }
 });
 
-// Multer for slide image uploads (client-side conversion)
+// ─────────────────────────────────────────────
+//  Multer: Slide image uploads (client-side PDF conversion)
+// ─────────────────────────────────────────────
+const imageStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) =>
+    cb(null, `img_${Date.now()}_${Math.random().toString(36).slice(2, 6)}${path.extname(file.originalname)}`)
+});
+
 const uploadImages = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
+  storage: imageStorage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB per image
   fileFilter: (req, file, cb) => {
     const allowed = ['.png', '.jpg', '.jpeg', '.webp'];
-    if (allowed.includes(path.extname(file.originalname).toLowerCase())) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
+    if (allowed.includes(path.extname(file.originalname).toLowerCase())) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
   }
 });
 
-// Helper to check if a command exists
-function commandExists(command) {
-  try {
-    execSync(`${command} --version`, { stdio: 'ignore' });
-    return true;
-  } catch (e) {
-    return false;
+// ─────────────────────────────────────────────
+//  CloudConvert: Convert PPT/PPTX → PNG slides
+// ─────────────────────────────────────────────
+async function convertPPTWithCloudConvert(filePath) {
+  const apiKey = process.env.CLOUDCONVERT_API_KEY;
+
+  if (!apiKey || apiKey === 'your_cloudconvert_api_key_here') {
+    throw new Error('CLOUDCONVERT_API_KEY is not configured in .env');
   }
+
+  const CC_API = 'https://api.cloudconvert.com/v2';
+  const headers = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' };
+
+  console.log('[CloudConvert] Creating conversion job...');
+
+  // ── Step 1: Create the job with 3 tasks in one request ──
+  const { data: jobData } = await axios.post(
+    `${CC_API}/jobs`,
+    {
+      tasks: {
+        'import-file': {
+          operation: 'import/upload'
+        },
+        'convert-file': {
+          operation: 'convert',
+          input: 'import-file',
+          output_format: 'png',
+          engine: 'office',
+          density: 150   // 150 DPI — good quality, lower credit usage than 300
+        },
+        'export-file': {
+          operation: 'export/url',
+          input: 'convert-file'
+        }
+      }
+    },
+    { headers }
+  );
+
+  const job = jobData.data;
+  const jobId = job.id;
+  const importTask = job.tasks.find(t => t.name === 'import-file');
+
+  if (!importTask?.result?.form) {
+    throw new Error('CloudConvert did not return an upload URL');
+  }
+
+  // ── Step 2: Upload the PPTX file ──
+  console.log('[CloudConvert] Uploading file...');
+  const { url: uploadUrl, parameters: uploadParams } = importTask.result.form;
+
+  const form = new FormData();
+  // Append all required S3 params first
+  for (const [key, value] of Object.entries(uploadParams)) {
+    form.append(key, value);
+  }
+  form.append('file', fs.createReadStream(filePath));
+
+  await axios.post(uploadUrl, form, { headers: form.getHeaders(), maxBodyLength: Infinity });
+
+  // ── Step 3: Poll until job is finished ──
+  console.log('[CloudConvert] Waiting for conversion...');
+  let finished = false;
+  let attempts = 0;
+  const MAX_ATTEMPTS = 60; // 60 × 5s = 5 minutes max
+
+  while (!finished && attempts < MAX_ATTEMPTS) {
+    await new Promise(r => setTimeout(r, 5000)); // wait 5 seconds
+    attempts++;
+
+    const { data: statusData } = await axios.get(`${CC_API}/jobs/${jobId}`, { headers });
+    const status = statusData.data.status;
+
+    console.log(`[CloudConvert] Status: ${status} (attempt ${attempts})`);
+
+    if (status === 'finished') {
+      finished = true;
+      // ── Step 4: Download all slide images ──
+      const exportTask = statusData.data.tasks.find(t => t.name === 'export-file');
+      const files = exportTask?.result?.files || [];
+
+      if (files.length === 0) throw new Error('CloudConvert returned no output files');
+
+      console.log(`[CloudConvert] Downloading ${files.length} slide(s)...`);
+
+      // Sort by filename to ensure correct slide order
+      files.sort((a, b) => a.filename.localeCompare(b.filename, undefined, { numeric: true }));
+
+      const slideId = `slides_${Date.now()}`;
+      const slideOutputDir = path.join(__dirname, `../uploads/slides/${slideId}`);
+      if (!fs.existsSync(slideOutputDir)) fs.mkdirSync(slideOutputDir, { recursive: true });
+
+      const slidePaths = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const filename = `slide-${i + 1}.png`;
+        const outPath = path.join(slideOutputDir, filename);
+
+        const response = await axios.get(file.url, { responseType: 'arraybuffer' });
+        fs.writeFileSync(outPath, response.data);
+        slidePaths.push(`/uploads/slides/${slideId}/${filename}`);
+      }
+
+      console.log(`[CloudConvert] ✅ Saved ${slidePaths.length} slides to ${slideOutputDir}`);
+      return slidePaths;
+
+    } else if (status === 'error') {
+      const errTask = statusData.data.tasks.find(t => t.status === 'error');
+      throw new Error(`CloudConvert job failed: ${errTask?.message || 'Unknown error'}`);
+    }
+    // else 'processing' or 'waiting' — keep polling
+  }
+
+  throw new Error('CloudConvert job timed out after 5 minutes');
 }
 
-// Convert PDF or PPTX to slide images
-async function convertToSlides(filePath, outputDir) {
-  const ext = path.extname(filePath).toLowerCase();
-  let pdfPath = filePath;
-
-  // 1. If PPTX, convert to PDF first using LibreOffice
-  if (ext === '.pptx') {
-    if (!commandExists('soffice') && !commandExists('libreoffice')) {
-      throw new Error('PPTX conversion requires LibreOffice to be installed on the server. Please upload a PDF instead, or contact support to enable PPTX support.');
-    }
-
-    try {
-      const libreofficeConvert = require('libreoffice-convert');
-      const util = require('util');
-      const convertAsync = util.promisify(libreofficeConvert.convert);
-      const pptxBuf = fs.readFileSync(filePath);
-      const pdfBuf = await convertAsync(pptxBuf, '.pdf', undefined);
-      pdfPath = filePath.replace('.pptx', '.pdf');
-      fs.writeFileSync(pdfPath, pdfBuf);
-    } catch (err) {
-      console.error('LibreOffice conversion failed:', err);
-      throw new Error('Failed to convert PPTX to PDF. The server might be missing LibreOffice dependencies.');
-    }
-  }
-
-  // 2. Convert PDF to images using pdfjs-dist (Pure JS + Canvas)
-  // This is much more compatible with Render/Cloud than pdf-poppler
-  try {
-    const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-    const { createCanvas } = require('canvas');
-
-    const data = new Uint8Array(fs.readFileSync(pdfPath));
-    const loadingTask = pdfjsLib.getDocument({ data });
-    const pdf = await loadingTask.promise;
-    const numPages = pdf.numPages;
-    const files = [];
-
-    for (let i = 1; i <= numPages; i++) {
-      const page = await pdf.getPage(i);
-      const viewport = page.getViewport({ scale: 2.0 }); // High quality
-      const canvas = createCanvas(viewport.width, viewport.height);
-      const context = canvas.getContext('2d');
-
-      await page.render({
-        canvasContext: context,
-        viewport: viewport
-      }).promise;
-
-      const filename = `slide-${i}.png`;
-      const outPath = path.join(outputDir, filename);
-      const buffer = canvas.toBuffer('image/png');
-      fs.writeFileSync(outPath, buffer);
-      files.push(filename);
-    }
-
-    // Clean up temporary PDF if it was converted from PPTX
-    if (ext === '.pptx' && fs.existsSync(pdfPath)) {
-      fs.unlinkSync(pdfPath);
-    }
-
-    return files.sort((a, b) => {
-      const numA = parseInt(a.match(/\d+/)?.[0] || '0');
-      const numB = parseInt(b.match(/\d+/)?.[0] || '0');
-      return numA - numB;
-    });
-  } catch (err) {
-    console.error('PDF to Image conversion failed:', err);
-    throw new Error('Failed to extract slides from PDF. ' + err.message);
-  }
-}
-
-// @route   POST /api/presentation/upload-pptx
-// @desc    Upload raw PPTX/PPT file. Tries LibreOffice conversion; falls back to saving the raw file for iframe rendering.
-// @access  Admin
+// ─────────────────────────────────────────────
+//  ROUTE: POST /api/presentation/upload-pptx
+//  Upload PPT/PPTX → CloudConvert → PNG slides
+//  Falls back to pptxFile iframe if key missing
+// ─────────────────────────────────────────────
 router.post('/upload-pptx', uploadPptx.single('file'), async (req, res) => {
+  let uploadedFilePath = null;
+
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
     const { title } = req.body;
     if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
 
-    const pptxRelativePath = `/uploads/pptx/${req.file.filename}`;
+    uploadedFilePath = req.file.path;
 
-    // Try converting via LibreOffice (Windows common paths)
-    const windowsLibreOfficePaths = [
-      'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
-      'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
-      'soffice',
-      'libreoffice'
-    ];
-
-    let conversionSucceeded = false;
+    // Attempt CloudConvert conversion
     let slidePaths = [];
+    let usedIframeFallback = false;
 
-    for (const soffice of windowsLibreOfficePaths) {
-      try {
-        const quoted = soffice.includes(' ') ? `"${soffice}"` : soffice;
-        const slideId = `slides_${Date.now()}`;
-        const slideOutputDir = path.join(__dirname, `../uploads/slides/${slideId}`);
-        if (!fs.existsSync(slideOutputDir)) fs.mkdirSync(slideOutputDir, { recursive: true });
+    try {
+      slidePaths = await convertPPTWithCloudConvert(uploadedFilePath);
+    } catch (convErr) {
+      console.warn('[CloudConvert] Conversion failed, using iframe fallback:', convErr.message);
+      usedIframeFallback = true;
+    }
 
-        execSync(`${quoted} --headless --convert-to pdf --outdir "${slideOutputDir}" "${req.file.path}"`, { timeout: 120000 });
+    const pptxRelativePath = usedIframeFallback
+      ? `/uploads/presentations/${req.file.filename}`
+      : null;
 
-        // Find the generated PDF
-        const files = fs.readdirSync(slideOutputDir);
-        const pdfFile = files.find(f => f.endsWith('.pdf'));
-        if (!pdfFile) continue;
-
-        // Convert PDF to slides using pdfjs
-        const pdfPath = path.join(slideOutputDir, pdfFile);
-        const slideFiles = await convertToSlides(pdfPath, slideOutputDir);
-        slidePaths = slideFiles.map(f => `/uploads/slides/${slideId}/${f}`);
-        conversionSucceeded = true;
-        break;
-      } catch (e) {
-        // Try next path
-      }
+    // If conversion succeeded, delete the temp PPTX to save disk space
+    if (!usedIframeFallback && fs.existsSync(uploadedFilePath)) {
+      fs.unlinkSync(uploadedFilePath);
     }
 
     const presentation = new Presentation({
       title: title.trim(),
       slides: slidePaths,
-      pptxFile: conversionSucceeded ? null : pptxRelativePath,
+      pptxFile: pptxRelativePath,
       slidePolls: []
     });
     await presentation.save();
@@ -200,72 +214,45 @@ router.post('/upload-pptx', uploadPptx.single('file'), async (req, res) => {
     res.status(201).json({
       success: true,
       presentation,
-      converted: conversionSucceeded,
-      message: conversionSucceeded
-        ? 'PPTX converted to slides successfully!'
-        : 'PPTX saved. It will be displayed using the Office viewer in presentation mode.'
+      converted: !usedIframeFallback,
+      message: usedIframeFallback
+        ? 'PPTX saved. It will be shown via Office Online viewer (set CLOUDCONVERT_API_KEY to enable slide conversion).'
+        : `Successfully converted ${slidePaths.length} slide(s) via CloudConvert!`
     });
   } catch (err) {
-    console.error('PPTX upload error:', err);
+    console.error('[upload-pptx] Error:', err);
     res.status(500).json({ success: false, message: err.message || 'Upload failed' });
   }
 });
 
-// @route   POST /api/presentation/upload
-// @desc    Upload PPTX or PDF and convert to slide images
-// @access  Admin
-router.post('/upload', upload.single('file'), async (req, res) => {
+// ─────────────────────────────────────────────
+//  ROUTE: POST /api/presentation/upload-images
+//  Receive pre-rendered PNG slides from frontend
+//  (used for PDF → slides flow, client-side)
+// ─────────────────────────────────────────────
+router.post('/upload-images', uploadImages.array('slides', 200), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
     const { title } = req.body;
-    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
+    if (!req.files || req.files.length === 0)
+      return res.status(400).json({ success: false, message: 'No images uploaded' });
+    if (!title?.trim())
+      return res.status(400).json({ success: false, message: 'Title is required' });
 
     const slideId = `slides_${Date.now()}`;
     const slideOutputDir = path.join(__dirname, `../uploads/slides/${slideId}`);
     if (!fs.existsSync(slideOutputDir)) fs.mkdirSync(slideOutputDir, { recursive: true });
 
-    const slideFiles = await convertToSlides(req.file.path, slideOutputDir);
+    // Sort uploaded files by name to ensure slide order (slide-1.png, slide-2.png …)
+    const sorted = [...req.files].sort((a, b) =>
+      a.originalname.localeCompare(b.originalname, undefined, { numeric: true })
+    );
 
-    const slidePaths = slideFiles.map(f => `/uploads/slides/${slideId}/${f}`);
-
-    const presentation = new Presentation({
-      title: title.trim(),
-      slides: slidePaths,
-      slidePolls: []
-    });
-    await presentation.save();
-
-    res.status(201).json({ success: true, presentation });
-  } catch (err) {
-    console.error('Presentation upload error details:', err);
-    res.status(500).json({ 
-      success: false, 
-      message: err.message || 'Server error during conversion',
-      debug: err.stack 
-    });
-  }
-});
-
-// @route   POST /api/presentation/upload-images
-// @desc    Create presentation from already converted images (sent from frontend)
-// @access  Admin
-router.post('/upload-images', uploadImages.array('slides', 100), async (req, res) => {
-  try {
-    const { title } = req.body;
-    if (!req.files || req.files.length === 0) return res.status(400).json({ success: false, message: 'No images uploaded' });
-    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
-
-    const slideId = `slides_${Date.now()}`;
-    const slideOutputDir = path.join(__dirname, `../uploads/slides/${slideId}`);
-    if (!fs.existsSync(slideOutputDir)) fs.mkdirSync(slideOutputDir, { recursive: true });
-
-    const slidePaths = [];
-    req.files.forEach((file, index) => {
-      const ext = path.extname(file.originalname);
+    const slidePaths = sorted.map((file, index) => {
+      const ext = path.extname(file.originalname) || '.png';
       const filename = `slide-${index + 1}${ext}`;
       const newPath = path.join(slideOutputDir, filename);
       fs.renameSync(file.path, newPath);
-      slidePaths.push(`/uploads/slides/${slideId}/${filename}`);
+      return `/uploads/slides/${slideId}/${filename}`;
     });
 
     const presentation = new Presentation({
@@ -277,14 +264,14 @@ router.post('/upload-images', uploadImages.array('slides', 100), async (req, res
 
     res.status(201).json({ success: true, presentation });
   } catch (err) {
-    console.error('Direct image upload error:', err);
+    console.error('[upload-images] Error:', err);
     res.status(500).json({ success: false, message: 'Failed to save presentation images' });
   }
 });
 
-// @route   GET /api/presentation/all
-// @desc    Get all presentations (admin list)
-// @access  Admin
+// ─────────────────────────────────────────────
+//  ROUTE: GET /api/presentation/all
+// ─────────────────────────────────────────────
 router.get('/all', async (req, res) => {
   try {
     const presentations = await Presentation.find().sort({ createdAt: -1 });
@@ -294,9 +281,9 @@ router.get('/all', async (req, res) => {
   }
 });
 
-// @route   GET /api/presentation/:id
-// @desc    Get a single presentation with populated polls
-// @access  Admin
+// ─────────────────────────────────────────────
+//  ROUTE: GET /api/presentation/:id
+// ─────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
     const presentation = await Presentation.findById(req.params.id).populate('slidePolls.pollId');
@@ -307,19 +294,19 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// @route   POST /api/presentation/:id/attach-poll
-// @desc    Link a poll to a specific slide index
-// @access  Admin
+// ─────────────────────────────────────────────
+//  ROUTE: POST /api/presentation/:id/attach-poll
+// ─────────────────────────────────────────────
 router.post('/:id/attach-poll', async (req, res) => {
   try {
     const { slideIndex, pollId } = req.body;
-    if (slideIndex === undefined || !pollId) {
+    if (slideIndex === undefined || !pollId)
       return res.status(400).json({ success: false, message: 'slideIndex and pollId are required' });
-    }
+
     const presentation = await Presentation.findById(req.params.id);
     if (!presentation) return res.status(404).json({ success: false, message: 'Presentation not found' });
 
-    // Remove existing link for this slide if any
+    // Remove any existing poll link for this slide, then add the new one
     presentation.slidePolls = presentation.slidePolls.filter(sp => sp.slideIndex !== slideIndex);
     presentation.slidePolls.push({ slideIndex, pollId });
     await presentation.save();
@@ -331,14 +318,17 @@ router.post('/:id/attach-poll', async (req, res) => {
   }
 });
 
-// @route   DELETE /api/presentation/:id/detach-poll/:slideIndex
-// @desc    Remove poll from a slide
-// @access  Admin
+// ─────────────────────────────────────────────
+//  ROUTE: DELETE /api/presentation/:id/detach-poll/:slideIndex
+// ─────────────────────────────────────────────
 router.delete('/:id/detach-poll/:slideIndex', async (req, res) => {
   try {
     const presentation = await Presentation.findById(req.params.id);
     if (!presentation) return res.status(404).json({ success: false, message: 'Presentation not found' });
-    presentation.slidePolls = presentation.slidePolls.filter(sp => sp.slideIndex !== parseInt(req.params.slideIndex));
+
+    presentation.slidePolls = presentation.slidePolls.filter(
+      sp => sp.slideIndex !== parseInt(req.params.slideIndex)
+    );
     await presentation.save();
     res.json({ success: true, presentation });
   } catch (err) {
