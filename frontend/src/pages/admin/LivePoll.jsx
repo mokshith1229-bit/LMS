@@ -216,17 +216,17 @@ export default function LivePoll() {
         {/* Create Poll Section */}
         {!activePoll ? (
           <div className="card" style={{ padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', padding: '12px', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '6px' }}>
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>
-                {isBulkMode ? 'Bulk Import Mode' : 'Create New Poll'}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
+                {isBulkMode ? 'Bulk Upload Mode' : 'Create New Poll'}
               </h2>
               <button 
                 type="button" 
-                className="btn btn-primary" 
-                style={{ background: 'var(--accent)', fontWeight: 'bold' }}
-                onClick={() => setIsBulkMode(!isBulkMode)}
+                onClick={() => setIsBulkMode(!isBulkMode)} 
+                className="btn" 
+                style={{ background: '#f59e0b', color: '#fff', fontWeight: 'bold', border: 'none', padding: '8px 16px', borderRadius: '4px' }}
               >
-                {isBulkMode ? '← Switch to Manual' : '⚡ BULK IMPORT FROM NOTEPAD'}
+                {isBulkMode ? '← Use Manual Form' : '⚡ BULK UPLOAD QUESTIONS'}
               </button>
             </div>
 
