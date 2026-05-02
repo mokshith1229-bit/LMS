@@ -206,21 +206,9 @@ export default function LivePoll() {
       <Sidebar />
       <main className="main-content">
         <div className="admin-page">
-          <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h1>Live Polls</h1>
-              <p>Create and monitor real-time interactive polls.</p>
-            </div>
-            {!activePoll && (
-              <button 
-                type="button" 
-                className="btn btn-primary" 
-                style={{ background: 'var(--accent)', boxShadow: '0 4px 14px rgba(141, 198, 63, 0.3)' }}
-                onClick={() => setIsBulkMode(!isBulkMode)}
-              >
-                {isBulkMode ? '← Back to Manual Form' : '⚡ Quick Bulk Import'}
-              </button>
-            )}
+          <div className="admin-header">
+            <h1>Live Polls</h1>
+            <p>Create and monitor real-time interactive polls.</p>
           </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
@@ -228,9 +216,19 @@ export default function LivePoll() {
         {/* Create Poll Section */}
         {!activePoll ? (
           <div className="card" style={{ padding: '2rem' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>
-              {isBulkMode ? 'Bulk Import Questions' : 'Create New Poll'}
-            </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', padding: '12px', background: '#f8fafc', border: '1px solid var(--border)', borderRadius: '6px' }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 'bold', margin: 0 }}>
+                {isBulkMode ? 'Bulk Import Mode' : 'Create New Poll'}
+              </h2>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                style={{ background: 'var(--accent)', fontWeight: 'bold' }}
+                onClick={() => setIsBulkMode(!isBulkMode)}
+              >
+                {isBulkMode ? '← Switch to Manual' : '⚡ BULK IMPORT FROM NOTEPAD'}
+              </button>
+            </div>
 
             {isBulkMode ? (
               <div className="bulk-import-section">
@@ -315,6 +313,13 @@ export default function LivePoll() {
               <button type="submit" className="btn btn-primary btn-full" style={{ marginTop: '2rem' }}>
                 Start Live Poll
               </button>
+              
+              <div style={{ marginTop: '2rem', textAlign: 'center', borderTop: '1px dashed var(--border)', paddingTop: '1rem' }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>Prefer pasting from notepad?</p>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsBulkMode(true)}>
+                  ⚡ Switch to Bulk Import
+                </button>
+              </div>
             </form>
           </div>
         ) : (
