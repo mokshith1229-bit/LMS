@@ -16,6 +16,8 @@ export default function LivePoll() {
   const [chartData, setChartData] = useState([]); // This will now be an array of arrays
   const [history, setHistory] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [bulkInput, setBulkInput] = useState('');
 
   // Socket connection effect
   useEffect(() => {
@@ -90,6 +92,39 @@ export default function LivePoll() {
 
   const addQuestion = () => setQuestions([...questions, { text: '', options: ['', ''] }]);
   const removeQuestion = (qIndex) => setQuestions(questions.filter((_, i) => i !== qIndex));
+
+  const handleBulkParse = () => {
+    if (!bulkInput.trim()) {
+      toast.error('Please paste some text first.');
+      return;
+    }
+
+    try {
+      // Split by double newline or triple newline to handle varied spacing
+      const blocks = bulkInput.trim().split(/\n\s*\n/);
+      const parsedQuestions = blocks.map(block => {
+        const lines = block.split('\n').map(l => l.trim()).filter(l => l !== '');
+        if (lines.length < 3) return null; // Need at least 1 question + 2 options
+
+        return {
+          text: lines[0],
+          options: lines.slice(1)
+        };
+      }).filter(q => q !== null);
+
+      if (parsedQuestions.length === 0) {
+        toast.error('Could not find any valid questions in the text. Format: Question on line 1, Options on subsequent lines.');
+        return;
+      }
+
+      setQuestions(parsedQuestions);
+      setIsBulkMode(false);
+      setBulkInput('');
+      toast.success(`Successfully imported ${parsedQuestions.length} questions!`);
+    } catch (err) {
+      toast.error('Error parsing bulk input. Please check the format.');
+    }
+  };
 
   const handleCreatePoll = async (e) => {
     e.preventDefault();
@@ -181,8 +216,41 @@ export default function LivePoll() {
         {/* Create Poll Section */}
         {!activePoll ? (
           <div className="card" style={{ padding: '2rem' }}>
-            <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold' }}>Create New Poll</h2>
-            <form onSubmit={handleCreatePoll}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Create New Poll</h2>
+              <button 
+                type="button" 
+                className="btn btn-secondary" 
+                style={{ fontSize: '0.8rem', padding: '4px 10px' }}
+                onClick={() => setIsBulkMode(!isBulkMode)}
+              >
+                {isBulkMode ? '← Back to Manual' : '⚡ Quick Bulk Import'}
+              </button>
+            </div>
+
+            {isBulkMode ? (
+              <div className="bulk-import-section">
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                  Paste your questions and options from Notepad. Separate questions with an empty line.
+                </p>
+                <textarea
+                  className="form-input"
+                  style={{ minHeight: '300px', fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem', resize: 'vertical' }}
+                  placeholder="Example:&#10;What is your favorite color?&#10;Red&#10;Blue&#10;Green&#10;&#10;Next Question?&#10;Option A&#10;Option B"
+                  value={bulkInput}
+                  onChange={(e) => setBulkInput(e.target.value)}
+                />
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button type="button" className="btn btn-primary btn-full" onClick={handleBulkParse}>
+                    Process & Fill Form
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setBulkInput('')}>
+                    Clear
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleCreatePoll}>
               <div className="form-group" style={{ marginBottom: '1.5rem' }}>
                 <label className="form-label">Poll Name / Title</label>
                 <input
