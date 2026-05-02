@@ -4,6 +4,7 @@ import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
 import * as pdfjsLib from 'pdfjs-dist';
+import { Edit2, Trash2, Check, X } from 'lucide-react';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -16,6 +17,8 @@ export default function Presentations() {
   const [title, setTitle] = useState('');
   const [file, setFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
 
   useEffect(() => { fetchPresentations(); }, []);
 
@@ -111,6 +114,38 @@ export default function Presentations() {
     }
   };
 
+  const handleDeletePresentation = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this presentation and all its slides? This cannot be undone.')) return;
+    try {
+      const { data } = await api.delete(`/presentation/${id}`);
+      if (data.success) {
+        toast.success('Presentation deleted');
+        fetchPresentations();
+      }
+    } catch (err) {
+      toast.error('Failed to delete presentation');
+    }
+  };
+
+  const handleUpdateTitle = async (id) => {
+    if (!editTitle.trim()) return;
+    try {
+      const { data } = await api.patch(`/presentation/${id}`, { title: editTitle });
+      if (data.success) {
+        toast.success('Title updated');
+        setEditingId(null);
+        fetchPresentations();
+      }
+    } catch (err) {
+      toast.error('Failed to update title');
+    }
+  };
+
+  const startEditing = (p) => {
+    setEditingId(p._id);
+    setEditTitle(p.title);
+  };
+
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
@@ -196,11 +231,49 @@ export default function Presentations() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
             {presentations.map(p => (
-              <div key={p._id} className="card" style={{ padding: '1.5rem', cursor: 'pointer' }}>
+              <div key={p._id} className="card" style={{ padding: '1.5rem', position: 'relative' }}>
+                <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); startEditing(p); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                    title="Edit Name"
+                  >
+                    <Edit2 size={16} />
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleDeletePresentation(p._id); }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}
+                    title="Delete Presentation"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+
                 <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🖼️</div>
-                <h3 style={{ fontWeight: 700, marginBottom: '0.5rem' }}>{p.title}</h3>
+                
+                {editingId === p._id ? (
+                  <div style={{ marginBottom: '0.5rem', display: 'flex', gap: '5px' }}>
+                    <input
+                      type="text"
+                      className="form-input"
+                      style={{ fontSize: '0.9rem', padding: '4px 8px' }}
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                      autoFocus
+                    />
+                    <button onClick={() => handleUpdateTitle(p._id)} style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '4px', padding: '4px' }}>
+                      <Check size={16} />
+                    </button>
+                    <button onClick={() => setEditingId(null)} style={{ background: 'var(--bg-secondary)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px' }}>
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <h3 style={{ fontWeight: 700, marginBottom: '0.5rem' }}>{p.title}</h3>
+                )}
+
                 <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                  {p.slides.length} slide{p.slides.length !== 1 ? 's' : ''} &bull; Created {new Date(p.createdAt).toLocaleDateString()}
+                  {p.slides?.length || 0} slide{p.slides?.length !== 1 ? 's' : ''} &bull; Created {new Date(p.createdAt).toLocaleDateString()}
                 </p>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
                   <button

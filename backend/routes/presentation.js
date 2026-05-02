@@ -341,4 +341,60 @@ router.delete('/:id/detach-poll/:slideIndex', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────
+//  ROUTE: PATCH /api/presentation/:id
+//  Update presentation title
+// ─────────────────────────────────────────────
+router.patch('/:id', async (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
+
+    const presentation = await Presentation.findByIdAndUpdate(
+      req.params.id,
+      { title: title.trim() },
+      { new: true }
+    );
+
+    if (!presentation) return res.status(404).json({ success: false, message: 'Presentation not found' });
+    res.json({ success: true, presentation });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ─────────────────────────────────────────────
+//  ROUTE: DELETE /api/presentation/:id
+//  Delete presentation and associated files
+// ─────────────────────────────────────────────
+router.delete('/:id', async (req, res) => {
+  try {
+    const presentation = await Presentation.findById(req.params.id);
+    if (!presentation) return res.status(404).json({ success: false, message: 'Presentation not found' });
+
+    // Delete slide images directory if it exists
+    if (presentation.slides && presentation.slides.length > 0) {
+      const firstSlide = presentation.slides[0];
+      const slideDir = path.join(__dirname, '..', path.dirname(firstSlide));
+      if (fs.existsSync(slideDir)) {
+        fs.rmSync(slideDir, { recursive: true, force: true });
+      }
+    }
+
+    // Delete raw PPTX file if it exists
+    if (presentation.pptxFile) {
+      const pptxPath = path.join(__dirname, '..', presentation.pptxFile);
+      if (fs.existsSync(pptxPath)) {
+        fs.unlinkSync(pptxPath);
+      }
+    }
+
+    await Presentation.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Presentation deleted successfully' });
+  } catch (err) {
+    console.error('[DELETE Presentation] Error:', err);
+    res.status(500).json({ success: false, message: 'Server error during deletion' });
+  }
+});
+
 module.exports = router;
