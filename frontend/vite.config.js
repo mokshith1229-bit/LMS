@@ -8,11 +8,11 @@ export default defineConfig({
     proxy: {
 
       '/api': {
-        target: 'https://lms-1ntb.onrender.com',
+        target: 'http://localhost:5000',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'https://lms-1ntb.onrender.com',
+        target: 'http://localhost:5000',
         changeOrigin: true,
       },
     },
