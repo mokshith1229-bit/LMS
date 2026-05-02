@@ -206,27 +206,31 @@ export default function LivePoll() {
       <Sidebar />
       <main className="main-content">
         <div className="admin-page">
-          <div className="admin-header">
-        <h1>Live Polls</h1>
-        <p>Create and monitor real-time interactive polls.</p>
-      </div>
+          <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h1>Live Polls</h1>
+              <p>Create and monitor real-time interactive polls.</p>
+            </div>
+            {!activePoll && (
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                style={{ background: 'var(--accent)', boxShadow: '0 4px 14px rgba(141, 198, 63, 0.3)' }}
+                onClick={() => setIsBulkMode(!isBulkMode)}
+              >
+                {isBulkMode ? '← Back to Manual Form' : '⚡ Quick Bulk Import'}
+              </button>
+            )}
+          </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
         
         {/* Create Poll Section */}
         {!activePoll ? (
           <div className="card" style={{ padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Create New Poll</h2>
-              <button 
-                type="button" 
-                className="btn btn-secondary" 
-                style={{ fontSize: '0.8rem', padding: '4px 10px' }}
-                onClick={() => setIsBulkMode(!isBulkMode)}
-              >
-                {isBulkMode ? '← Back to Manual' : '⚡ Quick Bulk Import'}
-              </button>
-            </div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>
+              {isBulkMode ? 'Bulk Import Questions' : 'Create New Poll'}
+            </h2>
 
             {isBulkMode ? (
               <div className="bulk-import-section">
