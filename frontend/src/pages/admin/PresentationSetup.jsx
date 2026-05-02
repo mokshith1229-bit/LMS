@@ -116,7 +116,11 @@ export default function PresentationSetup() {
               {/* Slide Image */}
               <div style={{ position: 'relative', background: '#000' }}>
                 <img
-                  src={`${API_BASE}${slidePath}`}
+                  src={
+                    slidePath.startsWith('http')
+                      ? slidePath
+                      : `${API_BASE}${slidePath}?t=${Date.now()}`
+                  }
                   alt={`Slide ${index + 1}`}
                   style={{ width: '100%', height: '160px', objectFit: 'contain', display: 'block' }}
                 />

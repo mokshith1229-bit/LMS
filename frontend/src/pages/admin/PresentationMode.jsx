@@ -158,13 +158,20 @@ export default function PresentationMode() {
             {presentation.pptxFile ? (
               <div style={{ width: '100%', height: '100%', position: 'relative' }}>
                 <iframe
-                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(API_BASE + presentation.pptxFile)}`}
+                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
+                    presentation.pptxFile.startsWith('http') 
+                      ? presentation.pptxFile 
+                      : API_BASE + presentation.pptxFile
+                  )}`}
                   style={{ width: '100%', height: '100%', border: 'none' }}
                   title="PPTX Presentation"
                   onError={() => {
                     // Fallback to Google Docs viewer
-                    document.getElementById('pptx-frame').src = 
-                      `https://docs.google.com/viewer?url=${encodeURIComponent(API_BASE + presentation.pptxFile)}&embedded=true`;
+                    const frame = document.getElementById('pptx-frame');
+                    const url = presentation.pptxFile.startsWith('http') 
+                      ? presentation.pptxFile 
+                      : API_BASE + presentation.pptxFile;
+                    if (frame) frame.src = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
                   }}
                   id="pptx-frame"
                 />
@@ -179,7 +186,11 @@ export default function PresentationMode() {
               </div>
             ) : (
               <img
-                src={`${API_BASE}${presentation.slides[currentSlide]}`}
+                src={
+                  presentation.slides[currentSlide].startsWith('http')
+                    ? presentation.slides[currentSlide]
+                    : `${API_BASE}${presentation.slides[currentSlide]}?t=${Date.now()}`
+                }
                 alt={`Slide ${currentSlide + 1}`}
                 style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
               />
