@@ -103,14 +103,14 @@ export default function LivePoll() {
       // Split by double newline or triple newline to handle varied spacing
       const blocks = bulkInput.trim().split(/\n\s*\n/);
       const parsedQuestions = blocks.map(block => {
-        const lines = block.split('\n').map(l => l.trim()).filter(l => l !== '');
-        if (lines.length < 3) return null; // Need at least 1 question + 2 options
+        const lines = block.split(/\r?\n/).map(l => l.trim()).filter(l => l !== '');
+        if (lines.length < 3) return null;
 
         return {
           text: lines[0],
           options: lines.slice(1)
         };
-      }).filter(q => q !== null);
+      }).filter(Boolean);
 
       if (parsedQuestions.length === 0) {
         toast.error('Could not find any valid questions in the text. Format: Question on line 1, Options on subsequent lines.');
@@ -177,7 +177,7 @@ export default function LivePoll() {
     }
   };
 
-  const pollUrl = `${window.location.origin}/poll/${activePoll?.code}`;
+  const pollUrl = activePoll?.code ? `${window.location.origin}/poll/${activePoll.code}` : '';
 
   const downloadQRCode = () => {
     const svg = document.getElementById('poll-qr-code');
@@ -371,7 +371,7 @@ export default function LivePoll() {
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={chartData[qIndex] || []}
+                          data={(chartData && chartData[qIndex]) || []}
                           cx="50%"
                           cy="50%"
                           outerRadius={100}
@@ -423,12 +423,12 @@ export default function LivePoll() {
                 </tr>
               </thead>
               <tbody>
-                {history.length === 0 ? (
+                {(!history || history.length === 0) ? (
                   <tr>
                     <td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No polls found yet.</td>
                   </tr>
                 ) : (
-                  history.map((poll) => (
+                  history.filter(p => p && p._id).map((poll) => (
                     <tr key={poll._id} style={{ borderBottom: '1px solid var(--border)', fontSize: '0.9rem' }}>
                       <td style={{ padding: '1rem', fontWeight: 'bold', color: 'var(--accent)' }}>{poll.code}</td>
                       <td style={{ padding: '1rem', fontWeight: 600 }}>{poll.title || 'Untitled Poll'}</td>
