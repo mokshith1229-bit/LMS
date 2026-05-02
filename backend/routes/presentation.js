@@ -7,6 +7,11 @@ const axios = require('axios');
 const FormData = require('form-data');
 const Presentation = require('../models/Presentation');
 
+// Test route to verify connectivity
+router.get('/test-ping', (req, res) => {
+  res.json({ success: true, message: 'Presentation router is alive!' });
+});
+
 // ─────────────────────────────────────────────
 //  Directory Setup
 // ─────────────────────────────────────────────
