@@ -42,12 +42,13 @@ export default function PresentationMode() {
   const [slideDir, setSlideDir] = useState(1);
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState([]);
-  const [showPoll, setShowPoll] = useState(false);
+  const [mode, setMode] = useState('slide'); // 'slide' | 'poll'
   const [activePoll, setActivePoll] = useState(null);
   const [socketRef, setSocketRef] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [pollActivating, setPollActivating] = useState(false);
+  const [qrExpanded, setQrExpanded] = useState(false);
   const [toolbarVisible, setToolbarVisible] = useState(true);
   const [transitionType, setTransitionType] = useState('slideLeft');
   const [showTransitionPicker, setShowTransitionPicker] = useState(false);
@@ -57,6 +58,7 @@ export default function PresentationMode() {
   const FRONTEND_ORIGIN = window.location.origin;
 
   const hideTimer = useRef(null);
+  const autoStartTimer = useRef(null);
   const containerRef = useRef(null);
 
   // ── Data loading ────────────────────────────────────────────────────────────
@@ -75,9 +77,12 @@ export default function PresentationMode() {
   useEffect(() => {
     if (!presentation) return;
 
+    // Clear any pending auto-starts
+    clearTimeout(autoStartTimer.current);
+
     // Tear down previous socket
     if (socketRef) { socketRef.disconnect(); setSocketRef(null); }
-    setChartData([]); setShowPoll(false); setActivePoll(null); setCurrentQuestionIndex(0); setPollActivating(false);
+    setChartData([]); setMode('slide'); setActivePoll(null); setCurrentQuestionIndex(0); setPollActivating(false);
 
     const linked = presentation.slidePolls?.find(sp => sp.slideIndex === currentSlide);
     if (!linked?.pollId) return; // no poll on this slide
@@ -94,16 +99,19 @@ export default function PresentationMode() {
         const poll = data.poll;
         setActivePoll(poll);
         setChartData(data.results);
-        setShowPoll(true);
 
-        // Connect socket to the live room
-        const socket = io(API_BASE);
-        socket.emit('join_poll', poll.code);
-        socket.on('poll_update', d => setChartData(d));
-        setSocketRef(socket);
+        // Delayed start: Show slide for 2s first
+        autoStartTimer.current = setTimeout(() => {
+          setMode('poll');
+          // Connect socket only when entering poll view
+          const socket = io(API_BASE);
+          socket.emit('join_poll', poll.code);
+          socket.on('poll_update', d => setChartData(d));
+          setSocketRef(socket);
+        }, 2000);
 
         if (!data.reused) {
-          toast.success(`Poll "${poll.title}" started!`, { icon: '📊', duration: 2500 });
+          toast.success(`Poll "${poll.title}" ready! (Starting in 2s)`, { icon: '📊', duration: 2500 });
         }
       } catch (err) {
         console.error('[auto-start poll]', err);
@@ -112,6 +120,8 @@ export default function PresentationMode() {
         setPollActivating(false);
       }
     })();
+
+    return () => clearTimeout(autoStartTimer.current);
   }, [currentSlide, presentation]);
 
   // ── Auto-hide toolbar ───────────────────────────────────────────────────────
@@ -144,28 +154,28 @@ export default function PresentationMode() {
   // ── Navigation ──────────────────────────────────────────────────────────────
   const goNext = useCallback(() => {
     if (!presentation) return;
-    if (showPoll && activePoll && currentQuestionIndex < activePoll.questions.length - 1) {
+    if (mode === 'poll' && activePoll && currentQuestionIndex < activePoll.questions.length - 1) {
       setCurrentQuestionIndex(i => i + 1); return;
     }
     setSlideDir(1);
     setCurrentSlide(s => Math.min(s + 1, (presentation.slides?.length || 1) - 1));
-    setShowPoll(false);
-  }, [presentation, showPoll, activePoll, currentQuestionIndex]);
+    setMode('slide');
+  }, [presentation, mode, activePoll, currentQuestionIndex]);
 
   const goPrev = useCallback(() => {
     if (!presentation) return;
-    if (showPoll && activePoll && currentQuestionIndex > 0) {
+    if (mode === 'poll' && activePoll && currentQuestionIndex > 0) {
       setCurrentQuestionIndex(i => i - 1); return;
     }
     setSlideDir(-1);
     setCurrentSlide(s => Math.max(s - 1, 0));
-    setShowPoll(false);
-  }, [presentation, showPoll, activePoll, currentQuestionIndex]);
+    setMode('slide');
+  }, [presentation, mode, activePoll, currentQuestionIndex]);
 
   const jumpTo = (idx) => {
     setSlideDir(idx > currentSlide ? 1 : -1);
     setCurrentSlide(idx);
-    setShowPoll(false);
+    setMode('slide');
     setThumbnailsOpen(false);
   };
 
@@ -262,9 +272,9 @@ export default function PresentationMode() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 12px' }}>
           <button onClick={goPrev} disabled={currentSlide === 0} style={btnStyle(currentSlide === 0)}>‹</button>
           <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: 60, textAlign: 'center', color: '#f1f5f9' }}>
-            {showPoll ? '📊 Poll' : `${currentSlide + 1} / ${totalSlides}`}
+            {mode === 'poll' ? '📊 Poll' : `${currentSlide + 1} / ${totalSlides}`}
           </span>
-          <button onClick={goNext} disabled={!showPoll && currentSlide === totalSlides - 1} style={btnStyle(!showPoll && currentSlide === totalSlides - 1)}>›</button>
+          <button onClick={goNext} disabled={mode !== 'poll' && currentSlide === totalSlides - 1} style={btnStyle(mode !== 'poll' && currentSlide === totalSlides - 1)}>›</button>
         </div>
 
         {/* Poll activating indicator */}
@@ -300,13 +310,13 @@ export default function PresentationMode() {
         <button onClick={() => setThumbnailsOpen(p => !p)} style={toolBtn(thumbnailsOpen)} title="Slide panel">⊞</button>
 
         {/* Poll controls — auto-started, but allow manual toggle */}
-        {hasLinkedPoll && !showPoll && !pollActivating && (
-          <button onClick={() => setShowPoll(true)} style={{ ...toolBtn(), background: 'rgba(141,198,63,0.2)', color: '#8DC63F', border: '1px solid rgba(141,198,63,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+        {hasLinkedPoll && mode === 'slide' && !pollActivating && (
+          <button onClick={() => setMode('poll')} style={{ ...toolBtn(), background: 'rgba(141,198,63,0.2)', color: '#8DC63F', border: '1px solid rgba(141,198,63,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
             📊 Show Poll
           </button>
         )}
-        {showPoll && (
-          <button onClick={() => setShowPoll(false)} style={{ ...toolBtn(), background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+        {mode === 'poll' && (
+          <button onClick={() => setMode('slide')} style={{ ...toolBtn(), background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
             🖼 Show Slide
           </button>
         )}
@@ -349,7 +359,7 @@ export default function PresentationMode() {
       {/* ─── MAIN CONTENT AREA ──────────────────────────────────── */}
       <div style={{ position: 'absolute', inset: 0, paddingLeft: thumbnailsOpen ? 220 : 0, transition: 'padding-left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <AnimatePresence mode="wait" custom={slideDir}>
-          {!showPoll ? (
+          {mode === 'slide' ? (
             /* ── SLIDE VIEW ─────────────────────────────────────── */
             <motion.div
               key={`slide-${currentSlide}`}
@@ -424,10 +434,50 @@ export default function PresentationMode() {
                 </div>
               </div>
 
-              {/* QR */}
-              <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.4 }} style={{ position: 'absolute', bottom: '2.5rem', right: '2.5rem', background: '#fff', padding: '1rem', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              {/* QR Code Overlay (Fullscreen when expanded) */}
+              <AnimatePresence>
+                {qrExpanded && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setQrExpanded(false)}
+                    style={{
+                      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+                      zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'zoom-out'
+                    }}
+                  >
+                    <motion.div
+                      initial={{ scale: 0.5 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0.5 }}
+                      style={{ background: '#fff', padding: '3rem', borderRadius: '32px', textAlign: 'center' }}
+                    >
+                      <QRCodeSVG value={pollUrl} size={400} />
+                      <div style={{ marginTop: '2rem', color: '#1e293b', fontWeight: 800, fontSize: '2rem' }}>SCAN TO VOTE</div>
+                      <div style={{ color: '#64748b', fontSize: '1.2rem', marginTop: '0.5rem' }}>Join code: <strong style={{ color: '#8DC63F' }}>{activePoll.code}</strong></div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Small QR (Bottom Right) */}
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                onClick={() => setQrExpanded(true)}
+                style={{
+                  position: 'absolute', bottom: '2.5rem', right: '2.5rem',
+                  background: '#fff', padding: '1rem', borderRadius: 16,
+                  border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                  cursor: 'zoom-in', zIndex: 100
+                }}
+              >
                 <QRCodeSVG value={pollUrl} size={120} />
-                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', letterSpacing: 1 }}>SCAN TO VOTE</span>
+                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', letterSpacing: 1 }}>CLICK TO EXPAND</span>
               </motion.div>
             </motion.div>
           )}
@@ -435,7 +485,7 @@ export default function PresentationMode() {
       </div>
 
       {/* ─── BOTTOM NAV (click zones) ────────────────────────────── */}
-      {!showPoll && (
+      {mode === 'slide' && (
         <>
           <div onClick={goPrev} style={{ position: 'absolute', left: thumbnailsOpen ? 220 : 0, top: 64, bottom: 0, width: '15%', cursor: currentSlide > 0 ? 'w-resize' : 'default', zIndex: 100 }} />
           <div onClick={goNext} style={{ position: 'absolute', right: 0, top: 64, bottom: 0, width: '15%', cursor: currentSlide < totalSlides - 1 ? 'e-resize' : 'default', zIndex: 100 }} />
