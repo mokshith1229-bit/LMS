@@ -20,12 +20,30 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   fileFilter: (req, file, cb) => {
-    const allowed = ['.pptx', '.pdf'];
+    const allowed = ['.pptx', '.ppt', '.pdf'];
     if (allowed.includes(path.extname(file.originalname).toLowerCase())) {
       cb(null, true);
     } else {
-      cb(new Error('Only .pptx and .pdf files are allowed'));
+      cb(new Error('Only .pptx, .ppt and .pdf files are allowed'));
     }
+  }
+});
+
+// Multer for raw PPTX uploads (no conversion – iframe rendering)
+const uploadPptx = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = path.join(__dirname, '../uploads/pptx');
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (req, file, cb) => cb(null, `pptx_${Date.now()}_${Math.random().toString(36).slice(2,6)}${path.extname(file.originalname)}`)
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pptx', '.ppt'];
+    if (allowed.includes(path.extname(file.originalname).toLowerCase())) cb(null, true);
+    else cb(new Error('Only .pptx and .ppt files are allowed'));
   }
 });
 
@@ -123,6 +141,75 @@ async function convertToSlides(filePath, outputDir) {
     throw new Error('Failed to extract slides from PDF. ' + err.message);
   }
 }
+
+// @route   POST /api/presentation/upload-pptx
+// @desc    Upload raw PPTX/PPT file. Tries LibreOffice conversion; falls back to saving the raw file for iframe rendering.
+// @access  Admin
+router.post('/upload-pptx', uploadPptx.single('file'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+    const { title } = req.body;
+    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
+
+    const pptxRelativePath = `/uploads/pptx/${req.file.filename}`;
+
+    // Try converting via LibreOffice (Windows common paths)
+    const windowsLibreOfficePaths = [
+      'C:\\Program Files\\LibreOffice\\program\\soffice.exe',
+      'C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe',
+      'soffice',
+      'libreoffice'
+    ];
+
+    let conversionSucceeded = false;
+    let slidePaths = [];
+
+    for (const soffice of windowsLibreOfficePaths) {
+      try {
+        const quoted = soffice.includes(' ') ? `"${soffice}"` : soffice;
+        const slideId = `slides_${Date.now()}`;
+        const slideOutputDir = path.join(__dirname, `../uploads/slides/${slideId}`);
+        if (!fs.existsSync(slideOutputDir)) fs.mkdirSync(slideOutputDir, { recursive: true });
+
+        execSync(`${quoted} --headless --convert-to pdf --outdir "${slideOutputDir}" "${req.file.path}"`, { timeout: 120000 });
+
+        // Find the generated PDF
+        const files = fs.readdirSync(slideOutputDir);
+        const pdfFile = files.find(f => f.endsWith('.pdf'));
+        if (!pdfFile) continue;
+
+        // Convert PDF to slides using pdfjs
+        const pdfPath = path.join(slideOutputDir, pdfFile);
+        const slideFiles = await convertToSlides(pdfPath, slideOutputDir);
+        slidePaths = slideFiles.map(f => `/uploads/slides/${slideId}/${f}`);
+        conversionSucceeded = true;
+        break;
+      } catch (e) {
+        // Try next path
+      }
+    }
+
+    const presentation = new Presentation({
+      title: title.trim(),
+      slides: slidePaths,
+      pptxFile: conversionSucceeded ? null : pptxRelativePath,
+      slidePolls: []
+    });
+    await presentation.save();
+
+    res.status(201).json({
+      success: true,
+      presentation,
+      converted: conversionSucceeded,
+      message: conversionSucceeded
+        ? 'PPTX converted to slides successfully!'
+        : 'PPTX saved. It will be displayed using the Office viewer in presentation mode.'
+    });
+  } catch (err) {
+    console.error('PPTX upload error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Upload failed' });
+  }
+});
 
 // @route   POST /api/presentation/upload
 // @desc    Upload PPTX or PDF and convert to slide images

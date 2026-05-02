@@ -154,11 +154,36 @@ export default function PresentationMode() {
             transition={{ duration: 0.4 }}
             style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000' }}
           >
-            <img
-              src={`${API_BASE}${presentation.slides[currentSlide]}`}
-              alt={`Slide ${currentSlide + 1}`}
-              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-            />
+            {/* If presentation has a raw PPTX file (no slides), use Office Online / Google Docs iframe */}
+            {presentation.pptxFile ? (
+              <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                <iframe
+                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(API_BASE + presentation.pptxFile)}`}
+                  style={{ width: '100%', height: '100%', border: 'none' }}
+                  title="PPTX Presentation"
+                  onError={() => {
+                    // Fallback to Google Docs viewer
+                    document.getElementById('pptx-frame').src = 
+                      `https://docs.google.com/viewer?url=${encodeURIComponent(API_BASE + presentation.pptxFile)}&embedded=true`;
+                  }}
+                  id="pptx-frame"
+                />
+                {/* Overlay notice */}
+                <div style={{
+                  position: 'absolute', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+                  background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '8px 18px',
+                  borderRadius: '20px', fontSize: '0.8rem'
+                }}>
+                  ℹ️ Slides are displayed via Office Online. Use arrow keys or presenter controls above.
+                </div>
+              </div>
+            ) : (
+              <img
+                src={`${API_BASE}${presentation.slides[currentSlide]}`}
+                alt={`Slide ${currentSlide + 1}`}
+                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+              />
+            )}
           </motion.div>
         ) : (
           /* FULLSCREEN POLL VIEW (Professional White Style) */

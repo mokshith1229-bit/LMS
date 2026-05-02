@@ -38,7 +38,9 @@ export default function Presentations() {
     }
     
     setUploading(true);
-    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const ext = file.name.toLowerCase().split('.').pop();
+    const isPDF = ext === 'pdf';
+    const isPPTX = ext === 'pptx' || ext === 'ppt';
 
     try {
       if (isPDF) {
@@ -52,7 +54,7 @@ export default function Presentations() {
 
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1.5 }); // Balanced quality vs speed
+          const viewport = page.getViewport({ scale: 1.5 });
           const canvas = document.createElement('canvas');
           const context = canvas.getContext('2d');
           canvas.height = viewport.height;
@@ -60,21 +62,18 @@ export default function Presentations() {
 
           await page.render({ canvasContext: context, viewport }).promise;
           
-          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.8)); // 80% quality to reduce size
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.8));
           formData.append('slides', blob, `slide-${i}.png`);
           toast.loading(`Processing slide ${i}/${pdf.numPages}...`, { id: toastId });
           
-          // Clear canvas memory
           canvas.width = 0;
           canvas.height = 0;
         }
 
-        console.log('Finished processing slides, starting upload...');
         toast.loading(`Uploading ${pdf.numPages} slides...`, { id: toastId });
-
         const { data } = await api.post('/presentation/upload-images', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 600000 // 10 minutes just in case
+          timeout: 600000
         });
 
         if (data.success) {
@@ -83,27 +82,30 @@ export default function Presentations() {
           setFile(null);
           fetchPresentations();
         }
-      } else {
-        // Fallback to backend conversion for PPTX
+      } else if (isPPTX) {
+        // Upload raw PPTX — backend will try to convert or save for iframe rendering
+        const toastId = toast.loading('Uploading PPTX file...');
         const formData = new FormData();
         formData.append('file', file);
         formData.append('title', title);
-        
-        const { data } = await api.post('/presentation/upload', formData, {
+
+        const { data } = await api.post('/presentation/upload-pptx', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 300000 // 5 minutes
+          timeout: 300000
         });
-        
+
         if (data.success) {
-          toast.success('Presentation uploaded & converted!');
+          toast.success(data.message || 'PPTX uploaded!', { id: toastId });
           setTitle('');
           setFile(null);
           fetchPresentations();
         }
+      } else {
+        toast.error('Unsupported file format. Please use .pptx, .ppt or .pdf');
       }
     } catch (err) {
       console.error('Upload error:', err);
-      toast.error(err.response?.data?.message || err.message || 'Upload failed. Please try saving your PPTX as PDF first.');
+      toast.error(err.response?.data?.message || err.message || 'Upload failed.');
     } finally {
       setUploading(false);
     }
@@ -161,13 +163,13 @@ export default function Presentations() {
               {file ? (
                 <span style={{ color: 'var(--accent)', fontWeight: 600 }}>✓ {file.name}</span>
               ) : (
-                <>Drag & drop a <strong>.pptx</strong> or <strong>.pdf</strong> file here, or click to browse</>
+                <>Drag & drop a <strong>.pptx</strong>, <strong>.ppt</strong>, or <strong>.pdf</strong> file here, or click to browse</>
               )}
             </p>
             <input
               id="ppt-file-input"
               type="file"
-              accept=".pptx,.pdf"
+              accept=".pptx,.ppt,.pdf"
               style={{ display: 'none' }}
               onChange={e => setFile(e.target.files[0])}
             />
@@ -179,7 +181,7 @@ export default function Presentations() {
             style={{ marginTop: '1.5rem' }}
             disabled={uploading}
           >
-            {uploading ? '⏳ Converting slides...' : '🚀 Upload & Convert'}
+            {uploading ? '⏳ Uploading & Processing...' : '🚀 Upload & Convert'}
           </button>
         </form>
       </div>
