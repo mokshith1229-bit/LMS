@@ -210,23 +210,45 @@ export default function LivePoll() {
             <h1>Live Polls</h1>
             <p>Create and monitor real-time interactive polls.</p>
           </div>
+          
+          {/* Floating Backup Button (Orange) */}
+          <div style={{ position: 'fixed', bottom: '30px', right: '30px', zIndex: 9999 }}>
+            <button 
+              type="button"
+              onClick={() => setIsBulkMode(!isBulkMode)}
+              className="btn"
+              style={{ 
+                background: '#f59e0b', 
+                color: 'white', 
+                padding: '16px 24px', 
+                borderRadius: '50px', 
+                fontWeight: '900', 
+                boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+                fontSize: '1rem',
+                border: '2px solid white'
+              }}
+            >
+              {isBulkMode ? '← MANUAL FORM' : '⚡ BULK UPLOAD QUESTIONS'}
+            </button>
+          </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginTop: '2rem' }}>
         
         {/* Create Poll Section */}
         {!activePoll ? (
-          <div className="card" style={{ padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>
-                {isBulkMode ? 'Bulk Upload Mode' : 'Create New Poll'}
+        {!activePoll ? (
+          <div className="card" style={{ padding: '2rem', borderTop: '4px solid #f59e0b' }}>
+            <div style={{ marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)', margin: 0 }}>
+                {isBulkMode ? 'BULK UPLOAD MODE' : 'CREATE NEW POLL'}
               </h2>
               <button 
                 type="button" 
                 onClick={() => setIsBulkMode(!isBulkMode)} 
                 className="btn" 
-                style={{ background: '#f59e0b', color: '#fff', fontWeight: 'bold', border: 'none', padding: '8px 16px', borderRadius: '4px' }}
+                style={{ background: '#f59e0b', color: '#fff', fontWeight: '900', border: 'none', padding: '10px 20px', borderRadius: '6px' }}
               >
-                {isBulkMode ? '← Use Manual Form' : '⚡ BULK UPLOAD QUESTIONS'}
+                {isBulkMode ? '← SWITCH TO MANUAL' : '⚡ OPEN BULK UPLOAD'}
               </button>
             </div>
 
