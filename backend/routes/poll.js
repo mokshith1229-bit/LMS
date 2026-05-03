@@ -74,18 +74,7 @@ router.get('/:code', async (req, res) => {
       return res.status(410).json({ success: false, message: 'This poll has expired (24-hour limit)' });
     }
 
-    // Format response data for initial pie chart load (array of arrays)
-    const results = poll.questions.map((q, qIndex) => {
-      return q.options.map(opt => ({
-        name: opt,
-        value: poll.responses.reduce((acc, r) => {
-          const answer = r.answers.find(a => a.questionIndex === qIndex);
-          return acc + (answer && answer.selectedOption === opt ? 1 : 0);
-        }, 0)
-      }));
-    });
-
-    res.json({ success: true, poll, results });
+    res.json({ success: true, poll });
   } catch (error) {
     console.error('Error fetching poll:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -121,7 +110,7 @@ router.post('/respond', async (req, res) => {
     poll.responses.push({ userKey, answers });
     await poll.save();
 
-    // Calculate real-time counts (array of arrays)
+    // Calculate real-time counts for admin
     const results = poll.questions.map((q, qIndex) => {
       return q.options.map(opt => ({
         name: opt,
@@ -132,13 +121,13 @@ router.post('/respond', async (req, res) => {
       }));
     });
 
-    // Emit socket event
+    // Emit socket event to ADMIN ONLY
     const io = req.app.get('io');
     if (io) {
-      io.to(poll.code).emit("poll_update", results);
+      io.to(`poll_admin_${poll.code}`).emit("poll_update", results);
     }
 
-    res.json({ success: true, results });
+    res.json({ success: true, message: 'submitted' });
   } catch (error) {
     console.error('Error responding to poll:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -163,11 +152,14 @@ router.get('/admin/all', protect, async (req, res) => {
   }
 });
 
-// @route   GET /api/poll/admin/single/:id
+// @route   GET /api/poll/:id/results
 // @desc    Get poll details for admin (bypasses expiration check)
 // @access  Private
-router.get('/admin/single/:id', protect, async (req, res) => {
+router.get('/:id/results', protect, async (req, res) => {
   try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
     const poll = await Poll.findById(req.params.id);
     if (!poll) return res.status(404).json({ success: false, message: 'Poll not found' });
 

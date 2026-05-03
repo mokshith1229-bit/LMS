@@ -23,7 +23,7 @@ export default function LivePoll() {
   useEffect(() => {
     if (!activePoll?.code) return;
     const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
-    socket.emit('join_poll', activePoll.code);
+    socket.emit('join_poll', `poll_admin_${activePoll.code}`);
     socket.on('poll_update', (data) => setChartData(data));
     return () => socket.disconnect();
   }, [activePoll?.code]);
@@ -44,7 +44,7 @@ export default function LivePoll() {
 
   const viewPoll = async (poll) => {
     try {
-      const { data } = await api.get(`/poll/admin/single/${poll._id}`);
+      const { data } = await api.get(`/poll/${poll._id}/results`);
       if (data.success) {
         setActivePoll({ ...data.poll, isExpired: poll.isExpired });
         setChartData(data.results);

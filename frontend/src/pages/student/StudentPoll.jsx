@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -13,7 +12,6 @@ export default function StudentPoll() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
-  const [chartData, setChartData] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [answers, setAnswers] = useState({});
 
@@ -33,7 +31,6 @@ export default function StudentPoll() {
         const { data } = await api.get(`/poll/${code}`);
         if (data.success) {
           setPoll(data.poll);
-          setChartData(data.results);
           
           // Check if already voted via localStorage key or backend validation
           const votedStore = localStorage.getItem(`voted_${code}`);
@@ -55,21 +52,12 @@ export default function StudentPoll() {
     fetchPoll();
   }, [code]);
 
-  // Socket connection effect
+  // Socket connection effect (Student room only, no insights received)
   useEffect(() => {
     if (!poll?.code) return;
-
     const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
-
-    socket.emit('join_poll', poll.code);
-
-    socket.on('poll_update', (data) => {
-      setChartData(data);
-    });
-
-    return () => {
-      socket.disconnect();
-    };
+    socket.emit('join_poll', `poll_users_${poll.code}`);
+    return () => socket.disconnect();
   }, [poll?.code]);
 
   const handleOptionSelect = (qIndex, option) => {
@@ -201,47 +189,13 @@ export default function StudentPoll() {
             </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeIn 0.5s ease-out', width: '100%' }}>
-            <div style={{ background: '#ecfdf5', color: '#059669', padding: '12px 24px', borderRadius: '50px', fontWeight: 600, marginBottom: '4rem', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #d1fae5' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', animation: 'fadeIn 0.5s ease-out', width: '100%', padding: '2rem 0' }}>
+            <div style={{ background: '#ecfdf5', color: '#059669', padding: '12px 24px', borderRadius: '50px', fontWeight: 600, marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '8px', border: '1px solid #d1fae5' }}>
               <span style={{ fontSize: '1.2rem' }}>✓</span> Your response has been submitted
             </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '5rem', width: '100%' }}>
-              {poll.questions.map((q, qIndex) => (
-                <div key={qIndex} style={{ width: '100%' }}>
-                  <h3 style={{ color: '#1e293b', fontSize: '1.2rem', marginBottom: '2rem', textAlign: 'center', fontWeight: 600 }}>
-                    {qIndex + 1}. {q.text}
-                  </h3>
-                  <div style={{ width: '100%', height: '320px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={chartData[qIndex] || []}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={110}
-                          innerRadius={60}
-                          dataKey="value"
-                          nameKey="name"
-                          labelLine={false}
-                          label={({ name, percent }) => percent > 0 ? `${name} (${(percent * 100).toFixed(0)}%)` : ''}
-                          animationBegin={0}
-                          animationDuration={800}
-                        >
-                          {(chartData[qIndex] || []).map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ background: '#fff', border: 'none', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', padding: '10px' }}
-                          itemStyle={{ color: '#1e293b' }}
-                        />
-                        <Legend verticalAlign="bottom" height={40} wrapperStyle={{ color: '#64748b', fontSize: '0.9rem' }}/>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              ))}
+            <div style={{ background: '#f0f9ff', border: '1px solid #e0f2fe', padding: '2rem', borderRadius: '16px', textAlign: 'center', maxWidth: '500px' }}>
+              <h2 style={{ color: '#0369a1', fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 700 }}>Thank you!</h2>
+              <p style={{ color: '#0ea5e9', fontSize: '1.1rem', fontWeight: 500, lineHeight: 1.5 }}>Participation level: Excellent—let’s keep the streak alive!</p>
             </div>
           </div>
         )}

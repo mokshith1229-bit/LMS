@@ -106,7 +106,7 @@ export default function PresentationMode() {
           if (!data.isExpired) {
             // Connect socket only when entering poll view
             const socket = io(API_BASE);
-            socket.emit('join_poll', poll.code);
+            socket.emit('join_poll', `poll_admin_${poll.code}`);
             socket.on('poll_update', d => setChartData(d));
             setSocketRef(socket);
           }
