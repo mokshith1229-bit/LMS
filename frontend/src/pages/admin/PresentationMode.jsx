@@ -97,20 +97,24 @@ export default function PresentationMode() {
         if (!data.success) return;
 
         const poll = data.poll;
-        setActivePoll(poll);
+        setActivePoll({ ...poll, isExpired: data.isExpired });
         setChartData(data.results);
 
         // Delayed start: Show slide for 2s first
         autoStartTimer.current = setTimeout(() => {
           setMode('poll');
-          // Connect socket only when entering poll view
-          const socket = io(API_BASE);
-          socket.emit('join_poll', poll.code);
-          socket.on('poll_update', d => setChartData(d));
-          setSocketRef(socket);
+          if (!data.isExpired) {
+            // Connect socket only when entering poll view
+            const socket = io(API_BASE);
+            socket.emit('join_poll', poll.code);
+            socket.on('poll_update', d => setChartData(d));
+            setSocketRef(socket);
+          }
         }, 2000);
 
-        if (!data.reused) {
+        if (data.isExpired) {
+          toast('Poll has expired. Showing final results.', { icon: '⚠️', duration: 3000 });
+        } else if (!data.reused) {
           toast.success(`Poll "${poll.title}" ready! (Starting in 2s)`, { icon: '📊', duration: 2500 });
         }
       } catch (err) {
@@ -394,11 +398,17 @@ export default function PresentationMode() {
               style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '5rem 4rem 2rem 4rem', position: 'relative' }}
             >
               {/* Join bar */}
-              <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-                <span style={{ color: '#64748b', fontWeight: 500 }}>Join at <strong style={{ color: '#1e293b' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</strong></span>
-                <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
-                <span style={{ color: '#64748b', fontWeight: 500 }}>Code: <strong style={{ color: '#8DC63F', fontSize: '1.1rem' }}>{activePoll.code}</strong></span>
-              </div>
+              {!activePoll.isExpired ? (
+                <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+                  <span style={{ color: '#64748b', fontWeight: 500 }}>Join at <strong style={{ color: '#1e293b' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</strong></span>
+                  <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
+                  <span style={{ color: '#64748b', fontWeight: 500 }}>Code: <strong style={{ color: '#8DC63F', fontSize: '1.1rem' }}>{activePoll.code}</strong></span>
+                </div>
+              ) : (
+                <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+                  <span style={{ color: '#ef4444', fontWeight: 700 }}>Expired Poll - Final Results</span>
+                </div>
+              )}
 
               {/* Question */}
               <div style={{ flex: 1, background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -435,50 +445,54 @@ export default function PresentationMode() {
               </div>
 
               {/* QR Code Overlay (Fullscreen when expanded) */}
-              <AnimatePresence>
-                {qrExpanded && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    onClick={() => setQrExpanded(false)}
-                    style={{
-                      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-                      zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      cursor: 'zoom-out'
-                    }}
-                  >
+              {!activePoll.isExpired && (
+                <AnimatePresence>
+                  {qrExpanded && (
                     <motion.div
-                      initial={{ scale: 0.5 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0.5 }}
-                      style={{ background: '#fff', padding: '3rem', borderRadius: '32px', textAlign: 'center' }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      onClick={() => setQrExpanded(false)}
+                      style={{
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
+                        zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'zoom-out'
+                      }}
                     >
-                      <QRCodeSVG value={pollUrl} size={400} />
-                      <div style={{ marginTop: '2rem', color: '#1e293b', fontWeight: 800, fontSize: '2rem' }}>SCAN TO VOTE</div>
-                      <div style={{ color: '#64748b', fontSize: '1.2rem', marginTop: '0.5rem' }}>Join code: <strong style={{ color: '#8DC63F' }}>{activePoll.code}</strong></div>
+                      <motion.div
+                        initial={{ scale: 0.5 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0.5 }}
+                        style={{ background: '#fff', padding: '3rem', borderRadius: '32px', textAlign: 'center' }}
+                      >
+                        <QRCodeSVG value={pollUrl} size={400} />
+                        <div style={{ marginTop: '2rem', color: '#1e293b', fontWeight: 800, fontSize: '2rem' }}>SCAN TO VOTE</div>
+                        <div style={{ color: '#64748b', fontSize: '1.2rem', marginTop: '0.5rem' }}>Join code: <strong style={{ color: '#8DC63F' }}>{activePoll.code}</strong></div>
+                      </motion.div>
                     </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  )}
+                </AnimatePresence>
+              )}
 
               {/* Small QR (Bottom Right) */}
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.4 }}
-                onClick={() => setQrExpanded(true)}
-                style={{
-                  position: 'absolute', bottom: '2.5rem', right: '2.5rem',
-                  background: '#fff', padding: '1rem', borderRadius: 16,
-                  border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                  cursor: 'zoom-in', zIndex: 100
-                }}
-              >
-                <QRCodeSVG value={pollUrl} size={120} />
-                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', letterSpacing: 1 }}>CLICK TO EXPAND</span>
-              </motion.div>
+              {!activePoll.isExpired && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                  onClick={() => setQrExpanded(true)}
+                  style={{
+                    position: 'absolute', bottom: '2.5rem', right: '2.5rem',
+                    background: '#fff', padding: '1rem', borderRadius: 16,
+                    border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+                    cursor: 'zoom-in', zIndex: 100
+                  }}
+                >
+                  <QRCodeSVG value={pollUrl} size={120} />
+                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', letterSpacing: 1 }}>CLICK TO EXPAND</span>
+                </motion.div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

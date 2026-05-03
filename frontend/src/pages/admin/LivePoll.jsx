@@ -44,9 +44,9 @@ export default function LivePoll() {
 
   const viewPoll = async (poll) => {
     try {
-      const { data } = await api.get(`/poll/${poll.code}`);
+      const { data } = await api.get(`/poll/admin/single/${poll._id}`);
       if (data.success) {
-        setActivePoll(data.poll);
+        setActivePoll({ ...data.poll, isExpired: poll.isExpired });
         setChartData(data.results);
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
@@ -142,6 +142,22 @@ export default function LivePoll() {
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to delete poll');
+    }
+  };
+
+  const handleDownloadExcel = async (pollId, pollCode) => {
+    try {
+      const response = await api.get(`/poll/${pollId}/export`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `poll-${pollCode}-results.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      toast.error('Failed to download Excel report');
     }
   };
 
@@ -318,28 +334,49 @@ export default function LivePoll() {
             ) : (
               /* ── Active Poll Card ── */
               <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.5rem' }}>{activePoll.title}</h1>
-                <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: 'var(--accent)' }}>
-                  Join at: {pollUrl}
-                </h2>
-                <div style={{ background: '#fff', padding: '20px', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-                  <QRCodeSVG id="poll-qr-code" value={pollUrl} size={200} />
+                <h1 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+                  {activePoll.title}
+                  {activePoll.isExpired && (
+                    <span style={{ marginLeft: '10px', background: '#ef4444', color: '#fff', fontSize: '0.8rem', padding: '4px 8px', borderRadius: '4px', verticalAlign: 'middle' }}>Expired</span>
+                  )}
+                </h1>
+                
+                {!activePoll.isExpired ? (
+                  <>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', color: 'var(--accent)' }}>
+                      Join at: {pollUrl}
+                    </h2>
+                    <div style={{ background: '#fff', padding: '20px', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+                      <QRCodeSVG id="poll-qr-code" value={pollUrl} size={200} />
+                    </div>
+                    <button onClick={downloadQRCode} className="btn btn-secondary" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.9rem' }}>
+                      📥 Download QR Code
+                    </button>
+                    <div style={{ marginTop: '2rem' }}>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Or use join code:</p>
+                      <h1 style={{ fontSize: '3rem', letterSpacing: '8px', color: 'var(--text)', marginTop: '0.5rem' }}>
+                        {activePoll.code}
+                      </h1>
+                      <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '1rem', fontWeight: 500 }}>
+                        ⚠️ This poll and QR code will expire 24 hours after creation.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ marginTop: '2rem', padding: '2rem', background: 'rgba(239,68,68,0.05)', borderRadius: '12px', border: '1px dashed #ef4444' }}>
+                    <p style={{ color: '#ef4444', fontSize: '1.1rem', fontWeight: 'bold' }}>This poll has expired.</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '0.5rem' }}>It is no longer accepting new responses, but you can still view the results and download the report.</p>
+                  </div>
+                )}
+                
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+                  <button className="btn btn-primary" onClick={() => handleDownloadExcel(activePoll._id, activePoll.code)}>
+                    Download Excel
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => setActivePoll(null)}>
+                    End Poll &amp; Create New
+                  </button>
                 </div>
-                <button onClick={downloadQRCode} className="btn btn-secondary" style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.9rem' }}>
-                  📥 Download QR Code
-                </button>
-                <div style={{ marginTop: '2rem' }}>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Or use join code:</p>
-                  <h1 style={{ fontSize: '3rem', letterSpacing: '8px', color: 'var(--text)', marginTop: '0.5rem' }}>
-                    {activePoll.code}
-                  </h1>
-                  <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '1rem', fontWeight: 500 }}>
-                    ⚠️ This poll and QR code will expire 10 hours after creation.
-                  </p>
-                </div>
-                <button className="btn btn-secondary" style={{ marginTop: '2rem' }} onClick={() => setActivePoll(null)}>
-                  End Poll &amp; Create New
-                </button>
               </div>
             )}
 
@@ -421,6 +458,9 @@ export default function LivePoll() {
                           <td style={{ padding: '1rem', display: 'flex', gap: '8px' }}>
                             <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={() => viewPoll(poll)}>
                               View Results &amp; QR
+                            </button>
+                            <button className="btn btn-success" style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#10b981', color: 'white', border: 'none' }} onClick={() => handleDownloadExcel(poll._id, poll.code)}>
+                              Download Excel
                             </button>
                             <button
                               className="btn btn-danger"

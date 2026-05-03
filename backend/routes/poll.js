@@ -3,10 +3,13 @@ const router = express.Router();
 const Poll = require('../models/Poll');
 const { protect } = require('../middleware/auth');
 
-// 10 hours in milliseconds
-const EXPIRATION_TIME = 10 * 60 * 60 * 1000;
+// 24 hours in milliseconds
+const EXPIRATION_TIME = 24 * 60 * 60 * 1000;
 
 const checkExpiration = (poll) => {
+  if (poll.expiresAt) {
+    return Date.now() > new Date(poll.expiresAt).getTime();
+  }
   const elapsed = Date.now() - new Date(poll.createdAt).getTime();
   return elapsed > EXPIRATION_TIME;
 };
@@ -45,6 +48,7 @@ router.post('/create', protect, async (req, res) => {
       code,
       isActive: true,
       creator: req.user._id,
+      expiresAt: new Date(Date.now() + EXPIRATION_TIME),
       responses: []
     });
 
@@ -67,7 +71,7 @@ router.get('/:code', async (req, res) => {
     }
 
     if (checkExpiration(poll)) {
-      return res.status(410).json({ success: false, message: 'This poll has expired (10-hour limit)' });
+      return res.status(410).json({ success: false, message: 'This poll has expired (24-hour limit)' });
     }
 
     // Format response data for initial pie chart load (array of arrays)
@@ -105,7 +109,7 @@ router.post('/respond', async (req, res) => {
     }
 
     if (checkExpiration(poll)) {
-      return res.status(410).json({ success: false, message: 'This poll has expired and is no longer accepting responses.' });
+      return res.status(410).json({ success: false, message: 'Poll expired' });
     }
 
     // Check if user already responded
@@ -155,6 +159,31 @@ router.get('/admin/all', protect, async (req, res) => {
     res.json({ success: true, polls: pollsWithStatus });
   } catch (error) {
     console.error('Error fetching all polls:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   GET /api/poll/admin/single/:id
+// @desc    Get poll details for admin (bypasses expiration check)
+// @access  Private
+router.get('/admin/single/:id', protect, async (req, res) => {
+  try {
+    const poll = await Poll.findById(req.params.id);
+    if (!poll) return res.status(404).json({ success: false, message: 'Poll not found' });
+
+    const results = poll.questions.map((q, qIndex) => {
+      return q.options.map(opt => ({
+        name: opt,
+        value: poll.responses.reduce((acc, r) => {
+          const answer = r.answers.find(a => a.questionIndex === qIndex);
+          return acc + (answer && answer.selectedOption === opt ? 1 : 0);
+        }, 0)
+      }));
+    });
+
+    res.json({ success: true, poll, results });
+  } catch (error) {
+    console.error('Error fetching admin poll:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -213,6 +242,20 @@ router.post('/activate/:id', protect, async (req, res) => {
       return res.json({ success: true, poll, results, reused: true });
     }
 
+    if (expired) {
+      // Do not reactivate and wipe responses. Just return expired poll data.
+      const results = poll.questions.map((q, qi) =>
+        q.options.map(opt => ({
+          name: opt,
+          value: poll.responses.reduce((acc, r) => {
+            const ans = r.answers.find(a => a.questionIndex === qi);
+            return acc + (ans && ans.selectedOption === opt ? 1 : 0);
+          }, 0)
+        }))
+      );
+      return res.json({ success: true, poll, results, reused: true, isExpired: true });
+    }
+
     // Reactivate: generate fresh code & reset state
     let code = generateCode();
     let existing = await Poll.findOne({ code, isActive: true });
@@ -225,6 +268,7 @@ router.post('/activate/:id', protect, async (req, res) => {
     poll.isActive = true;
     poll.responses = [];
     poll.createdAt = new Date(); // reset expiration window
+    poll.expiresAt = new Date(Date.now() + EXPIRATION_TIME);
     await poll.save();
 
     const results = poll.questions.map(q =>
@@ -234,6 +278,49 @@ router.post('/activate/:id', protect, async (req, res) => {
     res.json({ success: true, poll, results, reused: false });
   } catch (err) {
     console.error('[activate poll]', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   GET /api/poll/:id/export
+// @desc    Export poll results to Excel
+// @access  Private
+router.get('/:id/export', protect, async (req, res) => {
+  try {
+    const poll = await Poll.findById(req.params.id);
+    if (!poll) return res.status(404).json({ success: false, message: 'Poll not found' });
+
+    const ExcelJS = require('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    
+    poll.questions.forEach((q, qIndex) => {
+      const sheet = workbook.addWorksheet(`Question ${qIndex + 1}`);
+      
+      const headerRow = ['Student Name', 'Correct Answers'];
+      q.options.forEach((_, optIdx) => headerRow.push(`Option ${optIdx + 1}`));
+      sheet.addRow(headerRow);
+      
+      const correctRow = ['', ''];
+      q.options.forEach(opt => correctRow.push(opt));
+      sheet.addRow(correctRow);
+      
+      poll.responses.forEach(response => {
+        const row = [response.userKey, 'N/A'];
+        const ans = response.answers.find(a => a.questionIndex === qIndex);
+        q.options.forEach(opt => {
+          row.push(ans && ans.selectedOption === opt ? '1' : '0');
+        });
+        sheet.addRow(row);
+      });
+    });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="poll-${poll.code}-results.xlsx"`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error('Error exporting poll:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
