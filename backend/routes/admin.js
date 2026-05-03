@@ -62,6 +62,52 @@ router.post('/assign', async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/results/batch/:batchId
+// @desc    Get results separated by batch
+// @access  Admin only
+router.get('/results/batch/:batchId', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(batchId)) {
+      return res.status(400).json({ success: false, message: 'Invalid batchId' });
+    }
+
+    const submissions = await Submission.find({ batchId })
+      .populate('userId', 'email name')
+      .populate({
+        path: 'quizId',
+        select: 'title courseId',
+        populate: { path: 'courseId', select: 'title' }
+      })
+      .sort({ submittedAt: -1 })
+      .lean();
+
+    const results = submissions.map((sub) => {
+      return {
+        submissionId: sub._id.toString(),
+        userName: sub.userId?.name || 'Unknown',
+        userEmail: sub.userId?.email || '',
+        quizTitle: sub.quizId?.title || 'Unknown',
+        courseTitle: sub.quizId?.courseId?.title || '',
+        correct: sub.correct,
+        wrong: sub.wrong,
+        unattempted: sub.unattempted,
+        total: sub.correct + sub.wrong + sub.unattempted,
+        percentage: sub.percentage,
+        answers: sub.answers,
+        passed: sub.passed,
+        timeTaken: sub.timeTaken,
+        status: sub.status || 'COMPLETED',
+        submittedAt: sub.submittedAt,
+      };
+    });
+
+    res.json({ success: true, results, count: results.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // @route   GET /api/admin/results
 // @desc    Get all submission results with user and quiz info
 // @access  Admin only
@@ -108,41 +154,103 @@ router.get('/results', async (req, res) => {
 // @access  Admin only
 router.get('/results/export', async (req, res) => {
   try {
-    const submissions = await Submission.find({})
+    const { batchId, quizId } = req.query;
+
+    let filter = {};
+    if (batchId && mongoose.Types.ObjectId.isValid(batchId)) filter.batchId = batchId;
+    if (quizId && mongoose.Types.ObjectId.isValid(quizId)) filter.quizId = quizId;
+
+    const submissions = await Submission.find(filter)
       .populate('userId', 'email name')
-      .populate({
-        path: 'quizId',
-        select: 'title courseId',
-        populate: { path: 'courseId', select: 'title' }
-      })
       .sort({ submittedAt: -1 })
       .lean();
 
-    const data = submissions.map((s) => ({
-      'Student Name': s.userId?.name || 'Unknown',
-      'Email': s.userId?.email || '',
-      'Quiz Title': s.quizId?.title || 'Unknown',
-      'Course': s.quizId?.courseId?.title || '',
-      'Correct Answers': s.correct,
-      'Wrong Answers': s.wrong,
-      'Unattempted': s.unattempted,
-      'Total Questions': s.correct + s.wrong + s.unattempted,
-      'Percentage (%)': s.percentage,
-      'Result': s.passed ? 'PASS' : 'FAIL',
-      'Status': s.status || 'COMPLETED',
-      'Time Taken (secs)': s.timeTaken,
-      'Submitted At': s.submittedAt ? new Date(s.submittedAt).toLocaleString() : 'N/A'
-    }));
+    if (!quizId) {
+       return res.status(400).json({ success: false, message: 'quizId is required for detailed export' });
+    }
 
-    const workbook = xlsx.utils.book_new();
-    const worksheet = xlsx.utils.json_to_sheet(data);
-    xlsx.utils.book_append_sheet(workbook, worksheet, 'Assessment Results');
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+       return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
 
-    const buffer = xlsx.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Batch Results');
+
+    // Helper: Map index to Letter (0 -> A, 1 -> B, ...)
+    const getLetter = (index) => {
+      if (index === null || index === undefined || index === '') return '';
+      return String.fromCharCode(65 + parseInt(index));
+    };
+
+    const columns = [{ header: 'Student Name', key: 'studentName', width: 25 }];
+    quiz.questions.forEach((q, idx) => {
+      columns.push({ header: `Q${idx + 1}`, key: `q${idx + 1}`, width: 10 });
+    });
+    columns.push({ header: 'Score', key: 'score', width: 15 });
+    worksheet.columns = columns;
+
+    // Row 2: Correct Answers
+    const correctAnswersRow = { studentName: 'Correct Answers' };
+    const correctLetters = [];
+    
+    quiz.questions.forEach((q, idx) => {
+      let correctIdx = parseInt(q.correctAnswer);
+      if (isNaN(correctIdx)) {
+         correctIdx = q.options.findIndex(opt => 
+            opt && q.correctAnswer && String(opt).trim().toUpperCase() === String(q.correctAnswer).trim().toUpperCase()
+         );
+      }
+      const letter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : String(q.correctAnswer || '');
+      correctLetters.push(letter);
+      correctAnswersRow[`q${idx + 1}`] = letter;
+    });
+    correctAnswersRow.score = '';
+    const row2 = worksheet.addRow(correctAnswersRow);
+
+    row2.eachCell((cell) => {
+      cell.font = { color: { argb: 'FF008000' }, bold: true };
+    });
+
+    submissions.forEach(sub => {
+      const studentRow = {
+        studentName: sub.userId?.name || 'Unknown',
+        score: sub.percentage + '%'
+      };
+      const rowValues = [];
+      quiz.questions.forEach((q, idx) => {
+        const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
+        const userAns = ansObj ? ansObj.selectedOption : null;
+        let userLetter = 'NA';
+        if (userAns !== null && userAns !== undefined && userAns !== '') {
+          let userIdx = parseInt(userAns);
+          if (isNaN(userIdx)) {
+            userIdx = q.options.findIndex(opt => 
+               opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
+            );
+          }
+          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
+        }
+        studentRow[`q${idx + 1}`] = userLetter;
+        rowValues.push({ 
+          text: userLetter, 
+          isCorrect: userLetter.trim().toUpperCase() === correctLetters[idx].trim().toUpperCase() 
+        });
+      });
+
+      const addedRow = worksheet.addRow(studentRow);
+      rowValues.forEach((val, idx) => {
+        if (!val.isCorrect && val.text !== 'NA') {
+          const cell = addedRow.getCell(idx + 2);
+          cell.font = { color: { argb: 'FFFF0000' } };
+        }
+      });
+    });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=LMS_Assessment_Results.xlsx');
-    res.send(buffer);
+    res.setHeader('Content-Disposition', 'attachment; filename=batch-results.xlsx');
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -62,6 +62,8 @@ app.use('/api/quiz', require('./routes/quiz'));
 app.use('/api/submit', require('./routes/submit'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/assignments', require('./routes/assignments'));
+app.use('/api/assignment', require('./routes/batchAssignment'));
+app.use('/api/batch', require('./routes/batch'));
 app.use('/api/poll', require('./routes/poll'));
 app.use('/api/presentation', require('./routes/presentation'));
 

@@ -12,6 +12,10 @@ const submissionSchema = new mongoose.Schema({
     required: true,
     index: true,
   },
+  batchId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Batch',
+  },
   answers: [
     {
       questionId: {

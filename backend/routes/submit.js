@@ -3,6 +3,8 @@ const router = express.Router();
 const Submission = require('../models/Submission');
 const Quiz = require('../models/Quiz');
 const Assignment = require('../models/Assignment');
+const Batch = require('../models/Batch');
+const BatchAssignment = require('../models/BatchAssignment');
 const mongoose = require('mongoose');
 const demoStore = require('./demoStore');
 const { protect } = require('../middleware/auth');
@@ -77,16 +79,30 @@ router.post('/', protect, async (req, res) => {
 
     // === ASSIGNMENT CHECK (only for real DB, non-demo) ===
     let assignment = null;
+    let batchAssigned = null;
+    
     if (isDbConnected && !isDemo && mongoose.Types.ObjectId.isValid(quizId)) {
       assignment = await Assignment.findOne({ userId, quizId });
 
       if (!assignment) {
-        return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
-      }
+        // Check batch assignment
+        const userBatches = await Batch.find({ users: userId }).select('_id');
+        const batchIds = userBatches.map(b => b._id);
+        
+        batchAssigned = await BatchAssignment.findOne({
+          quizId,
+          batchId: { $in: batchIds },
+          isActive: true
+        });
 
-      // Prevent multiple submissions if manually requested, but allow autoSubmit to finalize
-      if ((assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') && !autoSubmit) {
-        return res.status(400).json({ success: false, message: 'You have already submitted this assessment' });
+        if (!batchAssigned) {
+          return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
+        }
+      } else {
+        // Prevent multiple submissions if manually requested, but allow autoSubmit to finalize
+        if ((assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') && !autoSubmit) {
+          return res.status(400).json({ success: false, message: 'You have already submitted this assessment' });
+        }
       }
     }
 
@@ -141,14 +157,20 @@ router.post('/', protect, async (req, res) => {
     let savedSubmission = null;
     if (isDbConnected && !isDemo) {
       // Find and update, or create if not exists
+      const submissionData = {
+        userId,
+        quizId,
+        answers: result.formattedAnswers,
+        ...stats
+      };
+      
+      if (batchAssigned) {
+        submissionData.batchId = batchAssigned.batchId;
+      }
+
       savedSubmission = await Submission.findOneAndUpdate(
         { userId, quizId },
-        {
-          userId,
-          quizId,
-          answers: result.formattedAnswers,
-          ...stats
-        },
+        submissionData,
         { new: true, upsert: true }
       );
 

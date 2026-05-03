@@ -16,6 +16,7 @@ import AssignQuiz from './pages/admin/AssignQuiz';
 import AdminResults from './pages/admin/Results';
 import AdminSubmissionView from './pages/admin/AdminSubmissionView';
 import DetailedReports from './pages/admin/DetailedReports';
+import BatchManagement from './pages/admin/BatchManagement';
 import LivePoll from './pages/admin/LivePoll';
 import Presentations from './pages/admin/Presentations';
 import PresentationSetup from './pages/admin/PresentationSetup';
@@ -98,6 +99,10 @@ function App() {
           <Route
             path="/admin/detailed-reports"
             element={<ProtectedRoute role="admin"><DetailedReports /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/batch-management"
+            element={<ProtectedRoute role="admin"><BatchManagement /></ProtectedRoute>}
           />
           <Route
             path="/admin/polls"

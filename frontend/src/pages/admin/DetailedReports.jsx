@@ -6,6 +6,7 @@ import { Download, Loader2, FileSpreadsheet, Users, ArrowLeft } from 'lucide-rea
 
 export default function DetailedReports() {
   const [quizzes, setQuizzes] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // New States for Workflow
@@ -15,17 +16,22 @@ export default function DetailedReports() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [downloading, setDownloading] = useState(false);
   const [filterTitle, setFilterTitle] = useState('');
+  const [filterBatch, setFilterBatch] = useState('');
 
   useEffect(() => {
-    loadQuizzes();
+    loadInitialData();
   }, []);
 
-  const loadQuizzes = async () => {
+  const loadInitialData = async () => {
     try {
-      const { data } = await api.get('/quiz');
-      setQuizzes(Array.isArray(data) ? data : data.quizzes || []);
+      const [quizRes, batchRes] = await Promise.all([
+        api.get('/quiz'),
+        api.get('/batch')
+      ]);
+      setQuizzes(Array.isArray(quizRes.data) ? quizRes.data : quizRes.data.quizzes || []);
+      setBatches(batchRes.data.batches || []);
     } catch {
-      toast.error('Failed to load quizzes');
+      toast.error('Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -37,10 +43,14 @@ export default function DetailedReports() {
     setSelectedIds(new Set());
     
     try {
-      // Fetch all submissions, we will filter for this quiz
-      const { data } = await api.get('/admin/results');
+      let endpoint = '/admin/results';
+      if (filterBatch) {
+        endpoint = `/admin/results/batch/${filterBatch}`;
+      }
+      
+      const { data } = await api.get(endpoint);
       if (data.success) {
-        // results is an array of mapped submission objects
+        // filter for this quiz
         const filtered = data.results.filter(r => r.quizTitle === quiz.title);
         setSubmissions(filtered);
       }
@@ -117,17 +127,30 @@ export default function DetailedReports() {
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Select an Assessment</h2>
-                <select 
-                  className="input"
-                  value={filterTitle}
-                  onChange={(e) => setFilterTitle(e.target.value)}
-                  style={{ width: 250, padding: '8px 12px', fontSize: '0.9rem' }}
-                >
-                  <option value="">All Assessments</option>
-                  {[...new Set(quizzes.map(q => q.title))].sort().map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <select 
+                    className="input"
+                    value={filterBatch}
+                    onChange={(e) => setFilterBatch(e.target.value)}
+                    style={{ width: 200, padding: '8px 12px', fontSize: '0.9rem' }}
+                  >
+                    <option value="">All Batches</option>
+                    {batches.map(b => (
+                      <option key={b._id} value={b._id}>{b.name}</option>
+                    ))}
+                  </select>
+                  <select 
+                    className="input"
+                    value={filterTitle}
+                    onChange={(e) => setFilterTitle(e.target.value)}
+                    style={{ width: 250, padding: '8px 12px', fontSize: '0.9rem' }}
+                  >
+                    <option value="">All Assessments</option>
+                    {[...new Set(quizzes.map(q => q.title))].sort().map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
               {loading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>

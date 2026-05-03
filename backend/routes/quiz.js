@@ -4,6 +4,9 @@ const Quiz = require('../models/Quiz');
 const Course = require('../models/Course');
 const Module = require('../models/Module');
 const Assignment = require('../models/Assignment');
+const Submission = require('../models/Submission');
+const Batch = require('../models/Batch');
+const BatchAssignment = require('../models/BatchAssignment');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const mongoose = require('mongoose');
@@ -124,21 +127,48 @@ router.get('/:quizId', protect, async (req, res) => {
 
     // === ASSIGNMENT CHECK (real DB only) ===
     if (mongoose.Types.ObjectId.isValid(quizId) && req.user.role === 'student') {
-      const assignment = await Assignment.findOne({ userId, quizId });
+      let assignment = await Assignment.findOne({ userId, quizId });
+
       if (!assignment) {
-        return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
-      }
+        // Check batch assignment
+        const userBatches = await Batch.find({ users: userId }).select('_id');
+        const batchIds = userBatches.map(b => b._id);
+        
+        const batchAssigned = await BatchAssignment.findOne({
+          quizId,
+          batchId: { $in: batchIds },
+          isActive: true
+        });
 
-      // Prevent retaking a completed/terminated quiz
-      if (assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') {
-        return res.status(400).json({ success: false, message: 'You have already completed this assessment' });
-      }
+        if (!batchAssigned) {
+          return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
+        }
 
-      // Transition NOT_STARTED → IN_PROGRESS
-      if (assignment.status === 'NOT_STARTED') {
-        assignment.status = 'IN_PROGRESS';
-        assignment.startedAt = new Date();
-        await assignment.save();
+        const now = new Date();
+        if (now < new Date(batchAssigned.startTime)) {
+          return res.status(403).json({ success: false, message: 'This quiz is scheduled for a future time' });
+        }
+        if (now > new Date(batchAssigned.endTime)) {
+          return res.status(403).json({ success: false, message: 'The schedule for this quiz has expired' });
+        }
+
+        // Check if already submitted
+        const submission = await Submission.findOne({ userId, quizId, batchId: batchAssigned.batchId });
+        if (submission && (submission.status === 'COMPLETED' || submission.status === 'TERMINATED')) {
+          return res.status(400).json({ success: false, message: 'You have already completed this assessment' });
+        }
+      } else {
+        // Prevent retaking a completed/terminated individual quiz
+        if (assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') {
+          return res.status(400).json({ success: false, message: 'You have already completed this assessment' });
+        }
+
+        // Transition NOT_STARTED → IN_PROGRESS
+        if (assignment.status === 'NOT_STARTED') {
+          assignment.status = 'IN_PROGRESS';
+          assignment.startedAt = new Date();
+          await assignment.save();
+        }
       }
     }
 
@@ -235,38 +265,11 @@ router.post('/parse-excel', upload.single('file'), async (req, res) => {
       return { ...q, correctAnswer: correctIndex };
     });
 
-    if (mongoose.connection.readyState !== 1) {
-      console.log('MongoDB Offline. Saving to Simulation Storage.');
-      const newQuiz = {
-        _id: 'demo_uploaded_' + Date.now(),
-        title: 'Uploaded Quiz (Simulation)',
-        duration: 3600,
-        questions: questionsForFrontend.map((q, i) => ({ ...q, _id: 'q_' + i })),
-        createdAt: new Date(),
-      };
-      demoStore.quizzes.push(newQuiz);
-      return res.status(201).json({ 
-        success: true, 
-        quiz: newQuiz, 
-        questions: questionsForFrontend, 
-        count: questionsForFrontend.length,
-        message: 'Quiz created successfully (Simulation Mode)' 
-      });
-    }
-
-    const newQuiz = await Quiz.create({
-      title: 'Uploaded Quiz',
-      duration: 3600, // Default to 1 hour for uploads
-      questions: questionsForFrontend // Save as indices (will be cast to strings "0", "1" etc in DB)
-    });
-
-    console.log('Quiz saved to MongoDB successfully');
-    res.status(201).json({ 
+    res.status(200).json({ 
       success: true, 
-      quiz: newQuiz, 
       questions: questionsForFrontend, 
       count: questionsForFrontend.length,
-      message: 'Quiz created successfully' 
+      message: 'Questions parsed successfully' 
     });
   } catch (error) {
     console.error('Excel Parse Error:', error);
@@ -303,17 +306,45 @@ router.get('/single/:quizId', protect, async (req, res) => {
 
     // === ASSIGNMENT CHECK for students (real DB) ===
     if (mongoose.Types.ObjectId.isValid(quizId) && req.user.role === 'student') {
-      const assignment = await Assignment.findOne({ userId, quizId });
+      let assignment = await Assignment.findOne({ userId, quizId });
+
       if (!assignment) {
-        return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
-      }
-      if (assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') {
-        return res.status(400).json({ success: false, message: 'You have already completed this assessment' });
-      }
-      if (assignment.status === 'NOT_STARTED') {
-        assignment.status = 'IN_PROGRESS';
-        assignment.startedAt = new Date();
-        await assignment.save();
+        // Check batch assignment
+        const userBatches = await Batch.find({ users: userId }).select('_id');
+        const batchIds = userBatches.map(b => b._id);
+        
+        const batchAssigned = await BatchAssignment.findOne({
+          quizId,
+          batchId: { $in: batchIds },
+          isActive: true
+        });
+
+        if (!batchAssigned) {
+          return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
+        }
+
+        const now = new Date();
+        if (now < new Date(batchAssigned.startTime)) {
+          return res.status(403).json({ success: false, message: 'This quiz is scheduled for a future time' });
+        }
+        if (now > new Date(batchAssigned.endTime)) {
+          return res.status(403).json({ success: false, message: 'The schedule for this quiz has expired' });
+        }
+
+        // Check if already submitted
+        const submission = await Submission.findOne({ userId, quizId, batchId: batchAssigned.batchId });
+        if (submission && (submission.status === 'COMPLETED' || submission.status === 'TERMINATED')) {
+          return res.status(400).json({ success: false, message: 'You have already completed this assessment' });
+        }
+      } else {
+        if (assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') {
+          return res.status(400).json({ success: false, message: 'You have already completed this assessment' });
+        }
+        if (assignment.status === 'NOT_STARTED') {
+          assignment.status = 'IN_PROGRESS';
+          assignment.startedAt = new Date();
+          await assignment.save();
+        }
       }
     }
 
