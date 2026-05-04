@@ -21,6 +21,7 @@ import LivePoll from './pages/admin/LivePoll';
 import Presentations from './pages/admin/Presentations';
 import PresentationSetup from './pages/admin/PresentationSetup';
 import PresentationMode from './pages/admin/PresentationMode';
+import AdminAnalytics from './pages/admin/AdminAnalytics';
 
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard';
@@ -120,6 +121,10 @@ function App() {
           <Route
             path="/admin/presentations/:id/present"
             element={<ProtectedRoute role="admin"><PresentationMode /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/analytics"
+            element={<ProtectedRoute role="admin"><AdminAnalytics /></ProtectedRoute>}
           />
 
           {/* Student Routes */}

@@ -5,6 +5,7 @@ const User = require('../models/User');
 const Quiz = require('../models/Quiz');
 const Assignment = require('../models/Assignment');
 const Submission = require('../models/Submission');
+const Batch = require('../models/Batch');
 const { protect } = require('../middleware/auth');
 const { checkRole } = require('../middleware/role');
 const xlsx = require('xlsx');
@@ -586,6 +587,127 @@ router.post('/export/detailed/:quizId', async (req, res) => {
     res.end();
   } catch (error) {
     console.error('Detailed Export Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/admin/analytics
+// @desc    Get analytics for a specific batch and quiz
+// @access  Admin only
+router.get('/analytics', async (req, res) => {
+  try {
+    const { batchId, quizId } = req.query;
+
+    if (!batchId || !mongoose.Types.ObjectId.isValid(batchId)) {
+      return res.status(400).json({ success: false, message: 'Invalid or missing batchId' });
+    }
+    if (!quizId || !mongoose.Types.ObjectId.isValid(quizId)) {
+      return res.status(400).json({ success: false, message: 'Invalid or missing quizId' });
+    }
+
+    const batch = await Batch.findById(batchId);
+    if (!batch) {
+      return res.status(404).json({ success: false, message: 'Batch not found' });
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    const submissions = await Submission.find({ batchId, quizId })
+      .populate('userId', 'name')
+      .lean();
+
+    const totalStudents = batch.users ? batch.users.length : 0;
+    const completedStudents = submissions.length;
+    const completionRate = totalStudents > 0 ? (completedStudents / totalStudents) * 100 : 0;
+
+    let averageScore = 0;
+    let highestScore = 0;
+    const studentScores = [];
+
+    if (completedStudents > 0) {
+      const totalScore = submissions.reduce((sum, sub) => sum + sub.percentage, 0);
+      averageScore = totalScore / completedStudents;
+      highestScore = Math.max(...submissions.map(s => s.percentage));
+    }
+
+    submissions.forEach(sub => {
+      studentScores.push({
+        name: sub.userId?.name || 'Unknown',
+        score: sub.percentage
+      });
+    });
+
+    const getLetter = (index) => {
+      if (index === null || index === undefined || index === '') return '';
+      return String.fromCharCode(65 + parseInt(index));
+    };
+
+    const questions = quiz.questions.map((q) => {
+      let correctIdx = parseInt(q.correctAnswer);
+      if (isNaN(correctIdx)) {
+         correctIdx = q.options.findIndex(opt => 
+            opt && q.correctAnswer && String(opt).trim().toUpperCase() === String(q.correctAnswer).trim().toUpperCase()
+         );
+      }
+      const correctLetter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : String(q.correctAnswer || '');
+
+      let correctCount = 0;
+      const optionCounts = {};
+      
+      q.options.forEach((opt, idx) => {
+        optionCounts[getLetter(idx)] = 0;
+      });
+      optionCounts['NA'] = 0;
+
+      submissions.forEach(sub => {
+        const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
+        const userAns = ansObj ? ansObj.selectedOption : null;
+        let userLetter = 'NA';
+
+        if (userAns !== null && userAns !== undefined && userAns !== '') {
+          let userIdx = parseInt(userAns);
+          if (isNaN(userIdx)) {
+            userIdx = q.options.findIndex(opt => 
+               opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
+            );
+          }
+          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
+        }
+
+        if (userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase() && userLetter !== 'NA') {
+          correctCount++;
+        }
+
+        if (optionCounts[userLetter] !== undefined) {
+          optionCounts[userLetter]++;
+        } else {
+          optionCounts[userLetter] = 1;
+        }
+      });
+
+      const accuracy = completedStudents > 0 ? (correctCount / completedStudents) * 100 : 0;
+
+      return {
+        question: q.question,
+        accuracy: Number(accuracy.toFixed(2)),
+        correctAnswer: correctLetter,
+        optionCounts
+      };
+    });
+
+    res.json({
+      success: true,
+      totalStudents,
+      averageScore: Number(averageScore.toFixed(2)),
+      highestScore,
+      completionRate: Number(completionRate.toFixed(2)),
+      questions,
+      studentScores
+    });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 });

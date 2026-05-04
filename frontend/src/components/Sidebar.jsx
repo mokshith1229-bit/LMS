@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, BookOpen, Upload, ClipboardList,
-  LogOut, Award, UserPlus, BarChart2, ClipboardCheck, FileSpreadsheet, PieChart, MonitorPlay, Users
+  LogOut, Award, UserPlus, BarChart2, ClipboardCheck, FileSpreadsheet, PieChart, MonitorPlay, Users, Activity
 } from 'lucide-react';
 
 const adminLinks = [
@@ -18,6 +18,7 @@ const adminLinks = [
   { to: '/admin/detailed-reports', icon: <FileSpreadsheet size={18} />, label: 'Detailed Reports' },
   { to: '/admin/polls', icon: <PieChart size={18} />, label: 'Live Polls' },
   { to: '/admin/presentations', icon: <MonitorPlay size={18} />, label: 'Presentations' },
+  { to: '/admin/analytics', icon: <Activity size={18} />, label: 'Analytics' },
 ];
 
 const studentLinks = [
