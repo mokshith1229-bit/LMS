@@ -16,7 +16,7 @@ const BackgroundVideo = () => {
         height: '100vh',
         objectFit: 'cover',
         zIndex: -1,
-        opacity: 0.1,
+        opacity: 0.9,
         pointerEvents: 'none'
       }}
     >
