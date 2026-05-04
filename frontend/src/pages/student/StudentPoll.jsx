@@ -117,7 +117,7 @@ export default function StudentPoll() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'transparent', padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', fontFamily: 'Inter, sans-serif' }}>
       
       {/* Brand Header */}
       <div style={{ marginBottom: '3rem', textAlign: 'center' }}>

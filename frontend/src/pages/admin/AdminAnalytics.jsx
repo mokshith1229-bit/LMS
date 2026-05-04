@@ -68,7 +68,7 @@ export default function AdminAnalytics() {
   };
 
   return (
-    <div className="p-8 bg-white min-h-screen font-sans">
+    <div className="p-8 bg-transparent min-h-screen font-sans">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-semibold text-gray-900 mb-8 tracking-tight">Admin Analytics</h1>
         

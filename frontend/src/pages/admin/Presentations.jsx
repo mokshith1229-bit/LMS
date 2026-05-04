@@ -39,7 +39,7 @@ export default function Presentations() {
       toast.error('Title and file are required');
       return;
     }
-    
+
     setUploading(true);
     const ext = file.name.toLowerCase().split('.').pop();
     const isPDF = ext === 'pdf';
@@ -49,7 +49,7 @@ export default function Presentations() {
       if (isPDF) {
         // Client-side PDF to Image conversion for 100% reliability
         const toastId = toast.loading('Processing PDF slides in browser...');
-        
+
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         const formData = new FormData();
@@ -64,11 +64,11 @@ export default function Presentations() {
           canvas.width = viewport.width;
 
           await page.render({ canvasContext: context, viewport }).promise;
-          
+
           const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.8));
           formData.append('slides', blob, `slide-${i}.png`);
           toast.loading(`Processing slide ${i}/${pdf.numPages}...`, { id: toastId });
-          
+
           canvas.width = 0;
           canvas.height = 0;
         }
@@ -159,144 +159,144 @@ export default function Presentations() {
       <main className="main-content">
         <div className="admin-page">
           <div className="admin-header">
-        <h1>Presentations</h1>
-        <p>Upload slides and attach live polls for interactive presentations.</p>
-      </div>
-
-      {/* Upload Card */}
-      <div className="card" style={{ padding: '2rem', marginTop: '2rem', maxWidth: '600px' }}>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>Upload New Presentation</h2>
-        <form onSubmit={handleUpload}>
-          <div className="form-group" style={{ marginBottom: '1rem' }}>
-            <label className="form-label">Presentation Title</label>
-            <input
-              type="text"
-              className="form-input"
-              placeholder="e.g. Q1 Sales Review"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-            />
+            <h1>Presentations</h1>
+            <p>Upload slides and attach live polls for interactive presentations.</p>
           </div>
 
-          <div
-            onDrop={handleDrop}
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onClick={() => document.getElementById('ppt-file-input').click()}
-            style={{
-              border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
-              borderRadius: '12px',
-              padding: '2.5rem',
-              textAlign: 'center',
-              cursor: 'pointer',
-              background: dragOver ? 'rgba(141,198,63,0.05)' : 'transparent',
-              transition: 'all 0.2s'
-            }}
-          >
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📊</div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-              {file ? (
-                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>✓ {file.name}</span>
-              ) : (
-                <>Drag & drop a <strong>.pptx</strong>, <strong>.ppt</strong>, or <strong>.pdf</strong> file here, or click to browse</>
-              )}
-            </p>
-            <input
-              id="ppt-file-input"
-              type="file"
-              accept=".pptx,.ppt,.pdf"
-              style={{ display: 'none' }}
-              onChange={e => setFile(e.target.files[0])}
-            />
-          </div>
-
-          <button
-            type="submit"
-            className="btn btn-primary btn-full"
-            style={{ marginTop: '1.5rem' }}
-            disabled={uploading}
-          >
-            {uploading ? '⏳ Uploading & Processing...' : '🚀 Upload & Convert'}
-          </button>
-        </form>
-      </div>
-
-      {/* Presentations List */}
-      <div style={{ marginTop: '2.5rem' }}>
-        <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>Your Presentations</h2>
-        {loading ? (
-          <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
-        ) : presentations.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No presentations yet. Upload your first one above!</p>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
-            {presentations.map(p => (
-              <div key={p._id} className="card" style={{ padding: '1.5rem', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem' }}>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); startEditing(p); }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                    title="Edit Name"
-                  >
-                    <Edit2 size={16} />
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); handleDeletePresentation(p._id); }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}
-                    title="Delete Presentation"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-
-                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🖼️</div>
-                
-                {editingId === p._id ? (
-                  <div style={{ marginBottom: '0.5rem', display: 'flex', gap: '5px' }}>
-                    <input
-                      type="text"
-                      className="form-input"
-                      style={{ fontSize: '0.9rem', padding: '4px 8px' }}
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      autoFocus
-                    />
-                    <button onClick={() => handleUpdateTitle(p._id)} style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '4px', padding: '4px' }}>
-                      <Check size={16} />
-                    </button>
-                    <button onClick={() => setEditingId(null)} style={{ background: 'var(--bg-secondary)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px' }}>
-                      <X size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <h3 style={{ fontWeight: 700, marginBottom: '0.5rem' }}>{p.title}</h3>
-                )}
-
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                  {p.slides?.length || 0} slide{p.slides?.length !== 1 ? 's' : ''} &bull; Created {new Date(p.createdAt).toLocaleDateString()}
-                </p>
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  <button
-                    className="btn btn-secondary"
-                    style={{ flex: 1, fontSize: '0.85rem' }}
-                    onClick={() => navigate(`/admin/presentations/${p._id}/setup`)}
-                  >
-                    ⚙️ Setup Polls
-                  </button>
-                  <button
-                    className="btn btn-primary"
-                    style={{ flex: 1, fontSize: '0.85rem' }}
-                    onClick={() => navigate(`/admin/presentations/${p._id}/present`)}
-                  >
-                    ▶ Present
-                  </button>
-                </div>
+          {/* Upload Card */}
+          <div className="card" style={{ padding: '2rem', marginTop: '2rem', maxWidth: '600px' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>Upload New Presentation</h2>
+            <form onSubmit={handleUpload}>
+              <div className="form-group" style={{ marginBottom: '1rem' }}>
+                <label className="form-label">Presentation Title</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Q1 Sales Review"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                />
               </div>
-            ))}
+
+              <div
+                onDrop={handleDrop}
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onClick={() => document.getElementById('ppt-file-input').click()}
+                style={{
+                  border: `2px dashed ${dragOver ? 'var(--accent)' : 'var(--border)'}`,
+                  borderRadius: '12px',
+                  padding: '2.5rem',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  background: dragOver ? 'rgba(141,198,63,0.05)' : 'transparent',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📊</div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
+                  {file ? (
+                    <span style={{ color: 'var(--accent)', fontWeight: 600 }}>✓ {file.name}</span>
+                  ) : (
+                    <>Drag & drop a <strong>.pptx</strong>, <strong>.ppt</strong>, or <strong>.pdf</strong> file here, or click to browse</>
+                  )}
+                </p>
+                <input
+                  id="ppt-file-input"
+                  type="file"
+                  accept=".pptx,.ppt,.pdf"
+                  style={{ display: 'none' }}
+                  onChange={e => setFile(e.target.files[0])}
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="btn btn-primary btn-full"
+                style={{ marginTop: '1.5rem' }}
+                disabled={uploading}
+              >
+                {uploading ? '⏳ Uploading & Processing...' : '🚀 Upload & Convert'}
+              </button>
+            </form>
           </div>
-        )}
-      </div>
-      </div>
+
+          {/* Presentations List */}
+          <div style={{ marginTop: '2.5rem' }}>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 'bold', marginBottom: '1.5rem' }}>Your Presentations</h2>
+            {loading ? (
+              <p style={{ color: 'var(--text-muted)' }}>Loading...</p>
+            ) : presentations.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)' }}>No presentations yet. Upload your first one above!</p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                {presentations.map(p => (
+                  <div key={p._id} className="card" style={{ padding: '1.5rem', position: 'relative' }}>
+                    <div style={{ position: 'absolute', top: '1rem', right: '1rem', display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); startEditing(p); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                        title="Edit Name"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeletePresentation(p._id); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}
+                        title="Delete Presentation"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+
+                    <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🖼️</div>
+
+                    {editingId === p._id ? (
+                      <div style={{ marginBottom: '0.5rem', display: 'flex', gap: '5px' }}>
+                        <input
+                          type="text"
+                          className="form-input"
+                          style={{ fontSize: '0.9rem', padding: '4px 8px' }}
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          autoFocus
+                        />
+                        <button onClick={() => handleUpdateTitle(p._id)} style={{ background: 'var(--accent)', color: 'white', border: 'none', borderRadius: '4px', padding: '4px' }}>
+                          <Check size={16} />
+                        </button>
+                        <button onClick={() => setEditingId(null)} style={{ background: 'var(--bg-secondary)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px' }}>
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <h3 style={{ fontWeight: 700, marginBottom: '0.5rem' }}>{p.title}</h3>
+                    )}
+
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                      {p.slides?.length || 0} slide{p.slides?.length !== 1 ? 's' : ''} &bull; Created {new Date(p.createdAt).toLocaleDateString()}
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      <button
+                        className="btn btn-secondary"
+                        style={{ flex: 1, fontSize: '0.85rem' }}
+                        onClick={() => navigate(`/admin/presentations/${p._id}/setup`)}
+                      >
+                        ⚙️ Setup Polls
+                      </button>
+                      <button
+                        className="btn btn-primary"
+                        style={{ flex: 1, fontSize: '0.85rem' }}
+                        onClick={() => navigate(`/admin/presentations/${p._id}/present`)}
+                      >
+                        ▶ Present
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );

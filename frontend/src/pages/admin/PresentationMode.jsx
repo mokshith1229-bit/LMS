@@ -254,7 +254,7 @@ export default function PresentationMode() {
     path?.startsWith('http') ? path : `${API_BASE}${path}`;
 
   return (
-    <div ref={containerRef} style={{ position: 'fixed', inset: 0, background: '#0f0f0f', color: '#fff', overflow: 'hidden', fontFamily: "'Outfit', 'Inter', sans-serif", userSelect: 'none' }}>
+    <div ref={containerRef} style={{ position: 'fixed', inset: 0, background: 'transparent', color: '#fff', overflow: 'hidden', fontFamily: "'Outfit', 'Inter', sans-serif", userSelect: 'none' }}>
 
       {/* ─── TOP TOOLBAR ─────────────────────────────────────────── */}
       <motion.div

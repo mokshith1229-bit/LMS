@@ -202,7 +202,7 @@ export default function AssessmentPage() {
 
   if (!examStarted) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary)', padding: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'transparent', padding: 24 }}>
         <div className="card fade-in" style={{ maxWidth: 600, width: '100%', textAlign: 'center' }}>
           <h1 style={{ marginBottom: 16 }}>Assessment Instructions</h1>
           <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'center' }}>
@@ -253,7 +253,7 @@ export default function AssessmentPage() {
   const notVisited = total - visited.size;
 
   return (
-    <div style={{ background: '#f5f5f5', minHeight: '100vh', position: 'relative' }}>
+    <div style={{ background: 'transparent', minHeight: '100vh', position: 'relative' }}>
       {/* Violation Overlay */}
       {showWarning && (
         <div style={{

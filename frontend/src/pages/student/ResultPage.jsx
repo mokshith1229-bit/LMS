@@ -45,7 +45,7 @@ export default function ResultPage() {
   }, []);
 
   return (
-    <div className="app-layout" style={{ background: '#ffffff', minHeight: '100vh', overflow: 'hidden' }}>
+    <div className="app-layout" style={{ background: 'transparent', minHeight: '100vh', overflow: 'hidden' }}>
       <Sidebar />
 
       <main className="main-content" style={{ position: 'relative', display: 'flex', alignItems: 'center', padding: 0 }}>

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import BackgroundVideo from './components/BackgroundVideo';
 
 // Auth Pages
 import Login from './pages/Login';
@@ -42,6 +43,7 @@ function RootRedirect() {
 function App() {
   return (
     <AuthProvider>
+      <BackgroundVideo />
       <BrowserRouter>
         <Toaster
           position="top-right"
