@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Target, FlaskConical, Droplet, Users, PieChart as PieChartIcon, Trophy, Sparkles, TrendingUp, ArrowLeft } from 'lucide-react';
 
 const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
 export default function LivePoll() {
-  const [questions, setQuestions] = useState([{ text: '', options: ['', ''] }]);
+  const navigate = useNavigate();
+  const [questions, setQuestions] = useState([{ text: '', options: ['', ''], correctAnswer: '' }]);
   const [pollTitle, setPollTitle] = useState('');
   const [activePoll, setActivePoll] = useState(null);
   const [chartData, setChartData] = useState([]);
@@ -79,8 +81,14 @@ export default function LivePoll() {
     setQuestions(newQs);
   };
 
-  const addQuestion = () => setQuestions([...questions, { text: '', options: ['', ''] }]);
+  const addQuestion = () => setQuestions([...questions, { text: '', options: ['', ''], correctAnswer: '' }]);
   const removeQuestion = (qIndex) => setQuestions(questions.filter((_, i) => i !== qIndex));
+
+  const setCorrectAnswer = (qIndex, value) => {
+    const newQs = [...questions];
+    newQs[qIndex].correctAnswer = value;
+    setQuestions(newQs);
+  };
 
   const handleBulkParse = () => {
     if (!bulkInput.trim()) { toast.error('Please paste some text first.'); return; }
@@ -89,11 +97,49 @@ export default function LivePoll() {
       const parsedQuestions = blocks.map(block => {
         const lines = block.split(/\r?\n/).map(l => l.trim()).filter(l => l !== '');
         if (lines.length < 3) return null;
-        return { text: lines[0], options: lines.slice(1) };
+        
+        // Identify "Correct Answer: x" line
+        const correctLineIndex = lines.findIndex(l => l.toLowerCase().includes('correct answer:'));
+        let correctLetter = '';
+        if (correctLineIndex !== -1) {
+          const match = lines[correctLineIndex].match(/correct\s+answer:\s*([a-d])/i);
+          if (match) correctLetter = match[1].toLowerCase();
+        }
+
+        // Identify Options
+        let optionLines = [];
+        let questionText = '';
+
+        if (correctLineIndex !== -1) {
+          questionText = lines[0].replace(/^\d+[\)\.]\s*/, '').trim();
+          optionLines = lines.slice(1, correctLineIndex);
+        } else {
+          questionText = lines[0];
+          optionLines = lines.slice(1);
+        }
+
+        let correctAnswer = '';
+        const options = optionLines.map(line => {
+          const letterMatch = line.match(/^([a-d])[\)\.]\s*(.*)/i);
+          if (letterMatch) {
+            const letter = letterMatch[1].toLowerCase();
+            const text = letterMatch[2].trim();
+            if (letter === correctLetter) correctAnswer = text;
+            return text;
+          }
+          if (line.startsWith('*')) {
+            const cleanOpt = line.substring(1).trim();
+            correctAnswer = cleanOpt;
+            return cleanOpt;
+          }
+          return line;
+        });
+
+        return { text: questionText, options, correctAnswer };
       }).filter(Boolean);
 
       if (parsedQuestions.length === 0) {
-        toast.error('Could not find any valid questions. Format: Question on line 1, Options below, blank line between questions.');
+        toast.error('Could not parse any questions. Please check the format.');
         return;
       }
       setQuestions(parsedQuestions);
@@ -101,6 +147,7 @@ export default function LivePoll() {
       setBulkInput('');
       toast.success(`Successfully imported ${parsedQuestions.length} questions!`);
     } catch (err) {
+      console.error(err);
       toast.error('Error parsing bulk input. Please check the format.');
     }
   };
@@ -109,7 +156,8 @@ export default function LivePoll() {
     e.preventDefault();
     const validQuestions = questions.map(q => ({
       text: q.text.trim(),
-      options: q.options.filter(o => o.trim() !== '')
+      options: q.options.filter(o => o.trim() !== ''),
+      correctAnswer: q.correctAnswer
     }));
     const isValid = validQuestions.every(q => q.text && q.options.length >= 2);
     if (!isValid || validQuestions.length === 0) {
@@ -123,7 +171,7 @@ export default function LivePoll() {
         setChartData(validQuestions.map(q => q.options.map(opt => ({ name: opt, value: 0 }))));
         toast.success('Poll created successfully!');
         setPollTitle('');
-        setQuestions([{ text: '', options: ['', ''] }]);
+        setQuestions([{ text: '', options: ['', ''], correctAnswer: '' }]);
         fetchHistory();
       }
     } catch (err) {
@@ -193,6 +241,15 @@ export default function LivePoll() {
 
           {/* Page Header */}
           <div className="admin-header">
+            <button 
+              onClick={() => navigate('/admin/dashboard')}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', marginBottom: '1rem', padding: 0, fontSize: '0.9rem', fontWeight: 600 }}
+              onMouseOver={(e) => e.currentTarget.style.color = '#1e293b'}
+              onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+            >
+              <ArrowLeft size={18} />
+              Back to Dashboard
+            </button>
             <h1>Live Polls</h1>
             <p>Create and monitor real-time interactive polls.</p>
           </div>
@@ -244,7 +301,7 @@ export default function LivePoll() {
                     <textarea
                       className="form-input"
                       style={{ minHeight: '300px', fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem', resize: 'vertical' }}
-                      placeholder={"Example:\nWhat is your favorite color?\nRed\nBlue\nGreen\n\nNext Question?\nOption A\nOption B"}
+                      placeholder={"Example:\nWhat is your favorite color?\n*Red (Correct answer starts with *)\nBlue\nGreen\n\nNext Question?\nOption A\n*Option B (Correct)"}
                       value={bulkInput}
                       onChange={(e) => setBulkInput(e.target.value)}
                     />
@@ -294,13 +351,29 @@ export default function LivePoll() {
                         <div className="form-group" style={{ marginTop: '1rem' }}>
                           <label className="form-label" style={{ fontSize: '0.85rem' }}>Options</label>
                           {q.options.map((opt, oIndex) => (
-                            <div key={oIndex} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                            <div key={oIndex} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
+                              <input
+                                type="radio"
+                                name={`correct-${qIndex}`}
+                                checked={q.correctAnswer === opt && opt !== ''}
+                                onChange={() => setCorrectAnswer(qIndex, opt)}
+                                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#8DC63F' }}
+                                title="Mark as correct answer"
+                              />
                               <input
                                 type="text"
                                 className="form-input"
                                 placeholder={`Option ${oIndex + 1}`}
                                 value={opt}
-                                onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)}
+                                onChange={(e) => {
+                                  const oldVal = q.options[oIndex];
+                                  handleOptionChange(qIndex, oIndex, e.target.value);
+                                  // If this was the correct answer, update the correctAnswer state too
+                                  if (q.correctAnswer === oldVal && oldVal !== '') {
+                                    setCorrectAnswer(qIndex, e.target.value);
+                                  }
+                                }}
+                                style={{ border: q.correctAnswer === opt && opt !== '' ? '2px solid #8DC63F' : '1px solid var(--border)' }}
                               />
                               {q.options.length > 2 && (
                                 <button type="button" className="btn btn-danger" onClick={() => removeOption(qIndex, oIndex)} style={{ padding: '0 12px' }}>✕</button>
@@ -380,37 +453,114 @@ export default function LivePoll() {
               </div>
             )}
 
-            {/* ── Right: Live Results ── */}
+            {/* ── Right: Live Results (Premium Summary View) ── */}
             {activePoll && (
-              <div className="card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column' }}>
-                <h2 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold' }}>Live Results</h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
-                  {activePoll.questions.map((q, qIndex) => (
-                    <div key={qIndex} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '2rem' }}>
-                      <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem', fontWeight: 500 }}>{qIndex + 1}. {q.text}</h3>
-                      <div style={{ height: '300px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={(chartData && chartData[qIndex]) || []}
-                              cx="50%" cy="50%"
-                              outerRadius={100} innerRadius={50}
-                              dataKey="value" nameKey="name"
-                              labelLine={false}
-                              label={({ name, percent }) => percent > 0 ? `${name} (${(percent * 100).toFixed(0)}%)` : ''}
-                              animationBegin={0} animationDuration={800}
-                            >
-                              {((chartData && chartData[qIndex]) || []).map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                              ))}
-                            </Pie>
-                            <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} itemStyle={{ color: '#1f2937' }} />
-                            <Legend verticalAlign="bottom" height={36} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '1.5rem 2rem', borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+                  <div>
+                    <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>Poll Results Summary</h2>
+                    <p style={{ color: '#64748b', margin: '0.25rem 0 0', fontSize: '0.9rem' }}>Real-time analytics and audience insights</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ background: 'rgba(141,198,63,0.1)', color: '#8DC63F', padding: '0.5rem 1rem', borderRadius: '2rem', fontSize: '0.8rem', fontWeight: 700 }}>
+                      Live Tracking
                     </div>
-                  ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                  {activePoll.questions.map((q, qi) => {
+                    const data = chartData[qi] || [];
+                    const total = data.reduce((a, c) => a + c.value, 0);
+                    let majorityOption = 'No votes yet';
+                    let majorityPct = 0;
+                    
+                    if (total > 0) {
+                      const sorted = [...data].sort((a, b) => b.value - a.value);
+                      majorityOption = sorted[0].name;
+                      majorityPct = Math.round((sorted[0].value / total) * 100);
+                    }
+
+                    const correctAnswerData = data.find(d => d.name === q.correctAnswer);
+                    const accuracyPct = total > 0 && correctAnswerData ? Math.round((correctAnswerData.value / total) * 100) : 0;
+                    const isMajorityCorrect = majorityOption === q.correctAnswer;
+
+                    return (
+                      <div key={qi} style={{ background: '#ffffff', borderRadius: '1rem', padding: '2rem', display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.06)', position: 'relative' }}>
+                        
+                        <div style={{ marginBottom: '1.5rem' }}>
+                          <h3 style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, lineHeight: 1.5 }}>{qi + 1}. {q.text}</h3>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem' }}>
+                          <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Total Responses</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#38BDF8' }}>{total}</div>
+                            <Users size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
+                          </div>
+                          <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Accuracy</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 800, color: accuracyPct >= 70 ? '#8DC63F' : accuracyPct >= 40 ? '#F59E0B' : '#EF4444' }}>{accuracyPct}%</div>
+                            <Target size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
+                            {q.correctAnswer && (
+                              <div style={{ position: 'absolute', top: -10, right: -10, background: isMajorityCorrect ? '#8DC63F' : '#EF4444', color: '#fff', fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 800, boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
+                                {isMajorityCorrect ? 'MATCHED' : 'MISMATCH'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem', background: 'rgba(141,198,63,0.05)', padding: '0.6rem 0.8rem', borderRadius: '0.8rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
+                          <Trophy size="1.25rem" color="#8DC63F" style={{ flexShrink: 0 }} />
+                          <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Winning Answer:</span>
+                          <div style={{ flex: 1, overflow: 'hidden', position: 'relative', background: 'rgba(141,198,63,0.15)', borderRadius: '1.2rem', padding: '0.3rem 0.8rem', display: 'flex' }}>
+                            <div style={{ display: 'flex', whiteSpace: 'nowrap', animation: 'ticker 10s linear infinite' }}>
+                              <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
+                              <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {q.correctAnswer && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', background: 'rgba(56,189,248,0.05)', padding: '0.6rem 0.8rem', borderRadius: '0.8rem', border: '1px solid rgba(56,189,248,0.2)', overflow: 'hidden' }}>
+                            <Target size="1.25rem" color="#38BDF8" style={{ flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Correct Answer:</span>
+                            <div style={{ flex: 1, overflow: 'hidden', position: 'relative', background: 'rgba(56,189,248,0.15)', borderRadius: '1.2rem', padding: '0.3rem 0.8rem', display: 'flex' }}>
+                              <div style={{ display: 'flex', whiteSpace: 'nowrap', animation: 'ticker 12s linear infinite' }}>
+                                <span style={{ fontSize: '0.9rem', color: '#0369a1', fontWeight: 700, paddingRight: '2.5rem' }}>{q.correctAnswer}</span>
+                                <span style={{ fontSize: '0.9rem', color: '#0369a1', fontWeight: 700, paddingRight: '2.5rem' }}>{q.correctAnswer}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minHeight: '200px' }}>
+                          <div style={{ flex: 1, height: '100%', minWidth: '150px' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie data={data} cx="50%" cy="50%" outerRadius="90%" innerRadius="55%" dataKey="value" stroke="none">
+                                  {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                </Pie>
+                                <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#1e293b' }} itemStyle={{ color: '#1e293b' }} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'center' }}>
+                            {[...data].sort((a,b)=>b.value - a.value).slice(0,4).map((opt, i) => {
+                              const pct = total > 0 ? Math.round((opt.value/total)*100) : 0;
+                              return (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <div style={{ width: '0.6rem', height: '0.6rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                                  <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 700, minWidth: '2.75rem' }}>{pct}%</span>
+                                  <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }} title={opt.name}>{opt.name}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -482,6 +632,12 @@ export default function LivePoll() {
 
         </div>
       </main>
+      <style>{`
+        @keyframes ticker {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   );
 }

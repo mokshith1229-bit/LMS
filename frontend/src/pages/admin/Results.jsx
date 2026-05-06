@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown } from 'lucide-react';
+import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown, ArrowLeft } from 'lucide-react';
 
 export default function AdminResults() {
+  const navigate = useNavigate();
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterExam, setFilterExam] = useState('');
@@ -51,12 +53,23 @@ export default function AdminResults() {
     <div className="app-layout">
       <Sidebar />
       <main className="main-content">
-        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1>Assessment Results</h1>
-            <p>View all student submission results and scores.</p>
+        <div className="page-header" style={{ marginBottom: 30, display: 'block' }}>
+          <button 
+            onClick={() => navigate('/admin/dashboard')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', marginBottom: '1rem', padding: 0, fontSize: '0.9rem', fontWeight: 600 }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#1e293b'}
+            onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+          >
+            <ArrowLeft size={18} />
+            Back to Dashboard
+          </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h1>Assessment Results</h1>
+              <p>View all student submission results and scores.</p>
+            </div>
+            <img src="/assets/cube_tech_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
           </div>
-          <img src="/assets/cube_tech_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
         </div>
 
         <div className="card">

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
-import { ChevronLeft, Download, CheckCircle2, XCircle, User, Mail, BookOpen, Clock, BarChart3 } from 'lucide-react';
+import { ChevronLeft, Download, CheckCircle2, XCircle, User, Mail, BookOpen, Clock, BarChart3, ArrowLeft } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -115,8 +115,14 @@ export default function AdminSubmissionView() {
         <div className="admin-submission-view">
       {/* Header Controls */}
       <div className="view-controls">
-        <button onClick={() => navigate('/admin/results')} className="view-btn-back">
-          <ChevronLeft size={18} /> Back to Results
+        <button 
+          onClick={() => navigate('/admin/results')}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0, fontSize: '0.9rem', fontWeight: 600 }}
+          onMouseOver={(e) => e.currentTarget.style.color = '#1e293b'}
+          onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+        >
+          <ArrowLeft size={18} />
+          Back to Results
         </button>
         
         <button

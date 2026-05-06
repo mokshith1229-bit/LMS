@@ -126,8 +126,14 @@ export default function AddQuiz() {
       <Sidebar />
       <main className="main-content">
         <div className="page-header">
-          <button onClick={() => navigate('/admin')} className="btn btn-secondary btn-sm" style={{ marginBottom: 16 }}>
-            &lt; Back 
+          <button 
+            onClick={() => navigate('/admin/dashboard')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', marginBottom: '1rem', padding: 0, fontSize: '0.9rem', fontWeight: 600 }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#1e293b'}
+            onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+          >
+            <ArrowLeft size={18} />
+            Back to Dashboard
           </button>
           <h1>Create Assessment</h1>
           <p>Configure quiz settings and add test questions.</p>

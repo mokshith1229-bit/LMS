@@ -35,8 +35,14 @@ export default function CreateCourse() {
       <Sidebar />
       <main className="main-content">
         <div className="page-header fade-in">
-          <button onClick={() => navigate('/admin')} className="btn btn-secondary btn-sm" style={{ marginBottom: 16 }}>
-            <ArrowLeft size={14} /> Back
+          <button 
+            onClick={() => navigate('/admin/dashboard')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', marginBottom: '1rem', padding: 0, fontSize: '0.9rem', fontWeight: 600 }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#1e293b'}
+            onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+          >
+            <ArrowLeft size={18} />
+            Back to Dashboard
           </button>
           <h1>Create New Course</h1>
           <p>Fill in the details below to publish a new course.</p>

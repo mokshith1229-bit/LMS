@@ -1,67 +1,61 @@
-# LMS Assessment System Setup Guide
+# Training Feedback Report Generator
 
-## 1. Why is the Database Not Connecting?
-The database is failing to connect because your `.env` file has the placeholder `<db_password>` instead of your actual MongoDB Atlas password. 
-
-Currently, your `.env` looks like this:
-`MONGO_URI=mongodb+srv://mokshith1229_db_user:<db_password>@cluster0.mbobs0c.mongodb.net/?appName=Cluster0`
-
-### How to Fix It:
-1. **Update the Password**: Open your `.env` file inside the `backend` folder and replace `<db_password>` with your actual MongoDB user password. (Note: Remove the `< >` brackets. It should look like `...db_user:mySecretPassword123@cluster0...`).
-2. **Whitelist Your IP Address**: 
-   - Go to your MongoDB Atlas Dashboard (https://cloud.mongodb.com/).
-   - On the left sidebar, click on **Network Access**.
-   - Click **Add IP Address**.
-   - Click **Add Current IP Address** (or select "Allow Access From Anywhere" `0.0.0.0/0` for development).
-   - Click **Confirm**.
-3. **Specify the Database Name**: By default, it connects to a test database. To ensure it creates your LMS models in a specific database, add your DB name before the `?` in the URI. For example: `...mongodb.net/lms_database?appName...`
-
-Once you save the `.env` file, your backend terminal should automatically restart, and you should see:
-`✅ MongoDB Connected: cluster0.mbobs0c.mongodb.net`
+A professional Streamlit-based tool designed to automate the conversion of raw training feedback data (Excel/CSV) into formatted Microsoft Word reports.
 
 ---
 
-## 2. What Process Should You Do Next?
+## 📖 In-Depth Explanation
 
-Once your database is successfully connected, follow these steps to use and finalize your LMS system:
+This tool acts as an intelligent bridge between your raw data and your final presentation document. Below is a detailed breakdown of how the internal logic handles your files:
 
-### Step 1: Create an Admin User (Optional but Recommended)
-You need an admin account to manage courses and view results. If you don't have a signup route, manually insert a user document into your MongoDB "Users" collection, or create an API route to register an admin.
+### 1. Data Ingestion & "Smart Header" Detection
+Most Excel exports from feedback tools contain "junk" rows at the top (like titles or metadata). 
+- **The Logic**: Instead of assuming headers are on line 1, the app scans the first 10 rows.
+- **Header Matching**: It looks for rows containing keywords like *session*, *q1*, or *batch*. Once found, it promotes that row to be the "Header" and discards everything above it.
+- **Uniqueness Guarantee**: To prevent code crashes, it automatically renames duplicate columns (e.g., if you have two columns named "Feedback", it creates "Feedback" and "Feedback_1").
 
-### Step 2: Upload Your Quizzes via Excel
-The backend now fully supports Excel parsing. 
-- Ensure your Excel file has columns exactly named: `Question`, `Option A`, `Option B`, `Option C`, `Option D`, `Correct Answer`.
-- The `Correct Answer` column should contain `A`, `B`, `C`, or `D`.
-- Create a simple frontend tool or use Postman to send a `POST` request with the file to `/api/quiz/parse-excel`.
-- The backend will automatically parse the questions, create a new Quiz document, save it to your MongoDB, and return the `quizId`.
+### 2. Intelligent Column Detection
+The tool uses Heuristics and Regular Expressions (Regex) to find your data:
+- **Session Column**: Looks for words like *Batch*, *Training Name*, or *Class*. It ignores columns with long text to avoid mistaking comments for session names.
+- **Question Ratings (Q1-Q7)**: Uses Regex to find columns like `Q1`, `Question 1`, `Rating 1`, or even just `1.` at the start of a header.
+- **Sentiment Detection**: Automatically finds "Likes" and "Improvements" columns by searching for keywords like *Strength*, *Positive*, *Negative*, or *Enjoyed*.
 
-### Step 3: Link Quiz to Frontend
-- When a student opens the assessment page, make a fetch request to `GET /api/quiz/:quizId`.
-- The backend will give you the quiz data along with a `startTime`. 
-- **Important**: The correct answers will naturally be hidden. Let your frontend countdown timer rely on `duration` (e.g., `1800` seconds).
+### 3. Metric Calculation Engine
+- **Data Conversion**: It converts all rating values into numbers, automatically ignoring text like "N/A" or "Excellent" to avoid calculation errors.
+- **Aggregation**: It groups the data by **Session**. For each session, it calculates the mean (average) for every question detected.
+- **Overall Score**: It calculates the weighted average of all session averages to give you a single "Training Performance" score.
 
-### Step 4: Handle Quiz Submissions
-- When the student finishes (or the timer hits zero), the frontend must trigger `POST /api/submit`.
-- The payload must look like this:
-  ```json
-  {
-    "userId": "MONGODB_USER_ID_HERE",
-    "quizId": "MONGODB_QUIZ_ID_HERE",
-    "startTime": 1713589999999,
-    "answers": ["A", "C", null, "B"]
-  }
-  ```
-- The backend will strictly validate the time limit, calculate the percentage securely, and prevent duplicate submissions.
-
-### Step 5: Display the Results
-- After submitting, the backend will return the final calculated `correct`, `wrong`, `unattempted`, and `percentage`.
-- Route the student to your `ResultPage.jsx` and display this exact data. 
-- You can also fetch the past results since the `Submissions` model now accurately saves everything.
-
-### Step 6: Deploy to Production
-- Change your CORS settings in `server.js` from `localhost` to your actual frontend domain (like vercel/netlify app URL).
-- Deploy your backend code to a service like Render or Heroku.
-- Deploy your frontend code. Ensure your frontend `.env` points to the production backend URL instead of `localhost:5000`.
+### 4. Word Document Automation
+The app interacts with your `.docx` template using the `python-docx` engine:
+- **Table Injection**: It identifies the **first table** in your document. It then maps "Session-1" to row 1, "Session-2" to row 2, and so on, filling in the rating averages.
+- **Placeholder Replacement**: It scans every paragraph in your document. 
+  - If it finds `Session-1:`, it appends the top 10 "Likes" for that session.
+  - If it finds `Remarks:`, it appends the top 10 "Improvements" or comments.
 
 ---
-Let me know if you need help building any of these final pieces (like the Postman upload, adding users, or frontend integrations)!
+
+## 🚀 Key Features
+- **Smarter Auto-Detection**: Handles buried headers automatically.
+- **Manual Mapping Override**: Use the **🛠️ Column Mapping Settings** in the UI to correct any detection errors.
+- **Error-Resistant**: Fully armored against merged cells, duplicated column names, and non-numeric data.
+
+---
+
+## 🛠️ How to Use
+1. **Prepare Data**: Ensure your feedback is in an `.xlsx` or `.csv` file.
+2. **Prepare Template**: Create a `.docx` file with:
+   - A table as the first element.
+   - Text labels like `Session-1:`, `Remarks:`.
+3. **Process**: Upload both files, verify metrics in the preview, and download.
+
+---
+
+## 💻 Technical Setup
+### Installation
+```bash
+pip install streamlit pandas python-docx openpyxl numpy
+```
+### Execution
+```bash
+streamlit run training_report_app.py
+```

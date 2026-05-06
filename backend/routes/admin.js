@@ -625,12 +625,14 @@ router.get('/analytics', async (req, res) => {
 
     let averageScore = 0;
     let highestScore = 0;
+    let lowestScore = 0;
     const studentScores = [];
 
     if (completedStudents > 0) {
       const totalScore = submissions.reduce((sum, sub) => sum + sub.percentage, 0);
       averageScore = totalScore / completedStudents;
       highestScore = Math.max(...submissions.map(s => s.percentage));
+      lowestScore = Math.min(...submissions.map(s => s.percentage));
     }
 
     submissions.forEach(sub => {
@@ -701,8 +703,10 @@ router.get('/analytics', async (req, res) => {
     res.json({
       success: true,
       totalStudents,
+      completedStudents,
       averageScore: Number(averageScore.toFixed(2)),
       highestScore,
+      lowestScore,
       completionRate: Number(completionRate.toFixed(2)),
       questions,
       studentScores

@@ -4,7 +4,7 @@ import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
 import * as pdfjsLib from 'pdfjs-dist';
-import { Edit2, Trash2, Check, X } from 'lucide-react';
+import { Edit2, Trash2, Check, X, ArrowLeft } from 'lucide-react';
 
 // Configure PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -159,6 +159,15 @@ export default function Presentations() {
       <main className="main-content">
         <div className="admin-page">
           <div className="admin-header">
+            <button 
+              onClick={() => navigate('/admin/dashboard')}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', marginBottom: '1rem', padding: 0, fontSize: '0.9rem', fontWeight: 600 }}
+              onMouseOver={(e) => e.currentTarget.style.color = '#1e293b'}
+              onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+            >
+              <ArrowLeft size={18} />
+              Back to Dashboard
+            </button>
             <h1>Presentations</h1>
             <p>Upload slides and attach live polls for interactive presentations.</p>
           </div>

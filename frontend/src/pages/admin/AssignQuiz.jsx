@@ -1,10 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
 import {
   UserPlus, Loader2, CheckCircle, ClipboardList,
-  Trash2, RefreshCw, Search, Users, Send,
+  Trash2, RefreshCw, Search, Users, Send, ArrowLeft
 } from 'lucide-react';
 
 const STATUS_COLORS = {
@@ -15,6 +16,7 @@ const STATUS_COLORS = {
 };
 
 export default function AssignQuiz() {
+  const navigate = useNavigate();
   // ── Data ──────────────────────────────────────────────────────────────────
   const [quizzes, setQuizzes]           = useState([]);
   const [students, setStudents]         = useState([]);
@@ -159,12 +161,23 @@ export default function AssignQuiz() {
       <main className="main-content">
 
         {/* Header */}
-        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h1>Assign Quiz</h1>
-            <p>Select students, choose a quiz, and assign in one click.</p>
+        <div className="page-header" style={{ marginBottom: 30, display: 'block' }}>
+          <button 
+            onClick={() => navigate('/admin/dashboard')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', marginBottom: '1rem', padding: 0, fontSize: '0.9rem', fontWeight: 600 }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#1e293b'}
+            onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+          >
+            <ArrowLeft size={18} />
+            Back to Dashboard
+          </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h1>Assign Quiz</h1>
+              <p>Select students, choose a quiz, and assign in one click.</p>
+            </div>
+            <img src="/assets/cube_tech_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
           </div>
-          <img src="/assets/cube_tech_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
         </div>
 
         {/* ── BATCH ASSIGN PANEL ─────────────────────────────────────────── */}

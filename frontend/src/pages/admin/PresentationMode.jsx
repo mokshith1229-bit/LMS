@@ -4,6 +4,7 @@ import { io } from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Target, FlaskConical, Droplet, Users, PieChart as PieChartIcon, Trophy, Sparkles, TrendingUp } from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -156,18 +157,43 @@ export default function PresentationMode() {
   }, []);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
+  const endPollAndShowSummary = useCallback(async () => {
+    if (!activePoll) return;
+    try {
+      // Fetch final results from backend to ensure accuracy
+      const pollId = typeof activePoll._id === 'object' ? activePoll._id : activePoll._id;
+      const { data } = await api.get(`/poll/${pollId}/results`);
+      if (data.success) {
+        setChartData(data.results);
+      }
+    } catch (err) {
+      console.error('Failed to fetch final results', err);
+    }
+    setMode('summary');
+  }, [activePoll]);
+
   const goNext = useCallback(() => {
     if (!presentation) return;
-    if (mode === 'poll' && activePoll && currentQuestionIndex < activePoll.questions.length - 1) {
-      setCurrentQuestionIndex(i => i + 1); return;
+    if (mode === 'poll' && activePoll) {
+      if (currentQuestionIndex < activePoll.questions.length - 1) {
+        setCurrentQuestionIndex(i => i + 1); 
+        return;
+      } else {
+        endPollAndShowSummary();
+        return;
+      }
     }
     setSlideDir(1);
     setCurrentSlide(s => Math.min(s + 1, (presentation.slides?.length || 1) - 1));
     setMode('slide');
-  }, [presentation, mode, activePoll, currentQuestionIndex]);
+  }, [presentation, mode, activePoll, currentQuestionIndex, endPollAndShowSummary]);
 
   const goPrev = useCallback(() => {
     if (!presentation) return;
+    if (mode === 'summary') {
+      setMode('poll');
+      return;
+    }
     if (mode === 'poll' && activePoll && currentQuestionIndex > 0) {
       setCurrentQuestionIndex(i => i - 1); return;
     }
@@ -209,7 +235,7 @@ export default function PresentationMode() {
 
   if (loading || !presentation) {
     return (
-      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', background: '#0f0f0f', color: '#fff', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', background: '#ffffff', color: '#1e293b', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ width: 48, height: 48, border: '4px solid rgba(141,198,63,0.3)', borderTop: '4px solid #8DC63F', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         <span style={{ color: '#94a3b8', fontSize: '1rem' }}>{loading ? 'Loading presentation...' : 'Presentation not found'}</span>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
@@ -254,7 +280,7 @@ export default function PresentationMode() {
     path?.startsWith('http') ? path : `${API_BASE}${path}`;
 
   return (
-    <div ref={containerRef} style={{ position: 'fixed', inset: 0, background: 'transparent', color: '#fff', overflow: 'hidden', fontFamily: "'Outfit', 'Inter', sans-serif", userSelect: 'none' }}>
+    <div ref={containerRef} style={{ position: 'fixed', inset: 0, background: '#f8fafc', color: '#1e293b', overflow: 'hidden', fontFamily: "'Outfit', 'Inter', sans-serif", userSelect: 'none' }}>
 
       {/* ─── TOP TOOLBAR ─────────────────────────────────────────── */}
       <motion.div
@@ -275,10 +301,10 @@ export default function PresentationMode() {
         {/* Slide counter */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 12px' }}>
           <button onClick={goPrev} disabled={currentSlide === 0} style={btnStyle(currentSlide === 0)}>‹</button>
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: 60, textAlign: 'center', color: '#f1f5f9' }}>
-            {mode === 'poll' ? '📊 Poll' : `${currentSlide + 1} / ${totalSlides}`}
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: 60, textAlign: 'center', color: '#1e293b' }}>
+            {mode === 'poll' ? '📊 Poll' : mode === 'summary' ? '📈 Summary' : `${currentSlide + 1} / ${totalSlides}`}
           </span>
-          <button onClick={goNext} disabled={mode !== 'poll' && currentSlide === totalSlides - 1} style={btnStyle(mode !== 'poll' && currentSlide === totalSlides - 1)}>›</button>
+          <button onClick={goNext} disabled={mode === 'slide' && currentSlide === totalSlides - 1} style={btnStyle(mode === 'slide' && currentSlide === totalSlides - 1)}>›</button>
         </div>
 
         {/* Poll activating indicator */}
@@ -302,8 +328,8 @@ export default function PresentationMode() {
             <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden', minWidth: 140, boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
               {TRANSITION_NAMES.map(t => (
                 <button key={t} onClick={() => { setTransitionType(t); setShowTransitionPicker(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', background: transitionType === t ? 'rgba(141,198,63,0.15)' : 'none', color: transitionType === t ? '#8DC63F' : '#e2e8f0', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>
-                  {t === 'slideLeft' ? '↔ Slide' : t === 'fade' ? '☁ Fade' : '🔍 Zoom'}
-                  {transitionType === t && ' ✓'}
+                  {t === 'slideLeft' ? 'Slide' : t === 'fade' ? 'Fade' : 'Zoom'}
+                  {transitionType === t && ' (Selected)'}
                 </button>
               ))}
             </div>
@@ -311,28 +337,33 @@ export default function PresentationMode() {
         </div>
 
         {/* Thumbnails toggle */}
-        <button onClick={() => setThumbnailsOpen(p => !p)} style={toolBtn(thumbnailsOpen)} title="Slide panel">⊞</button>
+        <button onClick={() => setThumbnailsOpen(p => !p)} style={toolBtn(thumbnailsOpen)} title="Slide panel">Slides</button>
 
         {/* Poll controls — auto-started, but allow manual toggle */}
         {hasLinkedPoll && mode === 'slide' && !pollActivating && (
           <button onClick={() => setMode('poll')} style={{ ...toolBtn(), background: 'rgba(141,198,63,0.2)', color: '#8DC63F', border: '1px solid rgba(141,198,63,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
-            📊 Show Poll
+            Show Poll
           </button>
         )}
         {mode === 'poll' && (
-          <button onClick={() => setMode('slide')} style={{ ...toolBtn(), background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
-            🖼 Show Slide
+          <button onClick={endPollAndShowSummary} style={{ ...toolBtn(), background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+            End Poll & Summary
+          </button>
+        )}
+        {mode === 'summary' && (
+          <button onClick={() => setMode('slide')} style={{ ...toolBtn(), background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', border: '1px solid rgba(56, 189, 248, 0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+            Back to Slide
           </button>
         )}
 
         {/* Fullscreen */}
         <button onClick={toggleFullscreen} style={toolBtn()} title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}>
-          {isFullscreen ? '⊠' : '⛶'}
+          {isFullscreen ? 'Exit Full' : 'Full Screen'}
         </button>
 
         {/* End */}
         <button onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); navigate('/admin/presentations'); }} style={{ ...toolBtn(), color: '#f87171' }} title="End presentation (Esc)">
-          ✕ End
+          End
         </button>
       </motion.div>
 
@@ -368,7 +399,7 @@ export default function PresentationMode() {
             <motion.div
               key={`slide-${currentSlide}`}
               {...getVariants()}
-              style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0f0f' }}
+              style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent' }}
             >
               {presentation.pptxFile ? (
                 <iframe
@@ -387,7 +418,7 @@ export default function PresentationMode() {
                 />
               )}
             </motion.div>
-          ) : (
+          ) : mode === 'poll' ? (
             /* ── POLL VIEW ──────────────────────────────────────── */
             <motion.div
               key={`poll-${activePoll?.code}-q${currentQuestionIndex}`}
@@ -398,17 +429,17 @@ export default function PresentationMode() {
               style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '5rem 4rem 2rem 4rem', position: 'relative' }}
             >
               {/* Join bar */}
-              {!activePoll.isExpired ? (
+              {activePoll && !activePoll.isExpired ? (
                 <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
                   <span style={{ color: '#64748b', fontWeight: 500 }}>Join at <strong style={{ color: '#1e293b' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</strong></span>
                   <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
                   <span style={{ color: '#64748b', fontWeight: 500 }}>Code: <strong style={{ color: '#8DC63F', fontSize: '1.1rem' }}>{activePoll.code}</strong></span>
                 </div>
-              ) : (
+              ) : activePoll?.isExpired ? (
                 <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
                   <span style={{ color: '#ef4444', fontWeight: 700 }}>Expired Poll - Final Results</span>
                 </div>
-              )}
+              ) : null}
 
               {/* Question */}
               <div style={{ flex: 1, background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -445,7 +476,7 @@ export default function PresentationMode() {
               </div>
 
               {/* QR Code Overlay (Fullscreen when expanded) */}
-              {!activePoll.isExpired && (
+              {activePoll && !activePoll.isExpired && (
                 <AnimatePresence>
                   {qrExpanded && (
                     <motion.div
@@ -475,7 +506,7 @@ export default function PresentationMode() {
               )}
 
               {/* Small QR (Bottom Right) */}
-              {!activePoll.isExpired && (
+              {activePoll && !activePoll.isExpired && (
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -493,6 +524,114 @@ export default function PresentationMode() {
                   <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', letterSpacing: 1 }}>CLICK TO EXPAND</span>
                 </motion.div>
               )}
+            </motion.div>
+          ) : (
+            /* ── SUMMARY VIEW ────────────────────────────────────── */
+            <motion.div
+              key={`summary-${activePoll?.code}`}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              transition={{ duration: 0.4 }}
+              style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '2.5rem 1.5rem', alignItems: 'center', overflowY: 'auto' }}
+            >
+              <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.4rem', color: '#1e293b' }}>Poll Summary</h1>
+              <p style={{ fontSize: '1rem', color: '#64748b', marginBottom: '2.5rem' }}>Here's how your audience responded</p>
+              
+              <div style={{ display: 'flex', gap: '2vmin', width: '100%', overflowX: 'auto', paddingBottom: '1vmin', justifyContent: activePoll?.questions.length > 2 ? 'flex-start' : 'center', alignItems: 'stretch' }}>
+                {activePoll?.questions.map((q, qi) => {
+                  const data = chartData[qi] || [];
+                  const total = data.reduce((a, c) => a + c.value, 0);
+                  let majorityOption = 'No votes yet';
+                  let majorityPct = 0;
+                  
+                  if (total > 0) {
+                    const sorted = [...data].sort((a, b) => b.value - a.value);
+                    majorityOption = sorted[0].name;
+                    majorityPct = Math.round((sorted[0].value / total) * 100);
+                  }
+
+                  const icons = [Target, FlaskConical, Droplet];
+                  const CardIcon = icons[qi % icons.length];
+
+                  const feedback = majorityPct >= 80 ? { text: "Strong consensus! Almost everyone chose this answer.", icon: Sparkles, color: '#8DC63F' } 
+                    : majorityPct >= 50 ? { text: "Clear majority! Most participants selected this option.", icon: TrendingUp, color: '#38BDF8' }
+                    : { text: "Divided opinions! The audience is split on this one.", icon: PieChartIcon, color: '#F59E0B' };
+
+                  return (
+                    <div key={qi} style={{ background: '#ffffff', borderRadius: '1rem', padding: '2rem', minWidth: '20rem', flex: 1, display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.06)', position: 'relative' }}>
+                      
+                      <div style={{ marginBottom: '1.5rem' }}>
+                        <h3 style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, lineHeight: 1.5 }}>{q.text}</h3>
+                      </div>
+                      
+                      <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem' }}>
+                        <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Total Responses</div>
+                          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#38BDF8' }}>{total}</div>
+                          <Users size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
+                        </div>
+                        <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Majority Option</div>
+                          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#8DC63F' }}>{majorityPct}%</div>
+                          <PieChartIcon size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', background: 'rgba(141,198,63,0.05)', padding: '0.6rem 0.8rem', borderRadius: '0.8rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
+                        <Trophy size="1.25rem" color="#8DC63F" style={{ flexShrink: 0 }} />
+                        <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Winning Answer:</span>
+                        <div style={{ flex: 1, overflow: 'hidden', position: 'relative', background: 'rgba(141,198,63,0.15)', borderRadius: '1.2rem', padding: '0.3rem 0.8rem', display: 'flex' }}>
+                          <div style={{ display: 'flex', whiteSpace: 'nowrap', animation: 'ticker 10s linear infinite' }}>
+                            <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
+                            <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '2vmin', flex: 1, minHeight: '12vmin', marginBottom: '2.5vmin' }}>
+                        <div style={{ flex: 1, height: '100%', minWidth: '10vmin' }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie data={data} cx="50%" cy="50%" outerRadius="90%" innerRadius="55%" dataKey="value" stroke="none">
+                                {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                              </Pie>
+                              <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#1e293b' }} itemStyle={{ color: '#1e293b' }} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'center' }}>
+                          {[...data].sort((a,b)=>b.value - a.value).slice(0,4).map((opt, i) => {
+                            const pct = total > 0 ? Math.round((opt.value/total)*100) : 0;
+                            return (
+                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <div style={{ width: '0.6rem', height: '0.6rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 700, minWidth: '2.75rem' }}>{pct}%</span>
+                                <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '6rem' }} title={opt.name}>{opt.name}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Feedback bar removed */}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={() => {
+                  setSlideDir(1);
+                  setCurrentSlide(s => Math.min(s + 1, (presentation.slides?.length || 1) - 1));
+                  setMode('slide');
+                }}
+                style={{ marginTop: '2rem', background: 'linear-gradient(135deg, #8DC63F 0%, #65a30d 100%)', color: '#fff', padding: '1rem 3rem', fontSize: '1rem', fontWeight: 700, borderRadius: '2.5rem', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(141, 198, 63, 0.4)', transition: 'transform 0.2s' }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                Continue Presentation
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -521,6 +660,13 @@ export default function PresentationMode() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap');
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes ticker {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        :fullscreen { background: transparent !important; }
+        :-webkit-full-screen { background: transparent !important; }
+        :-ms-fullscreen { background: transparent !important; }
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }

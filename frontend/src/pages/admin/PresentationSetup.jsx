@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
@@ -100,8 +101,14 @@ export default function PresentationSetup() {
           <p>Click a slide to attach or remove a live poll from it.</p>
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
-          <button className="btn btn-secondary" onClick={() => navigate('/admin/presentations')}>
-            ← Back
+          <button 
+            onClick={() => navigate('/admin/presentations')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0, fontSize: '0.9rem', fontWeight: 600 }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#1e293b'}
+            onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+          >
+            <ArrowLeft size={18} />
+            Back to Presentations
           </button>
           <button className="btn btn-primary" onClick={() => navigate(`/admin/presentations/${id}/present`)}>
             ▶ Start Presenting

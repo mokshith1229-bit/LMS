@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { Users, Plus, Calendar, Save, Trash2, CheckSquare } from 'lucide-react';
+import { Users, Plus, Calendar, Save, Trash2, CheckSquare, ArrowLeft } from 'lucide-react';
 
 export default function BatchManagement() {
+  const navigate = useNavigate();
   const [batches, setBatches] = useState([]);
   const [users, setUsers] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
@@ -105,7 +107,16 @@ export default function BatchManagement() {
     <div className="app-layout">
       <Sidebar />
       <main className="main-content fade-in">
-        <div className="page-header" style={{ marginBottom: 30 }}>
+        <div className="page-header" style={{ marginBottom: 30, display: 'block' }}>
+          <button 
+            onClick={() => navigate('/admin/dashboard')}
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', marginBottom: '1rem', padding: 0, fontSize: '0.9rem', fontWeight: 600 }}
+            onMouseOver={(e) => e.currentTarget.style.color = '#1e293b'}
+            onMouseOut={(e) => e.currentTarget.style.color = '#64748b'}
+          >
+            <ArrowLeft size={18} />
+            Back to Dashboard
+          </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ background: 'var(--bg-primary)', padding: 10, borderRadius: 8, color: 'var(--accent)' }}>
               <Users size={24} />

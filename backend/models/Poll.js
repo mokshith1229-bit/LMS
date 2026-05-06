@@ -5,7 +5,8 @@ const pollSchema = new mongoose.Schema({
   questions: [
     {
       text: { type: String, required: true },
-      options: [{ type: String, required: true }]
+      options: [{ type: String, required: true }],
+      correctAnswer: { type: String }
     }
   ],
   code: { type: String, required: true, unique: true },
