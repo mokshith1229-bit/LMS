@@ -548,14 +548,6 @@ export default function PresentationMode() {
                       <span style={{ color: '#64748b', fontWeight: 500 }}>Join at <strong style={{ color: '#1e293b' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</strong></span>
                       <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
                       <span style={{ color: '#64748b', fontWeight: 500 }}>Code: <strong style={{ color: '#8DC63F', fontSize: '1.1rem' }}>{activePoll.code}</strong></span>
-                      {isTimerMode && (
-                        <>
-                          <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#f59e0b', fontWeight: 700 }}>
-                            <Clock size={14} /> Reveals in {formatCountdown(timeLeft)}
-                          </span>
-                        </>
-                      )}
                     </div>
                   ) : activePoll?.isExpired ? (
                     <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
@@ -564,42 +556,49 @@ export default function PresentationMode() {
                   ) : null}
 
                   {/* Question card */}
-                  <div style={{ flex: 1, background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div style={{ padding: '2.5rem 3rem 1rem', textAlign: 'center' }}>
+                  <div style={{ flex: 1, background: '#fff', borderRadius: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div style={{ padding: '3rem 4rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: isTimerMode ? 'none' : '1px solid #f1f5f9' }}>
                       {activePoll.questions.length > 1 && (
-                        <div style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600, marginBottom: '0.75rem' }}>
+                        <div style={{ display: 'inline-block', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: '1.5rem' }}>
                           Question {currentQuestionIndex + 1} of {activePoll.questions.length}
                         </div>
                       )}
-                      <h1 style={{ fontSize: 'clamp(1.5rem, 4vw, 3rem)', fontWeight: 800, color: '#1e293b', lineHeight: 1.2, marginBottom: '0.5rem' }}>
+                      <h1 style={{ fontSize: 'clamp(1.8rem, 4vw, 3.2rem)', fontWeight: 800, color: '#0f172a', lineHeight: 1.3, textAlign: 'center', maxWidth: '900px' }}>
                         {currentQuestion?.text}
                       </h1>
-                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F', animation: 'pulse 2s infinite' }} />
-                        <span style={{ color: '#64748b', fontWeight: 600 }}>{liveResponseCount} response{liveResponseCount !== 1 ? 's' : ''}</span>
-                      </div>
                     </div>
 
-                    {/* ── TIMER ACTIVE: hide charts, show big countdown ── */}
+                    {/* ── TIMER ACTIVE: clean corporate waiting UI ── */}
                     {isTimerMode ? (
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', padding: '2rem' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-                          <Clock size={56} color="#f59e0b" strokeWidth={1.5} />
-                          <div style={{ fontSize: 'clamp(3rem, 10vw, 7rem)', fontWeight: 900, color: '#1e293b', fontFamily: 'monospace', letterSpacing: '-0.05em', lineHeight: 1 }}>
-                            {formatCountdown(timeLeft)}
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+                        
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
+                          {/* Responses Stat */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ fontSize: '3.5rem', fontWeight: 800, color: '#0ea5e9', lineHeight: 1 }}>{liveResponseCount}</div>
+                            <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginTop: '0.5rem' }}>Responses</div>
                           </div>
-                          <div style={{ fontSize: '1.1rem', color: '#64748b', fontWeight: 600 }}>Results will be revealed automatically</div>
+
+                          <div style={{ width: '1px', height: '60px', background: '#e2e8f0' }} />
+
+                          {/* Time Stat */}
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ fontSize: '3.5rem', fontWeight: 800, color: '#334155', lineHeight: 1, fontFamily: 'monospace', letterSpacing: '-2px' }}>{formatCountdown(timeLeft)}</div>
+                            <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginTop: '0.5rem' }}>Time Remaining</div>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem' }}>
-                          <div style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 16, padding: '1.25rem 2rem', border: '1px solid #e2e8f0' }}>
-                            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#38BDF8' }}>{liveResponseCount}</div>
-                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Responses</div>
-                          </div>
-                          <div style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 16, padding: '1.25rem 2rem', border: '1px solid #e2e8f0' }}>
-                            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#f59e0b' }}>{formatCountdown(timeLeft)}</div>
-                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Time Left</div>
-                          </div>
+
+                        {/* Animated Progress Bar */}
+                        <div style={{ width: '100%', maxWidth: '400px', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden', marginTop: '3rem' }}>
+                           <motion.div 
+                             initial={{ width: '100%' }}
+                             animate={{ width: `${(timeLeft / ((activePoll?.revealDelayMinutes || 1) * 60)) * 100}%` }}
+                             transition={{ ease: 'linear', duration: 1 }}
+                             style={{ height: '100%', background: '#0ea5e9', borderRadius: '2px' }}
+                           />
                         </div>
+                        <div style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 500, marginTop: '1rem' }}>Results will reveal automatically</div>
+
                       </div>
                     ) : (
                       /* ── LIVE / REVEALED: show pie chart ── */
@@ -776,7 +775,7 @@ export default function PresentationMode() {
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: majorityOption === q.correctAnswer ? 'rgba(141,198,63,0.08)' : 'rgba(239,68,68,0.08)', padding: '0.3rem 0.6rem', borderRadius: '0.4rem', border: `1px solid ${majorityOption === q.correctAnswer ? 'rgba(141,198,63,0.2)' : 'rgba(239,68,68,0.2)'}`, overflow: 'hidden' }}>
                                   <Trophy size={12} color={majorityOption === q.correctAnswer ? '#8DC63F' : '#EF4444'} style={{ flexShrink: 0 }} />
-                                  <span style={{ fontSize: '0.65rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Winner:</span>
+                                  <span style={{ fontSize: '0.65rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Most Voted:</span>
                                   <div style={{ flex: 1, overflow: 'hidden' }}>
                                     <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
                                       <span style={{ fontSize: '0.7rem', color: majorityOption === q.correctAnswer ? '#15803d' : '#b91c1c', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
@@ -788,7 +787,7 @@ export default function PresentationMode() {
                             ) : (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(56,189,248,0.08)', padding: '0.4rem 0.6rem', borderRadius: '0.6rem', border: '1px solid rgba(56,189,248,0.2)', overflow: 'hidden' }}>
                                 <Trophy size={12} color="#38BDF8" style={{ flexShrink: 0 }} />
-                                <span style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Winner:</span>
+                                <span style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Most Voted:</span>
                                 <div style={{ flex: 1, overflow: 'hidden' }}>
                                   <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
                                     <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
