@@ -670,30 +670,32 @@ export default function PresentationMode() {
             <>
               <motion.div
                 key={`summary-${activePoll?.code}`}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.05 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.4 }}
-                style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '1.5rem', alignItems: 'center', overflow: 'hidden' }}
+                style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', flexDirection: 'column', padding: '1.5rem 2rem', alignItems: 'center', overflow: 'hidden' }}
               >
-                <div style={{ textAlign: 'center', marginBottom: '1.5rem', flexShrink: 0 }}>
+                {/* Header */}
+                <div style={{ textAlign: 'center', marginBottom: '1.25rem', flexShrink: 0 }}>
                   {pollRevealed && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(141,198,63,0.1)', border: '1px solid rgba(141,198,63,0.3)', borderRadius: 30, padding: '6px 20px', marginBottom: '0.75rem' }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F' }} />
-                      <span style={{ color: '#65a30d', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Auto-Revealed</span>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(141,198,63,0.15)', border: '1px solid rgba(141,198,63,0.4)', borderRadius: 30, padding: '5px 18px', marginBottom: '0.6rem' }}>
+                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#8DC63F', animation: 'pulse 1.5s infinite' }} />
+                      <span style={{ color: '#65a30d', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Auto-Revealed</span>
                     </div>
                   )}
-                  <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.4rem', color: '#1e293b' }}>Poll Summary</h1>
-                  <p style={{ fontSize: '1rem', color: '#64748b' }}>Here's how your audience responded</p>
+                  <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: 0, color: '#1e293b' }}>Poll Summary</h1>
+                  <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0.3rem 0 0' }}>Here's how your audience responded</p>
                 </div>
 
-                <div style={{ width: '100%', flex: 1, overflowY: 'auto', padding: '0 1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+                {/* Horizontal scrolling cards row */}
+                <div style={{ width: '100%', flex: 1, overflowX: 'auto', overflowY: 'hidden', display: 'flex', gap: '1.25rem', padding: '0.5rem 0.25rem 1rem', alignItems: 'stretch' }}>
                   {activePoll?.questions.map((q, qi) => {
                     const data = chartData[qi] || [];
                     const total = data.reduce((a, c) => a + c.value, 0);
                     let majorityOption = 'No votes yet';
                     let majorityPct = 0;
-                    
+
                     if (total > 0) {
                       const sorted = [...data].sort((a, b) => b.value - a.value);
                       majorityOption = sorted[0].name;
@@ -704,51 +706,86 @@ export default function PresentationMode() {
                     const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
 
                     return (
-                      <div key={qi} style={{ background: '#fff', borderRadius: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.04)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ padding: '1.25rem 1.5rem', background: '#fafafa', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          <div style={{ background: '#8DC63F', color: '#fff', width: '2rem', height: '2rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem', flexShrink: 0 }}>
-                            {qi + 1}
-                          </div>
-                          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.4 }}>{q.text}</h3>
+                      <div
+                        key={qi}
+                        style={{
+                          background: '#fff',
+                          borderRadius: '1rem',
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          flexShrink: 0,
+                          width: '240px',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {/* Question text */}
+                        <div style={{ padding: '1rem 1rem 0.75rem', borderBottom: '1px solid #f1f5f9' }}>
+                          <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{q.text}</p>
                         </div>
 
-                        <div style={{ padding: '1.5rem' }}>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total</span>
-                              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>{total}</span>
+                        {/* Stats row */}
+                        <div style={{ display: 'flex', gap: '0.4rem', padding: '0.75rem 1rem' }}>
+                          {/* Total Responses */}
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Total{'\n'}Responses</span>
+                            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#38BDF8' }}>{total}</span>
+                            <Users size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
+                          </div>
+                          {/* Majority Vote */}
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Majority{'\n'}Vote</span>
+                            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#8DC63F' }}>{majorityPct}%</span>
+                            <PieChartIcon size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
+                          </div>
+                          {/* Correct % if available */}
+                          {q.correctAnswer && (
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Correct{'\n'}%</span>
+                              <span style={{ fontSize: '1.4rem', fontWeight: 800, color: correctPct >= 70 ? '#8DC63F' : correctPct >= 40 ? '#F59E0B' : '#EF4444' }}>{correctPct}%</span>
+                              <Target size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
                             </div>
-                            <div style={{ background: q.correctAnswer && correctPct >= 70 ? 'rgba(141,198,63,0.1)' : '#f8fafc', padding: '1rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.25rem' }}>Accuracy</span>
-                              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: q.correctAnswer ? (correctPct >= 70 ? '#8DC63F' : '#F59E0B') : '#1e293b' }}>
-                                {q.correctAnswer ? `${correctPct}%` : 'N/A'}
-                              </span>
+                          )}
+                        </div>
+
+                        {/* Winning answer */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', margin: '0 1rem 0.75rem', background: 'rgba(141,198,63,0.08)', padding: '0.4rem 0.6rem', borderRadius: '0.6rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
+                          <Trophy size={12} color="#8DC63F" style={{ flexShrink: 0 }} />
+                          <span style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Winner:</span>
+                          <div style={{ flex: 1, overflow: 'hidden' }}>
+                            <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
+                              <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
+                              {majorityOption.length > 12 && <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>}
                             </div>
                           </div>
+                        </div>
 
-                          <div style={{ height: '180px', marginBottom: '1rem' }}>
+                        {/* Donut chart + legend */}
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 1rem 1rem', minHeight: '120px' }}>
+                          <div style={{ width: '90px', height: '90px', flexShrink: 0 }}>
                             <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={data} layout="vertical" margin={{ left: -20, right: 20, top: 0, bottom: 0 }}>
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" hide />
-                                <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', fontSize: '12px' }} />
-                                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20}>
-                                  {data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.name === q.correctAnswer ? '#8DC63F' : COLORS[index % COLORS.length]} />
+                              <PieChart>
+                                <Pie data={data.length > 0 ? data : [{ name: 'No data', value: 1 }]} cx="50%" cy="50%" outerRadius="90%" innerRadius="55%" dataKey="value" stroke="none">
+                                  {(data.length > 0 ? data : [{ name: 'No data', value: 1 }]).map((_, i) => (
+                                    <Cell key={i} fill={data.length > 0 ? COLORS[i % COLORS.length] : '#e2e8f0'} />
                                   ))}
-                                </Bar>
-                              </BarChart>
+                                </Pie>
+                                <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '11px' }} />
+                              </PieChart>
                             </ResponsiveContainer>
                           </div>
-
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                            {data.slice(0, 4).map((opt, i) => (
-                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
-                                <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
-                                <span style={{ fontWeight: 700, color: '#1e293b' }}>{Math.round((opt.value/total)*100 || 0)}%</span>
-                                <span style={{ color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.name}</span>
-                              </div>
-                            ))}
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem', overflow: 'hidden' }}>
+                            {data.slice(0, 4).map((opt, i) => {
+                              const pct = total > 0 ? Math.round((opt.value / total) * 100) : 0;
+                              return (
+                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden' }}>
+                                  <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                                  <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#1e293b', flexShrink: 0, minWidth: '2rem' }}>{pct}%</span>
+                                  <span style={{ fontSize: '0.68rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={opt.name}>{opt.name}</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       </div>
@@ -756,19 +793,21 @@ export default function PresentationMode() {
                   })}
                 </div>
 
-                <button 
+                {/* Continue button */}
+                <button
                   onClick={() => {
                     setSlideDir(1);
                     setCurrentSlide(s => Math.min(s + 1, (presentation.slides?.length || 1) - 1));
                     setMode('slide');
                   }}
-                  style={{ marginTop: '2rem', background: 'linear-gradient(135deg, #8DC63F 0%, #65a30d 100%)', color: '#fff', padding: '1rem 3rem', fontSize: '1rem', fontWeight: 700, borderRadius: '2.5rem', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(141, 198, 63, 0.4)', transition: 'transform 0.2s', flexShrink: 0 }}
+                  style={{ marginTop: '0.75rem', background: 'linear-gradient(135deg, #8DC63F 0%, #65a30d 100%)', color: '#fff', padding: '0.85rem 3rem', fontSize: '1rem', fontWeight: 700, borderRadius: '2.5rem', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(141,198,63,0.35)', transition: 'transform 0.2s', flexShrink: 0 }}
                   onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                   onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
                   Continue Presentation
                 </button>
               </motion.div>
+
             </>
           )}
         </AnimatePresence>
