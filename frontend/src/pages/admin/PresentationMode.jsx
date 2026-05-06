@@ -696,7 +696,7 @@ export default function PresentationMode() {
                 </div>
 
                 {/* Fixed container for 5 cards per page with consistent scale */}
-                <div style={{ width: '100%', maxWidth: '1400px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                   <div style={{ width: '100%', display: 'flex', gap: '1.25rem', justifyContent: 'center', alignItems: 'stretch' }}>
                     {activePoll?.questions.slice(summaryPage * 5, (summaryPage + 1) * 5).map((q, localIndex) => {
                       const qi = summaryPage * 5 + localIndex;
@@ -725,8 +725,8 @@ export default function PresentationMode() {
                             display: 'flex',
                             flexDirection: 'column',
                             flex: '1 1 0',
-                            minWidth: '220px',
-                            maxWidth: '280px',
+                            minWidth: 0,
+                            maxWidth: 'calc(20% - 1rem)',
                             height: '420px',
                             overflow: 'hidden',
                           }}
