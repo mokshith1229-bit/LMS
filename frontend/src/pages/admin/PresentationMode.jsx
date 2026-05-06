@@ -697,39 +697,42 @@ export default function PresentationMode() {
                 {/* Fixed container for 5 cards per page with consistent scale */}
                 <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                   <div style={{ width: '100%', display: 'flex', gap: '1.25rem', justifyContent: 'center', alignItems: 'stretch' }}>
-                    {activePoll?.questions.slice(summaryPage * 5, (summaryPage + 1) * 5).map((q, localIndex) => {
-                      const qi = summaryPage * 5 + localIndex;
-                      const data = chartData[qi] || [];
-                      const total = data.reduce((a, c) => a + c.value, 0);
-                      let majorityOption = 'No votes yet';
-                      let majorityPct = 0;
+                    {(() => {
+                      const visibleQuestions = activePoll?.questions.slice(summaryPage * 5, (summaryPage + 1) * 5) || [];
+                      const visibleCount = visibleQuestions.length;
+                      return visibleQuestions.map((q, localIndex) => {
+                        const qi = summaryPage * 5 + localIndex;
+                        const data = chartData[qi] || [];
+                        const total = data.reduce((a, c) => a + c.value, 0);
+                        let majorityOption = 'No votes yet';
+                        let majorityPct = 0;
 
-                      if (total > 0) {
-                        const sorted = [...data].sort((a, b) => b.value - a.value);
-                        majorityOption = sorted[0].name;
-                        majorityPct = Math.round((sorted[0].value / total) * 100);
-                      }
+                        if (total > 0) {
+                          const sorted = [...data].sort((a, b) => b.value - a.value);
+                          majorityOption = sorted[0].name;
+                          majorityPct = Math.round((sorted[0].value / total) * 100);
+                        }
 
-                      const correctData = data.find(d => d.name === q.correctAnswer);
-                      const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
+                        const correctData = data.find(d => d.name === q.correctAnswer);
+                        const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
 
-                      return (
-                        <div
-                          key={qi}
-                          style={{
-                            background: '#fff',
-                            borderRadius: '1rem',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            flex: '1 1 0',
-                            minWidth: 0,
-                            maxWidth: 'calc(20% - 1rem)',
-                            height: '420px',
-                            overflow: 'hidden',
-                          }}
-                        >
+                        return (
+                          <div
+                            key={qi}
+                            style={{
+                              background: '#fff',
+                              borderRadius: '1rem',
+                              border: '1px solid #e2e8f0',
+                              boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              flex: '1 1 0',
+                              minWidth: 0,
+                              maxWidth: visibleCount === 1 ? '450px' : `calc(${100 / visibleCount}% - 1.25rem)`,
+                              height: '420px',
+                              overflow: 'hidden',
+                            }}
+                          >
                           {/* Question text */}
                           <div style={{ padding: '1rem 1rem 0.75rem', borderBottom: '1px solid #f1f5f9', height: '80px', display: 'flex', alignItems: 'center' }}>
                             <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{q.text}</p>
@@ -827,7 +830,8 @@ export default function PresentationMode() {
                           </div>
                         </div>
                       );
-                    })}
+                    });
+                  })()}
                   </div>
                 </div>
               </motion.div>
