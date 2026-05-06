@@ -591,7 +591,7 @@ export default function LivePoll() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2rem' }}>
                   {activePoll.questions.map((q, qi) => {
                     const data = chartData[qi] || [];
                     const total = data.reduce((a, c) => a + c.value, 0);
@@ -609,7 +609,7 @@ export default function LivePoll() {
                     const isMajorityCorrect = majorityOption === q.correctAnswer;
 
                     return (
-                      <div key={qi} style={{ background: '#ffffff', borderRadius: '1rem', padding: '2rem', display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.06)', position: 'relative' }}>
+                      <div key={qi} style={{ background: '#ffffff', borderRadius: '1.25rem', padding: '1.75rem', display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0', boxShadow: '0 10px 40px rgba(0,0,0,0.04)', position: 'relative' }}>
                         
                         <div style={{ marginBottom: '1.5rem' }}>
                           <h3 style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, lineHeight: 1.5 }}>{qi + 1}. {q.text}</h3>

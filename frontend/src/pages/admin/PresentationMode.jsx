@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, FlaskConical, Droplet, Users, PieChart as PieChartIcon, Trophy, Sparkles, TrendingUp, Clock } from 'lucide-react';
+import { Target, FlaskConical, Droplet, Users, PieChart as PieChartIcon, Trophy, Sparkles, TrendingUp, Clock, ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -682,9 +682,9 @@ export default function PresentationMode() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
               transition={{ duration: 0.4 }}
-              style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '2.5rem 1.5rem', alignItems: 'center', overflowY: 'auto' }}
+              style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '1.5rem', alignItems: 'center', overflow: 'hidden' }}
             >
-              <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '1.5rem', flexShrink: 0 }}>
                 {pollRevealed ? (
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(141,198,63,0.1)', border: '1px solid rgba(141,198,63,0.3)', borderRadius: 30, padding: '6px 20px', marginBottom: '0.75rem' }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F' }} />
@@ -695,97 +695,138 @@ export default function PresentationMode() {
                 <p style={{ fontSize: '1rem', color: '#64748b' }}>Here's how your audience responded</p>
               </div>
               
-              <div style={{ display: 'flex', gap: '2vmin', width: '100%', overflowX: 'auto', paddingBottom: '1vmin', justifyContent: activePoll?.questions.length > 2 ? 'flex-start' : 'center', alignItems: 'stretch' }}>
-                {activePoll?.questions.map((q, qi) => {
-                  const data = chartData[qi] || [];
-                  const total = data.reduce((a, c) => a + c.value, 0);
-                  let majorityOption = 'No votes yet';
-                  let majorityPct = 0;
+              {/* Summary Metrics & Navigation */}
+              <div style={{ width: '100%', maxWidth: '1200px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff', borderRadius: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 20px 50px rgba(0,0,0,0.08)' }}>
+                {/* Header with Nav */}
+                <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <div style={{ background: '#8DC63F', color: '#fff', width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
+                      {currentQuestionIndex + 1}
+                    </div>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>
+                        {activePoll?.questions[currentQuestionIndex]?.text}
+                      </h3>
+                      <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Question {currentQuestionIndex + 1} of {activePoll?.questions.length}</span>
+                    </div>
+                  </div>
                   
-                  if (total > 0) {
-                    const sorted = [...data].sort((a, b) => b.value - a.value);
-                    majorityOption = sorted[0].name;
-                    majorityPct = Math.round((sorted[0].value / total) * 100);
-                  }
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button 
+                      disabled={currentQuestionIndex === 0}
+                      onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
+                      style={{ ...toolBtn(false), opacity: currentQuestionIndex === 0 ? 0.4 : 1, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      <ChevronLeft size={18} /> Prev
+                    </button>
+                    <button 
+                      disabled={currentQuestionIndex === (activePoll?.questions.length || 1) - 1}
+                      onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
+                      style={{ ...toolBtn(false), opacity: currentQuestionIndex === (activePoll?.questions.length || 1) - 1 ? 0.4 : 1, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
+                    >
+                      Next <ChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
 
-                  const icons = [Target, FlaskConical, Droplet];
-                  const CardIcon = icons[qi % icons.length];
+                {/* Content Area */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2.5rem' }}>
+                  {(() => {
+                    const q = activePoll?.questions[currentQuestionIndex];
+                    if (!q) return null;
+                    const data = chartData[currentQuestionIndex] || [];
+                    const total = data.reduce((a, c) => a + c.value, 0);
+                    let majorityOption = 'No votes yet';
+                    let majorityPct = 0;
+                    
+                    if (total > 0) {
+                      const sorted = [...data].sort((a, b) => b.value - a.value);
+                      majorityOption = sorted[0].name;
+                      majorityPct = Math.round((sorted[0].value / total) * 100);
+                    }
 
-                  const feedback = majorityPct >= 80 ? { text: "Strong consensus! Almost everyone chose this answer.", icon: Sparkles, color: '#8DC63F' } 
-                    : majorityPct >= 50 ? { text: "Clear majority! Most participants selected this option.", icon: TrendingUp, color: '#38BDF8' }
-                    : { text: "Divided opinions! The audience is split on this one.", icon: PieChartIcon, color: '#F59E0B' };
+                    const correctData = data.find(d => d.name === q.correctAnswer);
+                    const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
 
-                  return (
-                    <div key={qi} style={{ background: '#ffffff', borderRadius: '1rem', padding: '2rem', minWidth: '20rem', flex: 1, display: 'flex', flexDirection: 'column', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.06)', position: 'relative' }}>
-                      
-                      <div style={{ marginBottom: '1.5rem' }}>
-                        <h3 style={{ fontSize: '1rem', color: '#1e293b', fontWeight: 600, lineHeight: 1.5 }}>{q.text}</h3>
-                      </div>
-                      
-                      <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem' }}>
-                        <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Total Responses</div>
-                          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#38BDF8' }}>{total}</div>
-                          <Users size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
-                        </div>
-                        <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Majority Vote</div>
-                          <div style={{ fontSize: '2rem', fontWeight: 800, color: '#8DC63F' }}>{majorityPct}%</div>
-                          <PieChartIcon size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
-                        </div>
-                        {q.correctAnswer && (() => {
-                          const correctData = data.find(d => d.name === q.correctAnswer);
-                          const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
-                          return (
-                            <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Correct %</div>
-                              <div style={{ fontSize: '2rem', fontWeight: 800, color: correctPct >= 70 ? '#8DC63F' : correctPct >= 40 ? '#f59e0b' : '#ef4444' }}>{correctPct}%</div>
-                              <Target size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
+                    return (
+                      <>
+                        {/* Stats Column */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                          <div style={{ background: '#f8fafc', borderRadius: '1rem', padding: '1.5rem', border: '1px solid #eef2f6' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Participation</span>
+                                <span style={{ fontSize: '2rem', fontWeight: 800, color: '#1e293b' }}>{total}</span>
+                              </div>
+                              <Users size="2rem" color="#cbd5e1" />
                             </div>
-                          );
-                        })()}
-                      </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                                <span style={{ color: '#64748b' }}>Majority Agreement</span>
+                                <span style={{ fontWeight: 700, color: '#1e293b' }}>{majorityPct}%</span>
+                              </div>
+                              <div style={{ height: 8, background: '#e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
+                                <div style={{ width: `${majorityPct}%`, height: '100%', background: '#38BDF8' }} />
+                              </div>
+                            </div>
+                          </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', background: 'rgba(141,198,63,0.05)', padding: '0.6rem 0.8rem', borderRadius: '0.8rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
-                        <Trophy size="1.25rem" color="#8DC63F" style={{ flexShrink: 0 }} />
-                        <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Winning Answer:</span>
-                        <div style={{ flex: 1, overflow: 'hidden', position: 'relative', background: 'rgba(141,198,63,0.15)', borderRadius: '1.2rem', padding: '0.3rem 0.8rem', display: 'flex' }}>
-                          <div style={{ display: 'flex', whiteSpace: 'nowrap', animation: 'ticker 10s linear infinite' }}>
-                            <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
-                            <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
+                          {q.correctAnswer && (
+                            <div style={{ background: correctPct >= 70 ? 'rgba(141,198,63,0.05)' : 'rgba(245,158,11,0.05)', borderRadius: '1rem', padding: '1.5rem', border: `1px solid ${correctPct >= 70 ? 'rgba(141,198,63,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: correctPct >= 70 ? '#65a30d' : '#d97706', textTransform: 'uppercase' }}>Accuracy Rate</span>
+                                <Target size="1.5rem" color={correctPct >= 70 ? '#8DC63F' : '#F59E0B'} />
+                              </div>
+                              <span style={{ fontSize: '2.5rem', fontWeight: 900, color: correctPct >= 70 ? '#8DC63F' : '#F59E0B' }}>{correctPct}%</span>
+                              <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#475569', fontWeight: 500 }}>
+                                {correctPct >= 70 ? "Excellent! Most of the audience got it right." : "Some confusion detected on this topic."}
+                              </p>
+                            </div>
+                          )}
+
+                          <div style={{ background: '#1e293b', borderRadius: '1rem', padding: '1.25rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <Trophy size="1.5rem" color="#F59E0B" />
+                            <div>
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Winning Choice</div>
+                              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>{majorityOption}</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '2vmin', flex: 1, minHeight: '12vmin', marginBottom: '2.5vmin' }}>
-                        <div style={{ flex: 1, height: '100%', minWidth: '10vmin' }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie data={data} cx="50%" cy="50%" outerRadius="90%" innerRadius="55%" dataKey="value" stroke="none">
-                                {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                              </Pie>
-                              <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#1e293b' }} itemStyle={{ color: '#1e293b' }} />
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'center' }}>
-                          {[...data].sort((a,b)=>b.value - a.value).slice(0,4).map((opt, i) => {
-                            const pct = total > 0 ? Math.round((opt.value/total)*100) : 0;
-                            return (
-                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <div style={{ width: '0.6rem', height: '0.6rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
-                                <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 700, minWidth: '2.75rem' }}>{pct}%</span>
-                                <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '6rem' }} title={opt.name}>{opt.name}</span>
+                        {/* Chart Column */}
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <div style={{ flex: 1, minHeight: '300px' }}>
+                            <ResponsiveContainer width="100%" height="100%">
+                              <BarChart data={data} layout="vertical" margin={{ left: 20, right: 40, top: 20, bottom: 20 }}>
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} tick={{ fontSize: 12, fontWeight: 600, fill: '#475569' }} />
+                                <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.1)' }} />
+                                <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={32}>
+                                  {data.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.name === q.correctAnswer ? '#8DC63F' : COLORS[index % COLORS.length]} />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                          
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginTop: '1rem' }}>
+                            {data.map((opt, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '0.75rem' }}>
+                                <div style={{ width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: COLORS[i % COLORS.length] }} />
+                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>{Math.round((opt.value/total)*100 || 0)}%</div>
+                                  <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.name}</div>
+                                </div>
+                                {opt.name === q.correctAnswer && <CheckCircle size="1rem" color="#8DC63F" />}
                               </div>
-                            );
-                          })}
+                            ))}
+                          </div>
                         </div>
-                      </div>
-
-                      {/* Feedback bar removed */}
-                    </div>
-                  );
-                })}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
 
               <button 
