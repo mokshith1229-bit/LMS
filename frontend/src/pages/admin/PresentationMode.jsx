@@ -59,6 +59,7 @@ export default function PresentationMode() {
   const [timeLeft, setTimeLeft] = useState(0); // seconds
   const [pollRevealed, setPollRevealed] = useState(false);
   const [presentationResponseCount, setPresentationResponseCount] = useState(0);
+  const [summaryPage, setSummaryPage] = useState(0);
 
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const FRONTEND_ORIGIN = window.location.origin;
@@ -137,6 +138,7 @@ export default function PresentationMode() {
                   setPresentationResponseCount(count);
                 }
               }
+              setSummaryPage(0);
               setPollRevealed(true);
               setPollTimerActive(false);
               setTimeLeft(0);
@@ -688,109 +690,138 @@ export default function PresentationMode() {
                   <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0.3rem 0 0' }}>Here's how your audience responded</p>
                 </div>
 
-                {/* Horizontal scrolling cards row */}
-                <div style={{ width: '100%', flex: 1, overflowX: 'auto', overflowY: 'hidden', display: 'flex', gap: '1.25rem', padding: '0.5rem 0.25rem 1rem', alignItems: 'stretch' }}>
-                  {activePoll?.questions.map((q, qi) => {
-                    const data = chartData[qi] || [];
-                    const total = data.reduce((a, c) => a + c.value, 0);
-                    let majorityOption = 'No votes yet';
-                    let majorityPct = 0;
+                {/* Fixed container for 5 cards per page with consistent scale */}
+                <div style={{ width: '100%', maxWidth: '1400px', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <div style={{ width: '100%', display: 'flex', gap: '1.25rem', justifyContent: 'center', alignItems: 'stretch' }}>
+                    {activePoll?.questions.slice(summaryPage * 5, (summaryPage + 1) * 5).map((q, localIndex) => {
+                      const qi = summaryPage * 5 + localIndex;
+                      const data = chartData[qi] || [];
+                      const total = data.reduce((a, c) => a + c.value, 0);
+                      let majorityOption = 'No votes yet';
+                      let majorityPct = 0;
 
-                    if (total > 0) {
-                      const sorted = [...data].sort((a, b) => b.value - a.value);
-                      majorityOption = sorted[0].name;
-                      majorityPct = Math.round((sorted[0].value / total) * 100);
-                    }
+                      if (total > 0) {
+                        const sorted = [...data].sort((a, b) => b.value - a.value);
+                        majorityOption = sorted[0].name;
+                        majorityPct = Math.round((sorted[0].value / total) * 100);
+                      }
 
-                    const correctData = data.find(d => d.name === q.correctAnswer);
-                    const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
+                      const correctData = data.find(d => d.name === q.correctAnswer);
+                      const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
 
-                    return (
-                      <div
-                        key={qi}
-                        style={{
-                          background: '#fff',
-                          borderRadius: '1rem',
-                          border: '1px solid #e2e8f0',
-                          boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          flexShrink: 0,
-                          width: '240px',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {/* Question text */}
-                        <div style={{ padding: '1rem 1rem 0.75rem', borderBottom: '1px solid #f1f5f9' }}>
-                          <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{q.text}</p>
-                        </div>
-
-                        {/* Stats row */}
-                        <div style={{ display: 'flex', gap: '0.4rem', padding: '0.75rem 1rem' }}>
-                          {/* Total Responses */}
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Total{'\n'}Responses</span>
-                            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#38BDF8' }}>{total}</span>
-                            <Users size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
+                      return (
+                        <div
+                          key={qi}
+                          style={{
+                            background: '#fff',
+                            borderRadius: '1rem',
+                            border: '1px solid #e2e8f0',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            flex: '1 1 0',
+                            minWidth: '220px',
+                            maxWidth: '280px',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {/* Question text */}
+                          <div style={{ padding: '1rem 1rem 0.75rem', borderBottom: '1px solid #f1f5f9' }}>
+                            <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{q.text}</p>
                           </div>
-                          {/* Majority Vote */}
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Majority{'\n'}Vote</span>
-                            <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#8DC63F' }}>{majorityPct}%</span>
-                            <PieChartIcon size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
-                          </div>
-                          {/* Correct % if available */}
-                          {q.correctAnswer && (
+
+                          {/* Stats row */}
+                          <div style={{ display: 'flex', gap: '0.4rem', padding: '0.75rem 1rem' }}>
+                            {/* Total Responses */}
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Correct{'\n'}%</span>
-                              <span style={{ fontSize: '1.4rem', fontWeight: 800, color: correctPct >= 70 ? '#8DC63F' : correctPct >= 40 ? '#F59E0B' : '#EF4444' }}>{correctPct}%</span>
-                              <Target size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
+                              <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Total{'\n'}Responses</span>
+                              <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#38BDF8' }}>{total}</span>
+                              <Users size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
                             </div>
-                          )}
-                        </div>
+                            {/* Majority Vote */}
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Majority{'\n'}Vote</span>
+                              <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#8DC63F' }}>{majorityPct}%</span>
+                              <PieChartIcon size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
+                            </div>
+                            {/* Correct % if available */}
+                            {q.correctAnswer && (
+                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Correct{'\n'}%</span>
+                                <span style={{ fontSize: '1.4rem', fontWeight: 800, color: correctPct >= 70 ? '#8DC63F' : correctPct >= 40 ? '#F59E0B' : '#EF4444' }}>{correctPct}%</span>
+                                <Target size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
+                              </div>
+                            )}
+                          </div>
 
-                        {/* Winning answer */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', margin: '0 1rem 0.75rem', background: 'rgba(141,198,63,0.08)', padding: '0.4rem 0.6rem', borderRadius: '0.6rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
-                          <Trophy size={12} color="#8DC63F" style={{ flexShrink: 0 }} />
-                          <span style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Winner:</span>
-                          <div style={{ flex: 1, overflow: 'hidden' }}>
-                            <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
-                              <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
-                              {majorityOption.length > 12 && <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>}
+                          {/* Winning answer */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', margin: '0 1rem 0.75rem', background: 'rgba(141,198,63,0.08)', padding: '0.4rem 0.6rem', borderRadius: '0.6rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
+                            <Trophy size={12} color="#8DC63F" style={{ flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Winner:</span>
+                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                              <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
+                                <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
+                                {majorityOption.length > 12 && <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Donut chart + legend */}
+                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 1rem 1rem', minHeight: '120px' }}>
+                            <div style={{ width: '90px', height: '90px', flexShrink: 0 }}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie data={data.length > 0 ? data : [{ name: 'No data', value: 1 }]} cx="50%" cy="50%" outerRadius="90%" innerRadius="55%" dataKey="value" stroke="none">
+                                    {(data.length > 0 ? data : [{ name: 'No data', value: 1 }]).map((_, i) => (
+                                      <Cell key={i} fill={data.length > 0 ? COLORS[i % COLORS.length] : '#e2e8f0'} />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '11px' }} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                            </div>
+                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem', overflow: 'hidden' }}>
+                              {data.slice(0, 4).map((opt, i) => {
+                                const pct = total > 0 ? Math.round((opt.value / total) * 100) : 0;
+                                return (
+                                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden' }}>
+                                    <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#1e293b', flexShrink: 0, minWidth: '2rem' }}>{pct}%</span>
+                                    <span style={{ fontSize: '0.68rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={opt.name}>{opt.name}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
-
-                        {/* Donut chart + legend */}
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 1rem 1rem', minHeight: '120px' }}>
-                          <div style={{ width: '90px', height: '90px', flexShrink: 0 }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie data={data.length > 0 ? data : [{ name: 'No data', value: 1 }]} cx="50%" cy="50%" outerRadius="90%" innerRadius="55%" dataKey="value" stroke="none">
-                                  {(data.length > 0 ? data : [{ name: 'No data', value: 1 }]).map((_, i) => (
-                                    <Cell key={i} fill={data.length > 0 ? COLORS[i % COLORS.length] : '#e2e8f0'} />
-                                  ))}
-                                </Pie>
-                                <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '11px' }} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem', overflow: 'hidden' }}>
-                            {data.slice(0, 4).map((opt, i) => {
-                              const pct = total > 0 ? Math.round((opt.value / total) * 100) : 0;
-                              return (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden' }}>
-                                  <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
-                                  <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#1e293b', flexShrink: 0, minWidth: '2rem' }}>{pct}%</span>
-                                  <span style={{ fontSize: '0.68rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={opt.name}>{opt.name}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Summary Pagination */}
+                  {(activePoll?.questions?.length || 0) > 5 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.5rem' }}>
+                      <button
+                        onClick={() => setSummaryPage(p => Math.max(0, p - 1))}
+                        disabled={summaryPage === 0}
+                        style={{ background: summaryPage === 0 ? 'rgba(0,0,0,0.05)' : '#fff', color: summaryPage === 0 ? '#94a3b8' : '#1e293b', border: '1px solid #e2e8f0', padding: '0.5rem 1rem', borderRadius: '2rem', cursor: summaryPage === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.9rem', boxShadow: summaryPage === 0 ? 'none' : '0 2px 10px rgba(0,0,0,0.05)' }}
+                      >
+                        <ChevronLeft size={16} /> Prev 5
+                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {Array.from({ length: Math.ceil((activePoll?.questions?.length || 0) / 5) }).map((_, i) => (
+                          <div key={i} onClick={() => setSummaryPage(i)} style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: i === summaryPage ? '#8DC63F' : '#cbd5e1', cursor: 'pointer', transition: 'background 0.2s' }} />
+                        ))}
                       </div>
-                    );
-                  })}
+                      <button
+                        onClick={() => setSummaryPage(p => Math.min(Math.ceil((activePoll?.questions?.length || 0) / 5) - 1, p + 1))}
+                        disabled={summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1}
+                        style={{ background: summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1 ? 'rgba(0,0,0,0.05)' : '#fff', color: summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1 ? '#94a3b8' : '#1e293b', border: '1px solid #e2e8f0', padding: '0.5rem 1rem', borderRadius: '2rem', cursor: summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.9rem', boxShadow: summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1 ? 'none' : '0 2px 10px rgba(0,0,0,0.05)' }}
+                      >
+                        Next 5 <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Continue button */}
