@@ -105,7 +105,13 @@ export default function PresentationMode() {
 
         const poll = data.poll;
         setActivePoll({ ...poll, isExpired: data.isExpired });
-        setChartData(data.results);
+        setChartData(data.results || []);
+        
+        // Initialize presentationResponseCount from existing data.results if available
+        if (data.results && data.results[currentQuestionIndex]) {
+          const count = data.results[currentQuestionIndex].reduce((a, c) => a + c.value, 0);
+          setPresentationResponseCount(count);
+        }
 
         // Delayed start: Show slide for 2s first
         autoStartTimer.current = setTimeout(async () => {
@@ -123,7 +129,14 @@ export default function PresentationMode() {
 
             // Presentation reveal: auto-switch to summary
             socket.on('poll_revealed', ({ results }) => {
-              if (results) setChartData(results);
+              if (results) {
+                setChartData(results);
+                // Also update presentationResponseCount for the UI if still in timer mode transition
+                if (results[currentQuestionIndex]) {
+                  const count = results[currentQuestionIndex].reduce((a, c) => a + c.value, 0);
+                  setPresentationResponseCount(count);
+                }
+              }
               setPollRevealed(true);
               setPollTimerActive(false);
               setTimeLeft(0);
@@ -192,7 +205,17 @@ export default function PresentationMode() {
           if (pollTimerActive) {
              setPollTimerActive(false);
              setPollRevealed(true);
-             setTimeout(() => setMode('summary'), 800);
+             // Ensure results are fetched before switching
+             (async () => {
+                try {
+                  const pId = typeof activePoll?._id === 'object' ? activePoll._id._id : activePoll?._id;
+                  if (pId) {
+                    const { data } = await api.get(`/poll/${pId}/results`);
+                    if (data.success) setChartData(data.results);
+                  }
+                } catch (e) { console.error('Fallback results fetch failed', e); }
+                setTimeout(() => setMode('summary'), 800);
+             })();
           }
           return 0;
         }
