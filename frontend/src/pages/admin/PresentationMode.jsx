@@ -668,73 +668,28 @@ export default function PresentationMode() {
           ) : (
             /* ── SUMMARY VIEW ────────────────────────────────────── */
             <>
-              <style>
-                {`
-                  @keyframes ticker {
-                    0% { transform: translateX(0); }
-                    100% { transform: translateX(-50%); }
-                  }
-                `}
-              </style>
               <motion.div
-              key={`summary-${activePoll?.code}`}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.05 }}
-              transition={{ duration: 0.4 }}
-              style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '1.5rem', alignItems: 'center', overflow: 'hidden' }}
-            >
-              <div style={{ textAlign: 'center', marginBottom: '1.5rem', flexShrink: 0 }}>
-                {pollRevealed ? (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(141,198,63,0.1)', border: '1px solid rgba(141,198,63,0.3)', borderRadius: 30, padding: '6px 20px', marginBottom: '0.75rem' }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F' }} />
-                    <span style={{ color: '#65a30d', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Auto-Revealed</span>
-                  </div>
-                ) : null}
-                <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.4rem', color: '#1e293b' }}>Poll Summary</h1>
-                <p style={{ fontSize: '1rem', color: '#64748b' }}>Here's how your audience responded</p>
-              </div>
-              
-              {/* Summary Metrics & Navigation */}
-              <div style={{ width: '100%', maxWidth: '1200px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#fff', borderRadius: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 20px 50px rgba(0,0,0,0.08)' }}>
-                {/* Header with Nav */}
-                <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{ background: '#8DC63F', color: '#fff', width: '2.5rem', height: '2.5rem', borderRadius: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1.2rem' }}>
-                      {currentQuestionIndex + 1}
+                key={`summary-${activePoll?.code}`}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.05 }}
+                transition={{ duration: 0.4 }}
+                style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '1.5rem', alignItems: 'center', overflow: 'hidden' }}
+              >
+                <div style={{ textAlign: 'center', marginBottom: '1.5rem', flexShrink: 0 }}>
+                  {pollRevealed && (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(141,198,63,0.1)', border: '1px solid rgba(141,198,63,0.3)', borderRadius: 30, padding: '6px 20px', marginBottom: '0.75rem' }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F' }} />
+                      <span style={{ color: '#65a30d', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Auto-Revealed</span>
                     </div>
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>
-                        {activePoll?.questions[currentQuestionIndex]?.text}
-                      </h3>
-                      <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Question {currentQuestionIndex + 1} of {activePoll?.questions.length}</span>
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button 
-                      disabled={currentQuestionIndex === 0}
-                      onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
-                      style={{ ...toolBtn(false), opacity: currentQuestionIndex === 0 ? 0.4 : 1, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
-                    >
-                      <ChevronLeft size={18} /> Prev
-                    </button>
-                    <button 
-                      disabled={currentQuestionIndex === (activePoll?.questions.length || 1) - 1}
-                      onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-                      style={{ ...toolBtn(false), opacity: currentQuestionIndex === (activePoll?.questions.length || 1) - 1 ? 0.4 : 1, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}
-                    >
-                      Next <ChevronRight size={18} />
-                    </button>
-                  </div>
+                  )}
+                  <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.4rem', color: '#1e293b' }}>Poll Summary</h1>
+                  <p style={{ fontSize: '1rem', color: '#64748b' }}>Here's how your audience responded</p>
                 </div>
 
-                {/* Content Area */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '2rem', display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '2.5rem' }}>
-                  {(() => {
-                    const q = activePoll?.questions[currentQuestionIndex];
-                    if (!q) return null;
-                    const data = chartData[currentQuestionIndex] || [];
+                <div style={{ width: '100%', flex: 1, overflowY: 'auto', padding: '0 1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+                  {activePoll?.questions.map((q, qi) => {
+                    const data = chartData[qi] || [];
                     const total = data.reduce((a, c) => a + c.value, 0);
                     let majorityOption = 'No votes yet';
                     let majorityPct = 0;
@@ -749,59 +704,35 @@ export default function PresentationMode() {
                     const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
 
                     return (
-                      <>
-                        {/* Stats Column */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                          <div style={{ background: '#f8fafc', borderRadius: '1rem', padding: '1.5rem', border: '1px solid #eef2f6' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Participation</span>
-                                <span style={{ fontSize: '2rem', fontWeight: 800, color: '#1e293b' }}>{total}</span>
-                              </div>
-                              <Users size="2rem" color="#cbd5e1" />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
-                                <span style={{ color: '#64748b' }}>Majority Agreement</span>
-                                <span style={{ fontWeight: 700, color: '#1e293b' }}>{majorityPct}%</span>
-                              </div>
-                              <div style={{ height: 8, background: '#e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
-                                <div style={{ width: `${majorityPct}%`, height: '100%', background: '#38BDF8' }} />
-                              </div>
-                            </div>
+                      <div key={qi} style={{ background: '#fff', borderRadius: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.04)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '1.25rem 1.5rem', background: '#fafafa', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <div style={{ background: '#8DC63F', color: '#fff', width: '2rem', height: '2rem', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '1rem', flexShrink: 0 }}>
+                            {qi + 1}
                           </div>
-
-                          {q.correctAnswer && (
-                            <div style={{ background: correctPct >= 70 ? 'rgba(141,198,63,0.05)' : 'rgba(245,158,11,0.05)', borderRadius: '1rem', padding: '1.5rem', border: `1px solid ${correctPct >= 70 ? 'rgba(141,198,63,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: correctPct >= 70 ? '#65a30d' : '#d97706', textTransform: 'uppercase' }}>Accuracy Rate</span>
-                                <Target size="1.5rem" color={correctPct >= 70 ? '#8DC63F' : '#F59E0B'} />
-                              </div>
-                              <span style={{ fontSize: '2.5rem', fontWeight: 900, color: correctPct >= 70 ? '#8DC63F' : '#F59E0B' }}>{correctPct}%</span>
-                              <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#475569', fontWeight: 500 }}>
-                                {correctPct >= 70 ? "Excellent! Most of the audience got it right." : "Some confusion detected on this topic."}
-                              </p>
-                            </div>
-                          )}
-
-                          <div style={{ background: '#1e293b', borderRadius: '1rem', padding: '1.25rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                            <Trophy size="1.5rem" color="#F59E0B" />
-                            <div>
-                              <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase' }}>Winning Choice</div>
-                              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc' }}>{majorityOption}</div>
-                            </div>
-                          </div>
+                          <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.4 }}>{q.text}</h3>
                         </div>
 
-                        {/* Chart Column */}
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <div style={{ flex: 1, minHeight: '300px' }}>
+                        <div style={{ padding: '1.5rem' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total</span>
+                              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e293b' }}>{total}</span>
+                            </div>
+                            <div style={{ background: q.correctAnswer && correctPct >= 70 ? 'rgba(141,198,63,0.1)' : '#f8fafc', padding: '1rem', borderRadius: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '0.25rem' }}>Accuracy</span>
+                              <span style={{ fontSize: '1.5rem', fontWeight: 800, color: q.correctAnswer ? (correctPct >= 70 ? '#8DC63F' : '#F59E0B') : '#1e293b' }}>
+                                {q.correctAnswer ? `${correctPct}%` : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{ height: '180px', marginBottom: '1rem' }}>
                             <ResponsiveContainer width="100%" height="100%">
-                              <BarChart data={data} layout="vertical" margin={{ left: 20, right: 40, top: 20, bottom: 20 }}>
+                              <BarChart data={data} layout="vertical" margin={{ left: -20, right: 20, top: 0, bottom: 0 }}>
                                 <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} tick={{ fontSize: 12, fontWeight: 600, fill: '#475569' }} />
-                                <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 10px 15px rgba(0,0,0,0.1)' }} />
-                                <Bar dataKey="value" radius={[0, 10, 10, 0]} barSize={32}>
+                                <YAxis dataKey="name" type="category" hide />
+                                <Tooltip cursor={{ fill: 'rgba(0,0,0,0.02)' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 5px 15px rgba(0,0,0,0.1)', fontSize: '12px' }} />
+                                <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20}>
                                   {data.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fill={entry.name === q.correctAnswer ? '#8DC63F' : COLORS[index % COLORS.length]} />
                                   ))}
@@ -809,39 +740,35 @@ export default function PresentationMode() {
                               </BarChart>
                             </ResponsiveContainer>
                           </div>
-                          
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginTop: '1rem' }}>
-                            {data.map((opt, i) => (
-                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '0.75rem' }}>
-                                <div style={{ width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: COLORS[i % COLORS.length] }} />
-                                <div style={{ flex: 1, overflow: 'hidden' }}>
-                                  <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>{Math.round((opt.value/total)*100 || 0)}%</div>
-                                  <div style={{ fontSize: '0.75rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{opt.name}</div>
-                                </div>
-                                {opt.name === q.correctAnswer && <CheckCircle size="1rem" color="#8DC63F" />}
+
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                            {data.slice(0, 4).map((opt, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem' }}>
+                                <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                                <span style={{ fontWeight: 700, color: '#1e293b' }}>{Math.round((opt.value/total)*100 || 0)}%</span>
+                                <span style={{ color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{opt.name}</span>
                               </div>
                             ))}
                           </div>
                         </div>
-                      </>
+                      </div>
                     );
-                  })()}
+                  })}
                 </div>
-              </div>
 
-              <button 
-                onClick={() => {
-                  setSlideDir(1);
-                  setCurrentSlide(s => Math.min(s + 1, (presentation.slides?.length || 1) - 1));
-                  setMode('slide');
-                }}
-                style={{ marginTop: '2rem', background: 'linear-gradient(135deg, #8DC63F 0%, #65a30d 100%)', color: '#fff', padding: '1rem 3rem', fontSize: '1rem', fontWeight: 700, borderRadius: '2.5rem', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(141, 198, 63, 0.4)', transition: 'transform 0.2s' }}
-                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                Continue Presentation
-              </button>
-            </motion.div>
+                <button 
+                  onClick={() => {
+                    setSlideDir(1);
+                    setCurrentSlide(s => Math.min(s + 1, (presentation.slides?.length || 1) - 1));
+                    setMode('slide');
+                  }}
+                  style={{ marginTop: '2rem', background: 'linear-gradient(135deg, #8DC63F 0%, #65a30d 100%)', color: '#fff', padding: '1rem 3rem', fontSize: '1rem', fontWeight: 700, borderRadius: '2.5rem', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(141, 198, 63, 0.4)', transition: 'transform 0.2s', flexShrink: 0 }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  Continue Presentation
+                </button>
+              </motion.div>
             </>
           )}
         </AnimatePresence>
