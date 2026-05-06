@@ -281,14 +281,25 @@ export default function PresentationMode() {
         return;
       }
     }
+    if (mode === 'summary' && activePoll) {
+      const maxPages = Math.ceil((activePoll.questions.length || 0) / 5);
+      if (summaryPage < maxPages - 1) {
+        setSummaryPage(p => p + 1);
+        return;
+      }
+    }
     setSlideDir(1);
     setCurrentSlide(s => Math.min(s + 1, (presentation.slides?.length || 1) - 1));
     setMode('slide');
-  }, [presentation, mode, activePoll, currentQuestionIndex, endPollAndShowSummary]);
+  }, [presentation, mode, activePoll, currentQuestionIndex, summaryPage, endPollAndShowSummary]);
 
   const goPrev = useCallback(() => {
     if (!presentation) return;
     if (mode === 'summary') {
+      if (summaryPage > 0) {
+        setSummaryPage(p => p - 1);
+        return;
+      }
       setMode('poll');
       return;
     }
@@ -298,7 +309,7 @@ export default function PresentationMode() {
     setSlideDir(-1);
     setCurrentSlide(s => Math.max(s - 1, 0));
     setMode('slide');
-  }, [presentation, mode, activePoll, currentQuestionIndex]);
+  }, [presentation, mode, activePoll, currentQuestionIndex, summaryPage]);
 
   const jumpTo = (idx) => {
     setSlideDir(idx > currentSlide ? 1 : -1);
@@ -680,12 +691,6 @@ export default function PresentationMode() {
               >
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: '1.25rem', flexShrink: 0 }}>
-                  {pollRevealed && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(141,198,63,0.15)', border: '1px solid rgba(141,198,63,0.4)', borderRadius: 30, padding: '5px 18px', marginBottom: '0.6rem' }}>
-                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#8DC63F', animation: 'pulse 1.5s infinite' }} />
-                      <span style={{ color: '#65a30d', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Auto-Revealed</span>
-                    </div>
-                  )}
                   <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: 0, color: '#1e293b' }}>Poll Summary</h1>
                   <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0.3rem 0 0' }}>Here's how your audience responded</p>
                 </div>
@@ -825,46 +830,7 @@ export default function PresentationMode() {
                       );
                     })}
                   </div>
-                  
-                  {/* Summary Pagination */}
-                  {(activePoll?.questions?.length || 0) > 5 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1.5rem' }}>
-                      <button
-                        onClick={() => setSummaryPage(p => Math.max(0, p - 1))}
-                        disabled={summaryPage === 0}
-                        style={{ background: summaryPage === 0 ? 'rgba(0,0,0,0.05)' : '#fff', color: summaryPage === 0 ? '#94a3b8' : '#1e293b', border: '1px solid #e2e8f0', padding: '0.5rem 1rem', borderRadius: '2rem', cursor: summaryPage === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.9rem', boxShadow: summaryPage === 0 ? 'none' : '0 2px 10px rgba(0,0,0,0.05)' }}
-                      >
-                        <ChevronLeft size={16} /> Prev 5
-                      </button>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        {Array.from({ length: Math.ceil((activePoll?.questions?.length || 0) / 5) }).map((_, i) => (
-                          <div key={i} onClick={() => setSummaryPage(i)} style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: i === summaryPage ? '#8DC63F' : '#cbd5e1', cursor: 'pointer', transition: 'background 0.2s' }} />
-                        ))}
-                      </div>
-                      <button
-                        onClick={() => setSummaryPage(p => Math.min(Math.ceil((activePoll?.questions?.length || 0) / 5) - 1, p + 1))}
-                        disabled={summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1}
-                        style={{ background: summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1 ? 'rgba(0,0,0,0.05)' : '#fff', color: summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1 ? '#94a3b8' : '#1e293b', border: '1px solid #e2e8f0', padding: '0.5rem 1rem', borderRadius: '2rem', cursor: summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, fontSize: '0.9rem', boxShadow: summaryPage === Math.ceil((activePoll?.questions?.length || 0) / 5) - 1 ? 'none' : '0 2px 10px rgba(0,0,0,0.05)' }}
-                      >
-                        Next 5 <ChevronRight size={16} />
-                      </button>
-                    </div>
-                  )}
                 </div>
-
-                {/* Continue button */}
-                <button
-                  onClick={() => {
-                    setSlideDir(1);
-                    setCurrentSlide(s => Math.min(s + 1, (presentation.slides?.length || 1) - 1));
-                    setMode('slide');
-                  }}
-                  style={{ marginTop: '0.75rem', background: 'linear-gradient(135deg, #8DC63F 0%, #65a30d 100%)', color: '#fff', padding: '0.85rem 3rem', fontSize: '1rem', fontWeight: 700, borderRadius: '2.5rem', border: 'none', cursor: 'pointer', boxShadow: '0 10px 25px rgba(141,198,63,0.35)', transition: 'transform 0.2s', flexShrink: 0 }}
-                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                >
-                  Continue Presentation
-                </button>
               </motion.div>
 
             </>
@@ -873,10 +839,10 @@ export default function PresentationMode() {
       </div>
 
       {/* ─── BOTTOM NAV (click zones) ────────────────────────────── */}
-      {mode === 'slide' && (
+      {(mode === 'slide' || mode === 'summary') && (
         <>
-          <div onClick={goPrev} style={{ position: 'absolute', left: thumbnailsOpen ? 220 : 0, top: 64, bottom: 0, width: '15%', cursor: currentSlide > 0 ? 'w-resize' : 'default', zIndex: 100 }} />
-          <div onClick={goNext} style={{ position: 'absolute', right: 0, top: 64, bottom: 0, width: '15%', cursor: currentSlide < totalSlides - 1 ? 'e-resize' : 'default', zIndex: 100 }} />
+          <div onClick={goPrev} style={{ position: 'absolute', left: thumbnailsOpen ? 220 : 0, top: 64, bottom: 0, width: '15%', cursor: mode === 'summary' || currentSlide > 0 ? 'w-resize' : 'default', zIndex: 100 }} />
+          <div onClick={goNext} style={{ position: 'absolute', right: 0, top: 64, bottom: 0, width: '15%', cursor: (mode === 'summary' && summaryPage < Math.ceil((activePoll?.questions?.length || 0) / 5) - 1) || currentSlide < totalSlides - 1 ? 'e-resize' : 'default', zIndex: 100 }} />
         </>
       )}
 
