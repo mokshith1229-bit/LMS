@@ -722,16 +722,17 @@ export default function PresentationMode() {
                             flex: '1 1 0',
                             minWidth: '220px',
                             maxWidth: '280px',
+                            height: '420px',
                             overflow: 'hidden',
                           }}
                         >
                           {/* Question text */}
-                          <div style={{ padding: '1rem 1rem 0.75rem', borderBottom: '1px solid #f1f5f9' }}>
-                            <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{q.text}</p>
+                          <div style={{ padding: '1rem 1rem 0.75rem', borderBottom: '1px solid #f1f5f9', height: '80px', display: 'flex', alignItems: 'center' }}>
+                            <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{q.text}</p>
                           </div>
 
                           {/* Stats row */}
-                          <div style={{ display: 'flex', gap: '0.4rem', padding: '0.75rem 1rem' }}>
+                          <div style={{ display: 'flex', gap: '0.4rem', padding: '0.75rem 1rem', height: '70px', flexShrink: 0 }}>
                             {/* Total Responses */}
                             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                               <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Total{'\n'}Responses</span>
@@ -754,16 +755,43 @@ export default function PresentationMode() {
                             )}
                           </div>
 
-                          {/* Winning answer */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', margin: '0 1rem 0.75rem', background: 'rgba(141,198,63,0.08)', padding: '0.4rem 0.6rem', borderRadius: '0.6rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
-                            <Trophy size={12} color="#8DC63F" style={{ flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Winner:</span>
-                            <div style={{ flex: 1, overflow: 'hidden' }}>
-                              <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
-                                <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
-                                {majorityOption.length > 12 && <span style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>}
+                          {/* Answer Comparison */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', margin: '0 1rem 0.75rem', height: '65px', justifyContent: 'center' }}>
+                            {q.correctAnswer ? (
+                              <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(141,198,63,0.08)', padding: '0.3rem 0.6rem', borderRadius: '0.4rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
+                                  <CheckCircle size={12} color="#8DC63F" style={{ flexShrink: 0 }} />
+                                  <span style={{ fontSize: '0.65rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Correct:</span>
+                                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                                    <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: q.correctAnswer.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
+                                      <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{q.correctAnswer}</span>
+                                      {q.correctAnswer.length > 12 && <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{q.correctAnswer}</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: majorityOption === q.correctAnswer ? 'rgba(141,198,63,0.08)' : 'rgba(239,68,68,0.08)', padding: '0.3rem 0.6rem', borderRadius: '0.4rem', border: `1px solid ${majorityOption === q.correctAnswer ? 'rgba(141,198,63,0.2)' : 'rgba(239,68,68,0.2)'}`, overflow: 'hidden' }}>
+                                  <Trophy size={12} color={majorityOption === q.correctAnswer ? '#8DC63F' : '#EF4444'} style={{ flexShrink: 0 }} />
+                                  <span style={{ fontSize: '0.65rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Winner:</span>
+                                  <div style={{ flex: 1, overflow: 'hidden' }}>
+                                    <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
+                                      <span style={{ fontSize: '0.7rem', color: majorityOption === q.correctAnswer ? '#15803d' : '#b91c1c', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
+                                      {majorityOption.length > 12 && <span style={{ fontSize: '0.7rem', color: majorityOption === q.correctAnswer ? '#15803d' : '#b91c1c', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>}
+                                    </div>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(56,189,248,0.08)', padding: '0.4rem 0.6rem', borderRadius: '0.6rem', border: '1px solid rgba(56,189,248,0.2)', overflow: 'hidden' }}>
+                                <Trophy size={12} color="#38BDF8" style={{ flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Winner:</span>
+                                <div style={{ flex: 1, overflow: 'hidden' }}>
+                                  <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
+                                    <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
+                                    {majorityOption.length > 12 && <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
 
                           {/* Donut chart + legend */}
