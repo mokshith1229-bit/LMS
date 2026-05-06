@@ -6,7 +6,7 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
-import { Trash2, Target, FlaskConical, Droplet, Users, PieChart as PieChartIcon, Trophy, Sparkles, TrendingUp, ArrowLeft } from 'lucide-react';
+import { Trash2, Target, Users, Trophy, ArrowLeft, Clock, Timer } from 'lucide-react';
 
 const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -20,15 +20,45 @@ export default function LivePoll() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
+  // Reveal mode state
+  const [revealMode, setRevealMode] = useState('live');
+  const [revealDelayMinutes, setRevealDelayMinutes] = useState(1);
+  const [revealResults, setRevealResults] = useState(false);
+  const [responseCount, setResponseCount] = useState(0);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0); // seconds
 
   // Socket connection
   useEffect(() => {
     if (!activePoll?.code) return;
     const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
     socket.emit('join_poll', `poll_admin_${activePoll.code}`);
+    // Live mode: receive full chart data
     socket.on('poll_update', (data) => setChartData(data));
+    // Delayed mode: receive only response count
+    socket.on('poll_response_count', ({ count }) => setResponseCount(count));
+    // Delayed mode: timer fired — reveal full results
+    socket.on('poll_reveal', ({ results }) => {
+      if (results) setChartData(results);
+      setRevealResults(true);
+      setTimerRunning(false);
+      setTimeLeft(0);
+      toast.success('Results revealed! Charts are now visible.');
+    });
     return () => socket.disconnect();
   }, [activePoll?.code]);
+
+  // Client-side countdown display (visual only — server enforces actual timer)
+  useEffect(() => {
+    if (!timerRunning || timeLeft <= 0) return;
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timerRunning, timeLeft]);
 
   useEffect(() => { fetchHistory(); }, []);
 
@@ -165,10 +195,19 @@ export default function LivePoll() {
       return;
     }
     try {
-      const { data } = await api.post('/poll/create', { title: pollTitle, questions: validQuestions });
+      const { data } = await api.post('/poll/create', {
+        title: pollTitle,
+        questions: validQuestions,
+        revealMode,
+        revealDelayMinutes: Number(revealDelayMinutes)
+      });
       if (data.success) {
         setActivePoll(data.poll);
         setChartData(validQuestions.map(q => q.options.map(opt => ({ name: opt, value: 0 }))));
+        setRevealResults(false);
+        setResponseCount(0);
+        setTimerRunning(false);
+        setTimeLeft(0);
         toast.success('Poll created successfully!');
         setPollTitle('');
         setQuestions([{ text: '', options: ['', ''], correctAnswer: '' }]);
@@ -177,6 +216,26 @@ export default function LivePoll() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to create poll');
     }
+  };
+
+  const handleStartTimer = async () => {
+    if (!activePoll?._id) return;
+    try {
+      const { data } = await api.post(`/poll/start-timer/${activePoll._id}`);
+      if (data.success) {
+        setTimerRunning(true);
+        setTimeLeft((activePoll.revealDelayMinutes || 1) * 60);
+        toast.success(`Timer started! Charts reveal in ${activePoll.revealDelayMinutes} minute(s).`);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to start timer');
+    }
+  };
+
+  const formatCountdown = (secs) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
   };
 
   const handleDeletePoll = async (pollId) => {
@@ -329,6 +388,37 @@ export default function LivePoll() {
                       />
                     </div>
 
+                    <div className="form-group" style={{ marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div>
+                        <label className="form-label">Reveal Mode</label>
+                        <select 
+                          className="form-input" 
+                          value={revealMode} 
+                          onChange={(e) => setRevealMode(e.target.value)}
+                        >
+                          <option value="live">Live Reveal</option>
+                          <option value="delayed">Reveal After Timer</option>
+                        </select>
+                      </div>
+                      {revealMode === 'delayed' && (
+                        <div>
+                          <label className="form-label">Timer Delay</label>
+                          <select 
+                            className="form-input" 
+                            value={revealDelayMinutes} 
+                            onChange={(e) => setRevealDelayMinutes(Number(e.target.value))}
+                          >
+                            <option value={1}>1 Minute</option>
+                            <option value={2}>2 Minutes</option>
+                            <option value={5}>5 Minutes</option>
+                            <option value={10}>10 Minutes</option>
+                            <option value={15}>15 Minutes</option>
+                            <option value={30}>30 Minutes</option>
+                          </select>
+                        </div>
+                      )}
+                    </div>
+
                     {questions.map((q, qIndex) => (
                       <div key={qIndex} style={{ padding: '1.5rem', background: 'var(--bg-secondary)', borderRadius: '8px', marginBottom: '1.5rem', border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -430,6 +520,39 @@ export default function LivePoll() {
                       <h1 style={{ fontSize: '3rem', letterSpacing: '8px', color: 'var(--text)', marginTop: '0.5rem' }}>
                         {activePoll.code}
                       </h1>
+
+                      {activePoll.revealMode === 'delayed' && (
+                        <div style={{ marginTop: '2rem', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', width: '100%' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '1rem' }}>
+                            <Timer size={24} color={timerRunning ? "#f59e0b" : "#64748b"} />
+                            <span style={{ fontWeight: 700, color: '#1e293b' }}>
+                              {revealResults ? 'RESULTS REVEALED' : timerRunning ? 'REVEAL COUNTDOWN' : 'DELAYED REVEAL MODE'}
+                            </span>
+                          </div>
+                          
+                          {timerRunning ? (
+                            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#f59e0b', fontFamily: 'monospace' }}>
+                              {formatCountdown(timeLeft)}
+                            </div>
+                          ) : !revealResults ? (
+                            <>
+                              <p style={{ color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+                                Charts are currently hidden from view. Start the timer to reveal results to everyone after {activePoll.revealDelay} minute(s).
+                              </p>
+                              <button 
+                                className="btn btn-primary btn-full" 
+                                onClick={handleStartTimer}
+                                style={{ background: '#f59e0b', borderColor: '#f59e0b' }}
+                              >
+                                Start Reveal Timer ({activePoll.revealDelay}m)
+                              </button>
+                            </>
+                          ) : (
+                            <p style={{ color: '#8DC63F', fontWeight: 600 }}>Charts are now visible to everyone.</p>
+                          )}
+                        </div>
+                      )}
+
                       <p style={{ color: '#ef4444', fontSize: '0.85rem', marginTop: '1rem', fontWeight: 500 }}>
                         ⚠️ This poll and QR code will expire 24 hours after creation.
                       </p>
@@ -495,14 +618,18 @@ export default function LivePoll() {
                         <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1.5rem' }}>
                           <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                             <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Total Responses</div>
-                            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#38BDF8' }}>{total}</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#38BDF8' }}>
+                              {activePoll.revealMode === 'delayed' && !revealResults ? responseCount : total}
+                            </div>
                             <Users size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
                           </div>
                           <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
                             <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Accuracy</div>
-                            <div style={{ fontSize: '2rem', fontWeight: 800, color: accuracyPct >= 70 ? '#8DC63F' : accuracyPct >= 40 ? '#F59E0B' : '#EF4444' }}>{accuracyPct}%</div>
+                            <div style={{ fontSize: '2rem', fontWeight: 800, color: accuracyPct >= 70 ? '#8DC63F' : accuracyPct >= 40 ? '#F59E0B' : '#EF4444' }}>
+                              {activePoll.revealMode === 'delayed' && !revealResults ? '??%' : `${accuracyPct}%`}
+                            </div>
                             <Target size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
-                            {q.correctAnswer && (
+                            {(q.correctAnswer && (activePoll.revealMode === 'live' || revealResults)) && (
                               <div style={{ position: 'absolute', top: -10, right: -10, background: isMajorityCorrect ? '#8DC63F' : '#EF4444', color: '#fff', fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', fontWeight: 800, boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>
                                 {isMajorityCorrect ? 'MATCHED' : 'MISMATCH'}
                               </div>
@@ -510,54 +637,63 @@ export default function LivePoll() {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem', background: 'rgba(141,198,63,0.05)', padding: '0.6rem 0.8rem', borderRadius: '0.8rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
-                          <Trophy size="1.25rem" color="#8DC63F" style={{ flexShrink: 0 }} />
-                          <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Winning Answer:</span>
-                          <div style={{ flex: 1, overflow: 'hidden', position: 'relative', background: 'rgba(141,198,63,0.15)', borderRadius: '1.2rem', padding: '0.3rem 0.8rem', display: 'flex' }}>
-                            <div style={{ display: 'flex', whiteSpace: 'nowrap', animation: 'ticker 10s linear infinite' }}>
-                              <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
-                              <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {q.correctAnswer && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', background: 'rgba(56,189,248,0.05)', padding: '0.6rem 0.8rem', borderRadius: '0.8rem', border: '1px solid rgba(56,189,248,0.2)', overflow: 'hidden' }}>
-                            <Target size="1.25rem" color="#38BDF8" style={{ flexShrink: 0 }} />
-                            <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Correct Answer:</span>
-                            <div style={{ flex: 1, overflow: 'hidden', position: 'relative', background: 'rgba(56,189,248,0.15)', borderRadius: '1.2rem', padding: '0.3rem 0.8rem', display: 'flex' }}>
-                              <div style={{ display: 'flex', whiteSpace: 'nowrap', animation: 'ticker 12s linear infinite' }}>
-                                <span style={{ fontSize: '0.9rem', color: '#0369a1', fontWeight: 700, paddingRight: '2.5rem' }}>{q.correctAnswer}</span>
-                                <span style={{ fontSize: '0.9rem', color: '#0369a1', fontWeight: 700, paddingRight: '2.5rem' }}>{q.correctAnswer}</span>
+                        {(activePoll.revealMode === 'live' || revealResults) ? (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem', background: 'rgba(141,198,63,0.05)', padding: '0.6rem 0.8rem', borderRadius: '0.8rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
+                              <Trophy size="1.25rem" color="#8DC63F" style={{ flexShrink: 0 }} />
+                              <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Winning Answer:</span>
+                              <div style={{ flex: 1, overflow: 'hidden', position: 'relative', background: 'rgba(141,198,63,0.15)', borderRadius: '1.2rem', padding: '0.3rem 0.8rem', display: 'flex' }}>
+                                <div style={{ display: 'flex', whiteSpace: 'nowrap', animation: 'ticker 10s linear infinite' }}>
+                                  <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
+                                  <span style={{ fontSize: '0.9rem', color: '#15803d', fontWeight: 700, paddingRight: '2.5rem' }}>{majorityOption}</span>
+                                </div>
                               </div>
                             </div>
+
+                            {q.correctAnswer && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', background: 'rgba(56,189,248,0.05)', padding: '0.6rem 0.8rem', borderRadius: '0.8rem', border: '1px solid rgba(56,189,248,0.2)', overflow: 'hidden' }}>
+                                <Target size="1.25rem" color="#38BDF8" style={{ flexShrink: 0 }} />
+                                <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0 }}>Correct Answer:</span>
+                                <div style={{ flex: 1, overflow: 'hidden', position: 'relative', background: 'rgba(56,189,248,0.15)', borderRadius: '1.2rem', padding: '0.3rem 0.8rem', display: 'flex' }}>
+                                  <div style={{ display: 'flex', whiteSpace: 'nowrap', animation: 'ticker 12s linear infinite' }}>
+                                    <span style={{ fontSize: '0.9rem', color: '#0369a1', fontWeight: 700, paddingRight: '2.5rem' }}>{q.correctAnswer}</span>
+                                    <span style={{ fontSize: '0.9rem', color: '#0369a1', fontWeight: 700, paddingRight: '2.5rem' }}>{q.correctAnswer}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minHeight: '200px' }}>
+                              <div style={{ flex: 1, height: '100%', minWidth: '150px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <PieChart>
+                                    <Pie data={data} cx="50%" cy="50%" outerRadius="90%" innerRadius="55%" dataKey="value" stroke="none">
+                                      {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                    </Pie>
+                                    <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#1e293b' }} itemStyle={{ color: '#1e293b' }} />
+                                  </PieChart>
+                                </ResponsiveContainer>
+                              </div>
+                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'center' }}>
+                                {[...data].sort((a,b)=>b.value - a.value).slice(0,4).map((opt, i) => {
+                                  const pct = total > 0 ? Math.round((opt.value/total)*100) : 0;
+                                  return (
+                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                      <div style={{ width: '0.6rem', height: '0.6rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                                      <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 700, minWidth: '2.75rem' }}>{pct}%</span>
+                                      <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }} title={opt.name}>{opt.name}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #e2e8f0' }}>
+                            <Clock size={40} color="#cbd5e1" style={{ marginBottom: '1rem' }} />
+                            <p style={{ color: '#64748b', fontSize: '0.9rem', fontWeight: 500 }}>Results are hidden until revealed</p>
                           </div>
                         )}
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minHeight: '200px' }}>
-                          <div style={{ flex: 1, height: '100%', minWidth: '150px' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                              <PieChart>
-                                <Pie data={data} cx="50%" cy="50%" outerRadius="90%" innerRadius="55%" dataKey="value" stroke="none">
-                                  {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                                </Pie>
-                                <Tooltip contentStyle={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#1e293b' }} itemStyle={{ color: '#1e293b' }} />
-                              </PieChart>
-                            </ResponsiveContainer>
-                          </div>
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.6rem', justifyContent: 'center' }}>
-                            {[...data].sort((a,b)=>b.value - a.value).slice(0,4).map((opt, i) => {
-                              const pct = total > 0 ? Math.round((opt.value/total)*100) : 0;
-                              return (
-                                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                  <div style={{ width: '0.6rem', height: '0.6rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
-                                  <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 700, minWidth: '2.75rem' }}>{pct}%</span>
-                                  <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px' }} title={opt.name}>{opt.name}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
                       </div>
                     );
                   })}

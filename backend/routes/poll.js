@@ -24,7 +24,7 @@ const generateCode = () => {
 // @access  Private
 router.post('/create', protect, async (req, res) => {
   try {
-    const { questions, title } = req.body;
+    const { questions, title, revealMode, revealDelayMinutes } = req.body;
     
     if (!title || !title.trim()) {
       return res.status(400).json({ success: false, message: 'Poll name is required' });
@@ -49,6 +49,9 @@ router.post('/create', protect, async (req, res) => {
       isActive: true,
       creator: req.user._id,
       expiresAt: new Date(Date.now() + EXPIRATION_TIME),
+      revealMode: revealMode === 'delayed' ? 'delayed' : 'live',
+      revealDelayMinutes: revealMode === 'delayed' ? (Number(revealDelayMinutes) || 1) : 0,
+      revealResults: false,
       responses: []
     });
 
@@ -110,21 +113,26 @@ router.post('/respond', async (req, res) => {
     poll.responses.push({ userKey, answers });
     await poll.save();
 
-    // Calculate real-time counts for admin
-    const results = poll.questions.map((q, qIndex) => {
-      return q.options.map(opt => ({
-        name: opt,
-        value: poll.responses.reduce((acc, r) => {
-          const ans = r.answers.find(a => a.questionIndex === qIndex);
-          return acc + (ans && ans.selectedOption === opt ? 1 : 0);
-        }, 0)
-      }));
-    });
-
-    // Emit socket event to ADMIN ONLY
     const io = req.app.get('io');
     if (io) {
-      io.to(`poll_admin_${poll.code}`).emit("poll_update", results);
+      if (poll.revealMode === 'delayed') {
+        // Delayed mode: only emit response count to admin — hide charts
+        io.to(`poll_admin_${poll.code}`).emit('poll_response_count', {
+          count: poll.responses.length
+        });
+      } else {
+        // Live mode: calculate and emit full chart data to admin (existing behavior)
+        const results = poll.questions.map((q, qIndex) => {
+          return q.options.map(opt => ({
+            name: opt,
+            value: poll.responses.reduce((acc, r) => {
+              const ans = r.answers.find(a => a.questionIndex === qIndex);
+              return acc + (ans && ans.selectedOption === opt ? 1 : 0);
+            }, 0)
+          }));
+        });
+        io.to(`poll_admin_${poll.code}`).emit('poll_update', results);
+      }
     }
 
     res.json({ success: true, message: 'submitted' });
@@ -261,6 +269,8 @@ router.post('/activate/:id', protect, async (req, res) => {
     poll.responses = [];
     poll.createdAt = new Date(); // reset expiration window
     poll.expiresAt = new Date(Date.now() + EXPIRATION_TIME);
+    poll.startedAt = null;
+    poll.revealResults = false;
     await poll.save();
 
     const results = poll.questions.map(q =>
@@ -270,6 +280,65 @@ router.post('/activate/:id', protect, async (req, res) => {
     res.json({ success: true, poll, results, reused: false });
   } catch (err) {
     console.error('[activate poll]', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   POST /api/poll/start-timer/:id
+// @desc    Start the reveal countdown for a delayed-mode poll.
+//          After revealDelay minutes, sets revealResults=true and emits poll_reveal.
+// @access  Private
+router.post('/start-timer/:id', protect, async (req, res) => {
+  try {
+    const poll = await Poll.findById(req.params.id);
+    if (!poll) return res.status(404).json({ success: false, message: 'Poll not found' });
+
+    if (poll.revealMode !== 'delayed') {
+      return res.status(400).json({ success: false, message: 'This poll is not in delayed reveal mode' });
+    }
+
+    if (poll.revealResults) {
+      return res.status(400).json({ success: false, message: 'Results already revealed for this poll' });
+    }
+
+    const delayMs = (poll.revealDelay || 1) * 60 * 1000;
+    const io = req.app.get('io');
+
+    // Respond immediately so admin sees the timer start
+    res.json({ success: true, message: `Timer started. Results will reveal in ${poll.revealDelayMinutes} minute(s).`, revealDelayMinutes: poll.revealDelayMinutes });
+
+    // Server-side countdown — fires after revealDelayMinutes minutes
+    setTimeout(async () => {
+      try {
+        const pollToReveal = await Poll.findById(req.params.id);
+        if (!pollToReveal || pollToReveal.revealResults) return; // already revealed or deleted
+
+        pollToReveal.revealResults = true;
+        await pollToReveal.save();
+
+        // Build full chart data for the reveal payload
+        const results = pollToReveal.questions.map((q, qIndex) =>
+          q.options.map(opt => ({
+            name: opt,
+            value: pollToReveal.responses.reduce((acc, r) => {
+              const ans = r.answers.find(a => a.questionIndex === qIndex);
+              return acc + (ans && ans.selectedOption === opt ? 1 : 0);
+            }, 0)
+          }))
+        );
+
+        if (io) {
+          // Emit to both admin and student rooms
+          io.to(`poll_admin_${pollToReveal.code}`).emit('poll_reveal', { results, poll: pollToReveal });
+          io.to(`poll_users_${pollToReveal.code}`).emit('poll_reveal', { message: 'The poll session has concluded.' });
+        }
+      } catch (revealErr) {
+        console.error('[poll_reveal timer]', revealErr);
+      }
+    }, delayMs);
+
+  } catch (error) {
+    console.error('Error starting poll timer:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -313,6 +382,68 @@ router.get('/:id/export', protect, async (req, res) => {
     res.end();
   } catch (error) {
     console.error('Error exporting poll:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   POST /api/poll/start-presentation-timer/:id
+// @desc    Auto-start a poll timer for presentation mode.
+//          Sets startedAt, then after revealDelayMinutes minutes emits 'poll_revealed'
+//          to both admin and user socket rooms.
+// @access  Private
+router.post('/start-presentation-timer/:id', protect, async (req, res) => {
+  try {
+    const poll = await Poll.findById(req.params.id);
+    if (!poll) return res.status(404).json({ success: false, message: 'Poll not found' });
+
+    // Record when this presentation timer started
+    poll.startedAt = new Date();
+    poll.revealResults = false;
+    await poll.save();
+
+    const delayMs = (poll.revealDelayMinutes || 1) * 60 * 1000;
+    const io = req.app.get('io');
+
+    // Respond immediately so the frontend can start countdown
+    res.json({
+      success: true,
+      startedAt: poll.startedAt,
+      revealDelayMinutes: poll.revealDelayMinutes,
+      message: `Presentation timer started. Results reveal in ${poll.revealDelayMinutes} minute(s).`
+    });
+
+    // Server-side countdown for presentation reveal
+    setTimeout(async () => {
+      try {
+        const p = await Poll.findById(req.params.id);
+        if (!p) return;
+
+        p.revealResults = true;
+        await p.save();
+
+        // Build full chart results
+        const results = p.questions.map((q, qIndex) =>
+          q.options.map(opt => ({
+            name: opt,
+            value: p.responses.reduce((acc, r) => {
+              const ans = r.answers.find(a => a.questionIndex === qIndex);
+              return acc + (ans && ans.selectedOption === opt ? 1 : 0);
+            }, 0)
+          }))
+        );
+
+        if (io) {
+          // 'poll_revealed' — presentation-specific reveal event
+          io.to(`poll_admin_${p.code}`).emit('poll_revealed', { results, poll: p });
+          io.to(`poll_users_${p.code}`).emit('poll_revealed', { message: 'The session has concluded.' });
+        }
+      } catch (err) {
+        console.error('[presentation timer reveal]', err);
+      }
+    }, delayMs);
+
+  } catch (error) {
+    console.error('Error starting presentation timer:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

@@ -14,6 +14,7 @@ export default function StudentPoll() {
   const [hasVoted, setHasVoted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [answers, setAnswers] = useState({});
+  const [resultsRevealed, setResultsRevealed] = useState(false);
 
   // Generate or retrieve a persistent user key for anonymous voting
   const getUserKey = () => {
@@ -56,7 +57,14 @@ export default function StudentPoll() {
   useEffect(() => {
     if (!poll?.code) return;
     const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
-    socket.emit('join_poll', `poll_users_${poll.code}`);
+    // Join student-specific room
+    socket.emit('join_poll_user', poll.code);
+
+    socket.on('poll_reveal', (data) => {
+      setResultsRevealed(true);
+      toast.success(data.message || 'Results have been revealed!');
+    });
+
     return () => socket.disconnect();
   }, [poll?.code]);
 
@@ -194,8 +202,24 @@ export default function StudentPoll() {
               <span style={{ fontSize: '1.2rem' }}>✓</span> Your response has been submitted
             </div>
             <div style={{ background: '#f0f9ff', border: '1px solid #e0f2fe', padding: '2rem', borderRadius: '16px', textAlign: 'center', maxWidth: '500px' }}>
-              <h2 style={{ color: '#0369a1', fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 700 }}>Thank you!</h2>
-              <p style={{ color: '#0ea5e9', fontSize: '1.1rem', fontWeight: 500, lineHeight: 1.5 }}>Participation level: Excellent—let’s keep the streak alive!</p>
+              {poll.revealMode === 'delayed' && !resultsRevealed ? (
+                <>
+                  <h2 style={{ color: '#0369a1', fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 700 }}>Answer submitted.</h2>
+                  <p style={{ color: '#0ea5e9', fontSize: '1.1rem', fontWeight: 500, lineHeight: 1.5 }}>⏳ Waiting for the session to conclude...</p>
+                  <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.5rem' }}>Please wait for the administrator to finalize the poll.</p>
+                </>
+              ) : resultsRevealed ? (
+                <>
+                  <h2 style={{ color: '#059669', fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 700 }}>Poll Concluded</h2>
+                  <p style={{ color: '#10b981', fontSize: '1.1rem', fontWeight: 500, lineHeight: 1.5 }}>Thank you for your participation!</p>
+                  <p style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '0.5rem' }}>The session has ended. You may now close this window.</p>
+                </>
+              ) : (
+                <>
+                  <h2 style={{ color: '#0369a1', fontSize: '1.5rem', marginBottom: '1rem', fontWeight: 700 }}>Thank you!</h2>
+                  <p style={{ color: '#0ea5e9', fontSize: '1.1rem', fontWeight: 500, lineHeight: 1.5 }}>Participation level: Excellent—let’s keep the streak alive!</p>
+                </>
+              )}
             </div>
           </div>
         )}

@@ -27,9 +27,17 @@ app.set('io', io);
 io.on('connection', (socket) => {
   console.log('A user connected via socket:', socket.id);
 
+  // Admin joins: join_poll is called with 'poll_admin_<code>'
   socket.on('join_poll', (code) => {
     socket.join(code);
     console.log(`Socket ${socket.id} joined poll room ${code}`);
+  });
+
+  // Student joins: join_poll_user is called with poll code only
+  // Joins 'poll_users_<code>' room to receive poll_reveal events
+  socket.on('join_poll_user', (code) => {
+    socket.join(`poll_users_${code}`);
+    console.log(`Socket ${socket.id} joined student room poll_users_${code}`);
   });
 
   socket.on('disconnect', () => {

@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Target, FlaskConical, Droplet, Users, PieChart as PieChartIcon, Trophy, Sparkles, TrendingUp } from 'lucide-react';
+import { Target, FlaskConical, Droplet, Users, PieChart as PieChartIcon, Trophy, Sparkles, TrendingUp, Clock } from 'lucide-react';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
@@ -54,6 +54,11 @@ export default function PresentationMode() {
   const [transitionType, setTransitionType] = useState('slideLeft');
   const [showTransitionPicker, setShowTransitionPicker] = useState(false);
   const [thumbnailsOpen, setThumbnailsOpen] = useState(false);
+  // Presentation timer-reveal state
+  const [pollTimerActive, setPollTimerActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0); // seconds
+  const [pollRevealed, setPollRevealed] = useState(false);
+  const [presentationResponseCount, setPresentationResponseCount] = useState(0);
 
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const FRONTEND_ORIGIN = window.location.origin;
@@ -84,6 +89,7 @@ export default function PresentationMode() {
     // Tear down previous socket
     if (socketRef) { socketRef.disconnect(); setSocketRef(null); }
     setChartData([]); setMode('slide'); setActivePoll(null); setCurrentQuestionIndex(0); setPollActivating(false);
+    setPollTimerActive(false); setTimeLeft(0); setPollRevealed(false); setPresentationResponseCount(0);
 
     const linked = presentation.slidePolls?.find(sp => sp.slideIndex === currentSlide);
     if (!linked?.pollId) return; // no poll on this slide
@@ -102,14 +108,60 @@ export default function PresentationMode() {
         setChartData(data.results);
 
         // Delayed start: Show slide for 2s first
-        autoStartTimer.current = setTimeout(() => {
+        autoStartTimer.current = setTimeout(async () => {
           setMode('poll');
           if (!data.isExpired) {
-            // Connect socket only when entering poll view
+            // Connect socket when entering poll view
             const socket = io(API_BASE);
             socket.emit('join_poll', `poll_admin_${poll.code}`);
+
+            // Live mode: full chart update
             socket.on('poll_update', d => setChartData(d));
+
+            // Delayed mode: only response count during timer
+            socket.on('poll_response_count', ({ count }) => setPresentationResponseCount(count));
+
+            // Presentation reveal: auto-switch to summary
+            socket.on('poll_revealed', ({ results }) => {
+              if (results) setChartData(results);
+              setPollRevealed(true);
+              setPollTimerActive(false);
+              setTimeLeft(0);
+              // Auto-switch to summary after a brief pause
+              setTimeout(() => setMode('summary'), 800);
+            });
+
             setSocketRef(socket);
+
+            // If delayed mode, auto-start the presentation timer
+            if (poll.revealMode === 'delayed' && !data.isExpired) {
+              if (poll.revealResults) {
+                setPollRevealed(true);
+                setTimeout(() => setMode('summary'), 800);
+              } else if (poll.startedAt) {
+                const elapsedSecs = (Date.now() - new Date(poll.startedAt).getTime()) / 1000;
+                const totalDelaySecs = (poll.revealDelayMinutes || 1) * 60;
+                const remaining = Math.max(0, Math.floor(totalDelaySecs - elapsedSecs));
+                if (remaining > 0) {
+                  setPollTimerActive(true);
+                  setTimeLeft(remaining);
+                } else {
+                  setPollRevealed(true);
+                }
+              } else {
+                try {
+                  const timerRes = await api.post(`/poll/start-presentation-timer/${poll._id}`);
+                  if (timerRes.data.success) {
+                    const delaySecs = (poll.revealDelayMinutes || 1) * 60;
+                    setPollTimerActive(true);
+                    setTimeLeft(delaySecs);
+                    setActivePoll(prev => ({ ...prev, startedAt: timerRes.data.startedAt }));
+                  }
+                } catch (timerErr) {
+                  console.error('[presentation timer start]', timerErr);
+                }
+              }
+            }
           }
         }, 2000);
 
@@ -128,6 +180,27 @@ export default function PresentationMode() {
 
     return () => clearTimeout(autoStartTimer.current);
   }, [currentSlide, presentation]);
+
+  // ── Presentation countdown tick ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!pollTimerActive) return;
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          // Fallback: If timer hits 0 and socket event hasn't fired or was missed
+          if (pollTimerActive) {
+             setPollTimerActive(false);
+             setPollRevealed(true);
+             setTimeout(() => setMode('summary'), 800);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [pollTimerActive]);
 
   // ── Auto-hide toolbar ───────────────────────────────────────────────────────
   const resetHideTimer = useCallback(() => {
@@ -420,114 +493,167 @@ export default function PresentationMode() {
             </motion.div>
           ) : mode === 'poll' ? (
             /* ── POLL VIEW ──────────────────────────────────────── */
-            <motion.div
-              key={`poll-${activePoll?.code}-q${currentQuestionIndex}`}
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.02 }}
-              transition={{ duration: 0.4 }}
-              style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '5rem 4rem 2rem 4rem', position: 'relative' }}
-            >
-              {/* Join bar */}
-              {activePoll && !activePoll.isExpired ? (
-                <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Join at <strong style={{ color: '#1e293b' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</strong></span>
-                  <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
-                  <span style={{ color: '#64748b', fontWeight: 500 }}>Code: <strong style={{ color: '#8DC63F', fontSize: '1.1rem' }}>{activePoll.code}</strong></span>
-                </div>
-              ) : activePoll?.isExpired ? (
-                <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-                  <span style={{ color: '#ef4444', fontWeight: 700 }}>Expired Poll - Final Results</span>
-                </div>
-              ) : null}
-
-              {/* Question */}
-              <div style={{ flex: 1, background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ padding: '2.5rem 3rem 1rem', textAlign: 'center' }}>
-                  {activePoll.questions.length > 1 && (
-                    <div style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600, marginBottom: '0.75rem' }}>
-                      Question {currentQuestionIndex + 1} of {activePoll.questions.length}
+            (() => {
+              const formatCountdown = (s) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+              const isTimerMode = activePoll?.revealMode === 'delayed' && pollTimerActive && !pollRevealed;
+              const liveResponseCount = isTimerMode ? presentationResponseCount : totalResponses;
+              return (
+                <motion.div
+                  key={`poll-${activePoll?.code}-q${currentQuestionIndex}`}
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  transition={{ duration: 0.4 }}
+                  style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '5rem 4rem 2rem 4rem', position: 'relative' }}
+                >
+                  {/* Join bar */}
+                  {activePoll && !activePoll.isExpired ? (
+                    <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+                      <span style={{ color: '#64748b', fontWeight: 500 }}>Join at <strong style={{ color: '#1e293b' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</strong></span>
+                      <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
+                      <span style={{ color: '#64748b', fontWeight: 500 }}>Code: <strong style={{ color: '#8DC63F', fontSize: '1.1rem' }}>{activePoll.code}</strong></span>
+                      {isTimerMode && (
+                        <>
+                          <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#f59e0b', fontWeight: 700 }}>
+                            <Clock size={14} /> Reveals in {formatCountdown(timeLeft)}
+                          </span>
+                        </>
+                      )}
                     </div>
-                  )}
-                  <h1 style={{ fontSize: 'clamp(1.5rem, 4vw, 3rem)', fontWeight: 800, color: '#1e293b', lineHeight: 1.2, marginBottom: '0.5rem' }}>
-                    {currentQuestion?.text}
-                  </h1>
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F', animation: 'pulse 2s infinite' }} />
-                    <span style={{ color: '#64748b', fontWeight: 600 }}>{totalResponses} response{totalResponses !== 1 ? 's' : ''}</span>
+                  ) : activePoll?.isExpired ? (
+                    <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+                      <span style={{ color: '#ef4444', fontWeight: 700 }}>Expired Poll - Final Results</span>
+                    </div>
+                  ) : null}
+
+                  {/* Question card */}
+                  <div style={{ flex: 1, background: '#fff', borderRadius: 20, border: '1px solid #e2e8f0', boxShadow: '0 20px 40px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div style={{ padding: '2.5rem 3rem 1rem', textAlign: 'center' }}>
+                      {activePoll.questions.length > 1 && (
+                        <div style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600, marginBottom: '0.75rem' }}>
+                          Question {currentQuestionIndex + 1} of {activePoll.questions.length}
+                        </div>
+                      )}
+                      <h1 style={{ fontSize: 'clamp(1.5rem, 4vw, 3rem)', fontWeight: 800, color: '#1e293b', lineHeight: 1.2, marginBottom: '0.5rem' }}>
+                        {currentQuestion?.text}
+                      </h1>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F', animation: 'pulse 2s infinite' }} />
+                        <span style={{ color: '#64748b', fontWeight: 600 }}>{liveResponseCount} response{liveResponseCount !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+
+                    {/* ── TIMER ACTIVE: hide charts, show big countdown ── */}
+                    {isTimerMode ? (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2rem', padding: '2rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                          <Clock size={56} color="#f59e0b" strokeWidth={1.5} />
+                          <div style={{ fontSize: 'clamp(3rem, 10vw, 7rem)', fontWeight: 900, color: '#1e293b', fontFamily: 'monospace', letterSpacing: '-0.05em', lineHeight: 1 }}>
+                            {formatCountdown(timeLeft)}
+                          </div>
+                          <div style={{ fontSize: '1.1rem', color: '#64748b', fontWeight: 600 }}>Results will be revealed automatically</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem' }}>
+                          <div style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 16, padding: '1.25rem 2rem', border: '1px solid #e2e8f0' }}>
+                            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#38BDF8' }}>{liveResponseCount}</div>
+                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Responses</div>
+                          </div>
+                          <div style={{ textAlign: 'center', background: '#f8fafc', borderRadius: 16, padding: '1.25rem 2rem', border: '1px solid #e2e8f0' }}>
+                            <div style={{ fontSize: '2.5rem', fontWeight: 800, color: '#f59e0b' }}>{formatCountdown(timeLeft)}</div>
+                            <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Time Left</div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* ── LIVE / REVEALED: show pie chart ── */
+                      <div style={{ flex: 1, padding: '0 3rem 2rem' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie data={currentQuestionData} cx="50%" cy="50%" outerRadius="85%" innerRadius="55%" dataKey="value" nameKey="name" paddingAngle={4} animationDuration={1200} stroke="#fff" strokeWidth={4}>
+                              {currentQuestionData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10 }} />
+                            <Legend verticalAlign="bottom" height={72} formatter={(v) => {
+                              const item = currentQuestionData.find(d => d.name === v);
+                              const pct = totalResponses > 0 ? ((item?.value / totalResponses) * 100).toFixed(0) : 0;
+                              return <span style={{ color: '#475569', fontWeight: 700 }}>{v} ({pct}%)</span>;
+                            }} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                <div style={{ flex: 1, padding: '0 3rem 2rem' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={currentQuestionData} cx="50%" cy="50%" outerRadius="85%" innerRadius="55%" dataKey="value" nameKey="name" paddingAngle={4} animationDuration={1200} stroke="#fff" strokeWidth={4}>
-                        {currentQuestionData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10 }} />
-                      <Legend verticalAlign="bottom" height={72} formatter={(v) => {
-                        const item = currentQuestionData.find(d => d.name === v);
-                        const pct = totalResponses > 0 ? ((item?.value / totalResponses) * 100).toFixed(0) : 0;
-                        return <span style={{ color: '#475569', fontWeight: 700 }}>{v} ({pct}%)</span>;
-                      }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
+                  {/* QR Code Overlay (Fullscreen when expanded) */}
+                  {activePoll && !activePoll.isExpired && (
+                    <AnimatePresence>
+                      {qrExpanded && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          onClick={() => setQrExpanded(false)}
+                          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
+                        >
+                          <motion.div
+                            initial={{ scale: 0.5 }}
+                            animate={{ scale: 1 }}
+                            exit={{ scale: 0.5 }}
+                            style={{ background: '#fff', padding: '3rem', borderRadius: '32px', textAlign: 'center' }}
+                          >
+                            <QRCodeSVG value={pollUrl} size={400} />
+                            <div style={{ marginTop: '2rem', color: '#1e293b', fontWeight: 800, fontSize: '2rem' }}>SCAN TO VOTE</div>
+                            <div style={{ color: '#64748b', fontSize: '1.2rem', marginTop: '0.5rem' }}>Join code: <strong style={{ color: '#8DC63F' }}>{activePoll.code}</strong></div>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  )}
 
-              {/* QR Code Overlay (Fullscreen when expanded) */}
-              {activePoll && !activePoll.isExpired && (
-                <AnimatePresence>
-                  {qrExpanded && (
+                  {/* Small QR (Bottom Right) — only when not in timer mode */}
+                  {activePoll && !activePoll.isExpired && !isTimerMode && (
                     <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      onClick={() => setQrExpanded(false)}
-                      style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-                        zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'zoom-out'
-                      }}
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      onClick={() => setQrExpanded(true)}
+                      style={{ position: 'absolute', bottom: '2.5rem', right: '2.5rem', background: '#fff', padding: '1rem', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'zoom-in', zIndex: 100 }}
                     >
-                      <motion.div
-                        initial={{ scale: 0.5 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0.5 }}
-                        style={{ background: '#fff', padding: '3rem', borderRadius: '32px', textAlign: 'center' }}
-                      >
-                        <QRCodeSVG value={pollUrl} size={400} />
-                        <div style={{ marginTop: '2rem', color: '#1e293b', fontWeight: 800, fontSize: '2rem' }}>SCAN TO VOTE</div>
-                        <div style={{ color: '#64748b', fontSize: '1.2rem', marginTop: '0.5rem' }}>Join code: <strong style={{ color: '#8DC63F' }}>{activePoll.code}</strong></div>
-                      </motion.div>
+                      <QRCodeSVG value={pollUrl} size={120} />
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', letterSpacing: 1 }}>CLICK TO EXPAND</span>
                     </motion.div>
                   )}
-                </AnimatePresence>
-              )}
 
-              {/* Small QR (Bottom Right) */}
-              {activePoll && !activePoll.isExpired && (
-                <motion.div
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                  onClick={() => setQrExpanded(true)}
-                  style={{
-                    position: 'absolute', bottom: '2.5rem', right: '2.5rem',
-                    background: '#fff', padding: '1rem', borderRadius: 16,
-                    border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
-                    cursor: 'zoom-in', zIndex: 100
-                  }}
-                >
-                  <QRCodeSVG value={pollUrl} size={120} />
-                  <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', letterSpacing: 1 }}>CLICK TO EXPAND</span>
+                  {/* Large QR bottom-right during timer so students can still join */}
+                  {activePoll && !activePoll.isExpired && isTimerMode && (
+                    <motion.div
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      onClick={() => setQrExpanded(true)}
+                      style={{ position: 'absolute', bottom: '2.5rem', right: '2.5rem', background: '#fff', padding: '1.25rem', borderRadius: 16, border: '2px solid #f59e0b', boxShadow: '0 10px 30px rgba(245,158,11,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'zoom-in', zIndex: 100 }}
+                    >
+                      <QRCodeSVG value={pollUrl} size={140} />
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f59e0b', letterSpacing: 1 }}>SCAN TO VOTE</span>
+                    </motion.div>
+                  )}
                 </motion.div>
-              )}
-            </motion.div>
+              );
+            })()
+
           ) : (
             /* ── SUMMARY VIEW ────────────────────────────────────── */
-            <motion.div
+            <>
+              <style>
+                {`
+                  @keyframes ticker {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
+                  }
+                `}
+              </style>
+              <motion.div
               key={`summary-${activePoll?.code}`}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -535,8 +661,16 @@ export default function PresentationMode() {
               transition={{ duration: 0.4 }}
               style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '2.5rem 1.5rem', alignItems: 'center', overflowY: 'auto' }}
             >
-              <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.4rem', color: '#1e293b' }}>Poll Summary</h1>
-              <p style={{ fontSize: '1rem', color: '#64748b', marginBottom: '2.5rem' }}>Here's how your audience responded</p>
+              <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
+                {pollRevealed ? (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(141,198,63,0.1)', border: '1px solid rgba(141,198,63,0.3)', borderRadius: 30, padding: '6px 20px', marginBottom: '0.75rem' }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F' }} />
+                    <span style={{ color: '#65a30d', fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1 }}>Auto-Revealed</span>
+                  </div>
+                ) : null}
+                <h1 style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '0.4rem', color: '#1e293b' }}>Poll Summary</h1>
+                <p style={{ fontSize: '1rem', color: '#64748b' }}>Here's how your audience responded</p>
+              </div>
               
               <div style={{ display: 'flex', gap: '2vmin', width: '100%', overflowX: 'auto', paddingBottom: '1vmin', justifyContent: activePoll?.questions.length > 2 ? 'flex-start' : 'center', alignItems: 'stretch' }}>
                 {activePoll?.questions.map((q, qi) => {
@@ -572,10 +706,21 @@ export default function PresentationMode() {
                           <Users size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
                         </div>
                         <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Majority Option</div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Majority Vote</div>
                           <div style={{ fontSize: '2rem', fontWeight: 800, color: '#8DC63F' }}>{majorityPct}%</div>
                           <PieChartIcon size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
                         </div>
+                        {q.correctAnswer && (() => {
+                          const correctData = data.find(d => d.name === q.correctAnswer);
+                          const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
+                          return (
+                            <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: '0.8rem', padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                              <div style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: '0.3rem' }}>Correct %</div>
+                              <div style={{ fontSize: '2rem', fontWeight: 800, color: correctPct >= 70 ? '#8DC63F' : correctPct >= 40 ? '#f59e0b' : '#ef4444' }}>{correctPct}%</div>
+                              <Target size="1rem" color="#94a3b8" style={{ marginTop: '0.3rem' }}/>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', background: 'rgba(141,198,63,0.05)', padding: '0.6rem 0.8rem', borderRadius: '0.8rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
@@ -633,6 +778,7 @@ export default function PresentationMode() {
                 Continue Presentation
               </button>
             </motion.div>
+            </>
           )}
         </AnimatePresence>
       </div>
