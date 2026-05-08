@@ -180,7 +180,12 @@ export default function AdminResults() {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <h2 className="title-sm" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <BarChart2 size={20} /> All Submissions
+              <BarChart2 size={20} /> All Submissions 
+              {selectedIds.length > 0 && (
+                <span style={{ fontSize: '0.8rem', background: '#e0f2fe', color: '#0369a1', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>
+                  {selectedIds.length} Selected
+                </span>
+              )}
             </h2>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <select 
@@ -194,13 +199,32 @@ export default function AdminResults() {
                   <option key={title} value={title}>{title}</option>
                 ))}
               </select>
+              {selectedIds.length > 0 && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                  onClick={() => setSelectedIds([])}
+                >
+                  Deselect All
+                </button>
+              )}
+              <button
+                className="btn btn-secondary"
+                style={{ padding: '6px 14px', fontSize: '0.85rem' }}
+                onClick={() => {
+                  const filtered = results.filter(r => filterExam === '' || r.quizTitle === filterExam);
+                  setSelectedIds(filtered.map(r => r.submissionId));
+                }}
+              >
+                Select All
+              </button>
               <button
                 className="btn btn-primary"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: '0.85rem' }}
                 onClick={handleExportExcel}
                 disabled={selectedIds.length === 0}
               >
-                <FileDown size={14} /> Export Selected ({selectedIds.length})
+                <FileDown size={14} /> Get Excel Report ({selectedIds.length})
               </button>
               <button
                 className="btn btn-secondary"
