@@ -206,7 +206,7 @@ export default function AssessmentPage() {
         <div className="card fade-in" style={{ maxWidth: 600, width: '100%', textAlign: 'center' }}>
           <h1 style={{ marginBottom: 16 }}>Assessment Instructions</h1>
           <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'center' }}>
-            <img src="/assets/cube_tech_logo.png" alt="Cube Highways Logo" style={{ height: 50, objectFit: 'contain' }} />
+            <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 60, objectFit: 'contain' }} />
           </div>
 
           {/* New Examination Details Block */}
@@ -288,7 +288,7 @@ export default function AssessmentPage() {
       {/* Top Header - Classic Style */}
       <header className="exam-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div className="exam-logo" style={{ display: 'flex', alignItems: 'center' }}>
-          <img src="/assets/cube_tech_logo.png" alt="Cube Highways Logo" style={{ height: 35, objectFit: 'contain' }} />
+          <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 40, objectFit: 'contain' }} />
         </div>
         <div className="exam-title" style={{ fontWeight: 800 }}>{quiz.title}</div>
         <div className="exam-timer-box" style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
@@ -566,7 +566,7 @@ function FirstConfirmModal({ onCancel, onConfirm, answered, total }) {
         <div style={{ 
           position: 'absolute', bottom: -20, right: -20, opacity: 0.03, pointerEvents: 'none'
         }}>
-          <img src="/assets/cube_tech_logo.png" alt="" style={{ width: 150 }} />
+          <img src="/assets/minds_logo.png" alt="" style={{ width: 150 }} />
         </div>
       </div>
     </div>
