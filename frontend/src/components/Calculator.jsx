@@ -79,23 +79,24 @@ export default function Calculator({ isOpen, onClose }) {
   };
 
   const btnStyle = (type, active = false) => ({
-    height: 42,
-    borderRadius: 8,
-    border: 'none',
+    height: 44,
+    borderRadius: 4,
+    border: '1px solid #e5e7eb',
     fontSize: '0.85rem',
-    fontWeight: 600,
+    fontWeight: type === 'number' ? 700 : 500,
     cursor: 'pointer',
-    transition: 'all 0.2s',
-    background: active ? '#3b82f6' : 
-                type === 'operator' ? '#2d3343' : 
-                type === 'sci' ? '#1e293b' :
-                type === 'equals' ? '#3b82f6' :
-                type === 'clear' ? '#ef4444' :
-                type === 'delete' ? '#475569' : '#334155',
-    color: type === 'sci' ? (active ? '#fff' : '#94a3b8') : '#fff',
+    transition: 'all 0.1s',
+    background: active ? '#0067c0' : 
+                type === 'operator' ? '#f3f4f6' : 
+                type === 'sci' ? '#f9fafb' :
+                type === 'equals' ? '#0067c0' :
+                type === 'clear' ? '#f3f4f6' :
+                type === 'delete' ? '#f3f4f6' : '#ffffff',
+    color: (active || type === 'equals') ? '#fff' : '#1f2937',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
   });
 
   const sciButtons = [
@@ -119,23 +120,23 @@ export default function Calculator({ isOpen, onClose }) {
     { label: '%', action: () => append('/100'), type: 'operator' },
     { label: '÷', action: () => append('÷'), type: 'operator' },
     
-    { label: '7', action: () => append('7') },
-    { label: '8', action: () => append('8') },
-    { label: '9', action: () => append('9') },
+    { label: '7', action: () => append('7'), type: 'number' },
+    { label: '8', action: () => append('8'), type: 'number' },
+    { label: '9', action: () => append('9'), type: 'number' },
     { label: '×', action: () => append('×'), type: 'operator' },
     
-    { label: '4', action: () => append('4') },
-    { label: '5', action: () => append('5') },
-    { label: '6', action: () => append('6') },
+    { label: '4', action: () => append('4'), type: 'number' },
+    { label: '5', action: () => append('5'), type: 'number' },
+    { label: '6', action: () => append('6'), type: 'number' },
     { label: '-', action: () => append('-'), type: 'operator' },
     
-    { label: '1', action: () => append('1') },
-    { label: '2', action: () => append('2') },
-    { label: '3', action: () => append('3') },
+    { label: '1', action: () => append('1'), type: 'number' },
+    { label: '2', action: () => append('2'), type: 'number' },
+    { label: '3', action: () => append('3'), type: 'number' },
     { label: '+', action: () => append('+'), type: 'operator' },
     
-    { label: '0', action: () => append('0') },
-    { label: '.', action: () => append('.') },
+    { label: '0', action: () => append('0'), type: 'number' },
+    { label: '.', action: () => append('.'), type: 'number' },
     { label: 'ANS', action: () => append(lastAns), type: 'operator' },
     { label: '=', action: calculate, type: 'equals' },
   ];
@@ -155,56 +156,63 @@ export default function Calculator({ isOpen, onClose }) {
             bottom: 40,
             zIndex: 10000,
             width: 320,
-            background: '#0f172a',
-            borderRadius: 20,
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.1)',
-            padding: '20px',
+            background: '#ffffff',
+            borderRadius: 8,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0,0,0,0.1)',
+            padding: '16px',
             cursor: 'grab',
             userSelect: 'none'
           }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6' }} />
-              <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '1.5px' }}>PRECISION CALC</div>
+              <div style={{ width: 4, height: 16, borderRadius: 2, background: '#0067c0' }} />
+              <div style={{ color: '#374151', fontSize: '0.75rem', fontWeight: 700 }}>Calculator</div>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 4 }}>
               <button 
                 onClick={() => setIsExpanded(!isExpanded)} 
-                style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}
+                style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 4, display: 'flex' }}
+                onMouseOver={e => e.currentTarget.style.background = '#f3f4f6'}
+                onMouseOut={e => e.currentTarget.style.background = 'none'}
               >
-                {isExpanded ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+                {isExpanded ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
               </button>
-              <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>
-                <X size={18} />
+              <button 
+                onClick={onClose} 
+                style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: 4, display: 'flex' }}
+                onMouseOver={e => e.currentTarget.style.background = '#fee2e2'}
+                onMouseOut={e => e.currentTarget.style.background = 'none'}
+              >
+                <X size={16} />
               </button>
             </div>
           </div>
 
           {/* Display Area */}
           <div style={{ 
-            background: '#1e293b', 
-            borderRadius: 12, 
-            padding: '16px', 
-            marginBottom: 20, 
+            background: '#ffffff', 
+            borderRadius: 4, 
+            padding: '8px 4px', 
+            marginBottom: 16, 
             textAlign: 'right',
-            minHeight: 80,
+            minHeight: 100,
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-end',
-            border: '1px solid rgba(255,255,255,0.05)'
           }}>
-            <div style={{ color: '#3b82f6', fontSize: '0.8rem', minHeight: 20, marginBottom: 4, fontFamily: 'monospace' }}>
+            <div style={{ color: '#6b7280', fontSize: '0.85rem', minHeight: 20, marginBottom: 4, fontFamily: 'Segoe UI, system-ui, sans-serif' }}>
               {history}
             </div>
             <div style={{ 
-              color: '#fff', 
-              fontSize: display.length > 12 ? '1.2rem' : '1.8rem', 
+              color: '#111827', 
+              fontSize: display.length > 12 ? '1.8rem' : '2.4rem', 
               fontWeight: 600, 
               overflow: 'hidden',
-              fontFamily: 'monospace',
-              whiteSpace: 'nowrap'
+              fontFamily: 'Segoe UI, system-ui, sans-serif',
+              whiteSpace: 'nowrap',
+              letterSpacing: '-1px'
             }}>
               {display || '0'}
             </div>
@@ -221,16 +229,20 @@ export default function Calculator({ isOpen, onClose }) {
                 <div style={{ 
                   display: 'grid', 
                   gridTemplateColumns: 'repeat(4, 1fr)', 
-                  gap: 8,
-                  marginBottom: 12
+                  gap: 4,
+                  marginBottom: 4
                 }}>
                   {sciButtons.map((btn, i) => (
                     <button
                       key={i}
                       onClick={btn.action}
                       style={btnStyle(btn.type, btn.active)}
-                      onMouseOver={(e) => e.currentTarget.style.filter = 'brightness(1.3)'}
-                      onMouseOut={(e) => e.currentTarget.style.filter = 'none'}
+                      onMouseOver={(e) => {
+                        if (!btn.active && btn.type !== 'equals') e.currentTarget.style.background = '#e5e7eb';
+                      }}
+                      onMouseOut={(e) => {
+                        if (!btn.active && btn.type !== 'equals') e.currentTarget.style.background = btnStyle(btn.type).background;
+                      }}
                     >
                       {btn.label}
                     </button>
@@ -244,15 +256,19 @@ export default function Calculator({ isOpen, onClose }) {
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(4, 1fr)', 
-            gap: 8 
+            gap: 4 
           }}>
             {mainButtons.map((btn, i) => (
               <button
                 key={i}
                 onClick={btn.action}
                 style={btnStyle(btn.type)}
-                onMouseOver={(e) => e.currentTarget.style.filter = 'brightness(1.3)'}
-                onMouseOut={(e) => e.currentTarget.style.filter = 'none'}
+                onMouseOver={(e) => {
+                   if (btn.type !== 'equals') e.currentTarget.style.background = '#e5e7eb';
+                }}
+                onMouseOut={(e) => {
+                   if (btn.type !== 'equals') e.currentTarget.style.background = btnStyle(btn.type).background;
+                }}
               >
                 {btn.label}
               </button>
