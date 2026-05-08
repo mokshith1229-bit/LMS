@@ -20,7 +20,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // @access  Public/Admin
 router.post('/', async (req, res) => {
   try {
-    const { courseId, title, questions, timeLimitSeconds, passingScore } = req.body;
+    const { courseId, title, questions, timeLimitSeconds, passingScore, instructions } = req.body;
 
     if (mongoose.connection.readyState !== 1 || courseId.startsWith('demo')) {
       const newQuiz = {
@@ -30,6 +30,7 @@ router.post('/', async (req, res) => {
         questions: questions.map((q, i) => ({ ...q, _id: 'q_' + i })),
         timeLimitSeconds,
         passingScore,
+        instructions: instructions || "",
         createdAt: new Date(),
       };
       
@@ -60,6 +61,7 @@ router.post('/', async (req, res) => {
       questions,
       duration: timeLimitSeconds || 1800,
       passingScore,
+      instructions: instructions || "",
     });
 
     // Also push a module for this quiz
@@ -119,6 +121,7 @@ router.get('/:quizId', protect, async (req, res) => {
           title: demoQuiz.title,
           duration: demoQuiz.duration || demoQuiz.timeLimitSeconds || 1800,
           questions: cleanQuestions,
+          instructions: demoQuiz.instructions || "",
           startTime: Date.now()
         });
       }
@@ -190,6 +193,7 @@ router.get('/:quizId', protect, async (req, res) => {
       title: quiz.title,
       duration: quiz.duration,
       questions: cleanQuestions,
+      instructions: quiz.instructions || "",
       startTime: Date.now()
     });
   } catch (error) {
@@ -313,6 +317,7 @@ router.get('/single/:quizId', protect, async (req, res) => {
       duration: quiz.duration,
       timeLimitSeconds: quiz.duration,
       passingScore: quiz.passingScore,
+      instructions: quiz.instructions || "",
       questions: quiz.questions.map(q => ({
         _id: q._id,
         question: q.question,

@@ -46,7 +46,7 @@ function parseTextBlock(raw) {
 
 export default function AddQuiz() {
   const [courses, setCourses] = useState([]);
-  const [form, setForm] = useState({ courseId: '', title: 'CUBE HIGHWAYS', timeLimitMinutes: 30, passingScore: 60 });
+  const [form, setForm] = useState({ courseId: '', title: 'CUBE HIGHWAYS', timeLimitMinutes: 30, passingScore: 60, instructions: '' });
   const [questions, setQuestions] = useState([emptyQuestion()]);
   const [loading, setLoading] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -125,7 +125,14 @@ export default function AddQuiz() {
     if (!form.courseId || !form.title) { toast.error('Please select a course and add a title'); return; }
     setLoading(true);
     try {
-      await api.post('/quiz', { courseId: form.courseId, title: form.title, questions, timeLimitSeconds: Number(form.timeLimitMinutes) * 60, passingScore: Number(form.passingScore) });
+      await api.post('/quiz', { 
+        courseId: form.courseId, 
+        title: form.title, 
+        questions, 
+        timeLimitSeconds: Number(form.timeLimitMinutes) * 60, 
+        passingScore: Number(form.passingScore),
+        instructions: form.instructions 
+      });
       toast.success('Quiz created successfully!');
       navigate('/admin');
     } catch (err) { toast.error(err.response?.data?.message || 'Failed to create quiz'); }
@@ -267,6 +274,18 @@ Correct Answer: C`}
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label className="form-label">Passing Score (%)</label>
                 <input id="quiz-passing" className="form-input" type="number" name="passingScore" min={0} max={100} value={form.passingScore} onChange={e => setForm({ ...form, passingScore: e.target.value })} />
+              </div>
+              <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                <label className="form-label">Assessment Instructions (Optional)</label>
+                <textarea 
+                  id="quiz-instructions" 
+                  className="form-input" 
+                  name="instructions" 
+                  placeholder="e.g. Read each question carefully. No calculators allowed except for the built-in one." 
+                  style={{ minHeight: 100, resize: 'vertical' }}
+                  value={form.instructions || ''} 
+                  onChange={e => setForm({ ...form, instructions: e.target.value })} 
+                />
               </div>
             </div>
           </div>

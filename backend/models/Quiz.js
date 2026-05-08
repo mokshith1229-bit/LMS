@@ -44,6 +44,10 @@ const quizSchema = new mongoose.Schema(
       type: Number,
       default: 60, // percentage
     },
+    instructions: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

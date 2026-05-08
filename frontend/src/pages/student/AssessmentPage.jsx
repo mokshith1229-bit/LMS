@@ -229,13 +229,19 @@ export default function AssessmentPage() {
 
           <div style={{ textAlign: 'left', background: '#fff3cd', padding: 20, borderRadius: 8, marginBottom: 28, border: '1px solid #ffeeba' }}>
             <h4 style={{ color: '#856404', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>Instructions</h4>
-            <ul style={{ color: '#856404', fontSize: '0.9rem', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8, lineHeight: 1.5 }}>
-              <li>This assessment runs in <strong>strict fullscreen mode</strong>.</li>
-              <li>Switching tabs, minimizing the browser, losing window focus, or exiting fullscreen will result in a <strong>hard warning</strong>.</li>
-              <li>A <strong>second violation</strong> will automatically terminate and submit your exam permanently.</li>
-              <li>Right-click and keyboard shortcuts (Copy/Paste, F12) are disabled.</li>
-              <li>Ensure you have a stable internet connection before proceeding.</li>
-            </ul>
+            {quiz.instructions ? (
+              <div style={{ color: '#856404', fontSize: '0.9rem', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+                {quiz.instructions}
+              </div>
+            ) : (
+              <ul style={{ color: '#856404', fontSize: '0.9rem', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 8, lineHeight: 1.5 }}>
+                <li>This assessment runs in <strong>strict fullscreen mode</strong>.</li>
+                <li>Switching tabs, minimizing the browser, losing window focus, or exiting fullscreen will result in a <strong>hard warning</strong>.</li>
+                <li>A <strong>second violation</strong> will automatically terminate and submit your exam permanently.</li>
+                <li>Right-click and keyboard shortcuts (Copy/Paste, F12) are disabled.</li>
+                <li>Ensure you have a stable internet connection before proceeding.</li>
+              </ul>
+            )}
           </div>
 
           <button className="btn btn-primary btn-lg" onClick={startExam} style={{ width: '100%', padding: '16px', fontSize: '1.1rem' }}>
