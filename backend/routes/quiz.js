@@ -181,7 +181,8 @@ router.get('/:quizId', protect, async (req, res) => {
     const cleanQuestions = quiz.questions.map(q => ({
       _id: q._id,
       question: q.question,
-      options: q.options
+      options: q.options,
+      imageUrl: q.imageUrl || ''
     }));
 
     res.json({
@@ -247,6 +248,7 @@ router.get('/single/:quizId', protect, async (req, res) => {
             _id: q._id,
             question: q.question,
             options: q.options,
+            imageUrl: q.imageUrl || '',
             timeLimitSeconds: demoQuiz.timeLimitSeconds,
           })),
         };
@@ -315,6 +317,7 @@ router.get('/single/:quizId', protect, async (req, res) => {
         _id: q._id,
         question: q.question,
         options: q.options,
+        imageUrl: q.imageUrl || '',
       })),
     };
 

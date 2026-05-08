@@ -346,6 +346,16 @@ export default function AssessmentPage() {
           </div>
 
           <div className="exam-q-text">
+            {q.imageUrl && (
+              <div style={{ marginBottom: '1.5rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                <img 
+                  src={q.imageUrl} 
+                  alt="Question" 
+                  style={{ width: '100%', maxHeight: '350px', objectFit: 'contain', background: '#f9fafb' }}
+                  onError={(e) => e.target.style.display = 'none'}
+                />
+              </div>
+            )}
             {q.question}
           </div>
 

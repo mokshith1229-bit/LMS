@@ -154,6 +154,18 @@ export default function QuizPage() {
           {/* Question */}
           <div className="quiz-question-card">
             <p className="question-number">Question {current + 1} of {quiz.questions.length}</p>
+            
+            {q.imageUrl && (
+              <div style={{ marginBottom: '1.5rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                <img 
+                  src={q.imageUrl} 
+                  alt="Question" 
+                  style={{ width: '100%', maxHeight: '400px', objectFit: 'contain', background: '#f8fafc' }}
+                  onError={(e) => e.target.style.display = 'none'}
+                />
+              </div>
+            )}
+
             <p className="question-text">{q.question}</p>
 
             <div className="options-list">
