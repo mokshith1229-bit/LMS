@@ -310,7 +310,7 @@ export default function DetailedReports() {
                               </span>
                             </td>
                             <td style={{ fontSize: '0.85rem' }}>
-                              {new Date(sub.submittedAt).toLocaleString()}
+                              {new Date(sub.submittedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
                             </td>
                           </tr>
                         );

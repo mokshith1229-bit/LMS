@@ -92,20 +92,32 @@ export default function BatchManagement() {
     let { batchId, quizId, startTime, endTime } = schedule;
     if (!batchId || !quizId || !startTime || !endTime) return toast.error('All fields are required');
     
-    // Ensure the times are treated as Asia/Kolkata
-    // datetime-local gives "YYYY-MM-DDTHH:mm". We append +05:30 to force IST interpretation.
-    const startIST = `${startTime}:00+05:30`;
-    const endIST = `${endTime}:00+05:30`;
+    // Robust conversion to IST (UTC+5:30)
+    // datetime-local input gives: "YYYY-MM-DDTHH:mm"
+    const convertToISTUtc = (dateTimeStr) => {
+      const [datePart, timePart] = dateTimeStr.split('T');
+      const [year, month, day] = datePart.split('-').map(Number);
+      const [hour, min] = timePart.split(':').map(Number);
+      
+      // Date.UTC(year, monthIndex, day, hour, minute)
+      // IST is UTC + 5:30, so UTC = IST - 5.5 hours
+      const utcMillis = Date.UTC(year, month - 1, day, hour, min) - (5.5 * 60 * 60 * 1000);
+      return new Date(utcMillis).toISOString();
+    };
 
-    if (new Date(startIST) >= new Date(endIST)) {
+    const startISO = convertToISTUtc(startTime);
+    const endISO = convertToISTUtc(endTime);
+
+    if (new Date(startISO) >= new Date(endISO)) {
       return toast.error('Start time must be before end time');
     }
 
     try {
+      console.log('[Scheduling] Sending IST-adjusted times:', { startISO, endISO });
       await api.post('/assignment/create', {
         ...schedule,
-        startTime: new Date(startIST).toISOString(),
-        endTime: new Date(endIST).toISOString()
+        startTime: startISO,
+        endTime: endISO
       });
       toast.success('Quiz scheduled successfully');
       setSchedule({ batchId: '', quizId: '', startTime: '', endTime: '' });
