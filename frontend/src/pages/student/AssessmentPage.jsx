@@ -3,6 +3,8 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Calculator from '../../components/Calculator';
+import Zoom from 'react-medium-image-zoom';
+import 'react-medium-image-zoom/dist/styles.css';
 import { Calculator as CalcIcon, AlertTriangle, X, Send } from 'lucide-react';
 
 export default function AssessmentPage() {
@@ -353,13 +355,15 @@ export default function AssessmentPage() {
 
           <div className="exam-q-text">
             {q.imageUrl && (
-              <div style={{ marginBottom: '1.5rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                <img 
-                  src={q.imageUrl} 
-                  alt="Question" 
-                  style={{ width: '100%', maxHeight: '350px', objectFit: 'contain', background: '#f9fafb' }}
-                  onError={(e) => e.target.style.display = 'none'}
-                />
+              <div style={{ marginBottom: '1.5rem', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb', cursor: 'zoom-in' }}>
+                <Zoom>
+                  <img 
+                    src={q.imageUrl} 
+                    alt="Question" 
+                    style={{ width: '100%', maxHeight: '350px', objectFit: 'contain', background: '#f9fafb' }}
+                    onError={(e) => e.target.style.display = 'none'}
+                  />
+                </Zoom>
               </div>
             )}
             {q.question}
