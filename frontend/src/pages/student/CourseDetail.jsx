@@ -68,29 +68,29 @@ export default function CourseDetail() {
       <Sidebar />
       <main className="main-content">
         <div className="simulation-banner fade-in">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <button 
                 onClick={() => navigate('/student')} 
                 className="btn btn-secondary btn-sm" 
-                style={{ background: 'rgba(255,255,255,0.1)', color: '#fff', border: 'none', marginBottom: 20 }}
+                style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-primary)', border: 'none', marginBottom: 20 }}
               >
                 <ArrowLeft size={14} /> Back to Dashboard
               </button>
               <h1>{course.title}</h1>
               <p>{course.description}</p>
               
-              <div className="course-meta-pills">
-                <span className="meta-pill">
+              <div className="course-meta-pills" style={{ color: 'var(--text-secondary)' }}>
+                <span className="meta-pill" style={{ background: 'rgba(0,0,0,0.03)', borderColor: 'rgba(0,0,0,0.1)' }}>
                   <ClipboardList size={12} /> {course.modules?.length || 0} Modules
                 </span>
-                <span className="meta-pill">
+                <span className="meta-pill" style={{ background: 'rgba(0,0,0,0.03)', borderColor: 'rgba(0,0,0,0.1)' }}>
                    {submission ? 'Assessment Completed' : 'Assessment Pending'}
                 </span>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 60 }}>
-              <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 45, objectFit: 'contain' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 60, objectFit: 'contain' }} />
             </div>
           </div>
         </div>

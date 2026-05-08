@@ -70,10 +70,10 @@ export default function MyAssessments() {
         <div className="simulation-banner fade-in">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h1>Welcome, {user?.name || 'Student'}</h1>
-              <p>Here are the assessments assigned to you by your administrator.</p>
+              <h1>My Assessments</h1>
+              <p>Track your progress and view completed certifications.</p>
             </div>
-            <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 45, objectFit: 'contain' }} />
+            <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 60, objectFit: 'contain' }} />
           </div>
         </div>
 

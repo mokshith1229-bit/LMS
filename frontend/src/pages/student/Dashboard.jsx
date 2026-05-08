@@ -29,15 +29,12 @@ export default function StudentDashboard() {
         <div className="simulation-banner fade-in">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h1>My Assessments</h1>
-              <p>Track your progress and view completed certifications.</p>
+              <h1>Welcome, {user?.name} 👋</h1>
+              <p>Explore assessment modules and track your progress.</p>
             </div>
-            <div className="header-logo">
-              <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 45, objectFit: 'contain' }} />
-            </div>
+            <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 60, objectFit: 'contain' }} />
           </div>
         </div>
-
 
         {/* Search */}
         <div style={{ position: 'relative', maxWidth: 420, marginBottom: 28 }} className="fade-in">
