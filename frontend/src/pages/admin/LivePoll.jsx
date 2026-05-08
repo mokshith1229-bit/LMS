@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
@@ -6,7 +6,7 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recha
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
-import { Trash2, Target, Users, Trophy, ArrowLeft, Clock, Timer } from 'lucide-react';
+import { Trash2, Target, Users, Trophy, ArrowLeft, Clock, Timer, FileText, Image, X } from 'lucide-react';
 
 const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -20,6 +20,9 @@ export default function LivePoll() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [isBulkMode, setIsBulkMode] = useState(false);
   const [bulkInput, setBulkInput] = useState('');
+  const [bulkTab, setBulkTab] = useState('excel'); // 'excel' | 'paste'
+  const [excelParsing, setExcelParsing] = useState(false);
+  const excelFileRef = useRef(null);
   // Reveal mode state
   const [revealMode, setRevealMode] = useState('live');
   const [revealDelayMinutes, setRevealDelayMinutes] = useState(1);
@@ -120,6 +123,7 @@ export default function LivePoll() {
     setQuestions(newQs);
   };
 
+  // ── Text-paste bulk parser (existing logic — unchanged) ──
   const handleBulkParse = () => {
     if (!bulkInput.trim()) { toast.error('Please paste some text first.'); return; }
     try {
@@ -141,7 +145,7 @@ export default function LivePoll() {
         let questionText = '';
 
         if (correctLineIndex !== -1) {
-          questionText = lines[0].replace(/^\d+[\)\.]\s*/, '').trim();
+          questionText = lines[0].replace(/^\d+[\)\.]\ */, '').trim();
           optionLines = lines.slice(1, correctLineIndex);
         } else {
           questionText = lines[0];
@@ -150,7 +154,7 @@ export default function LivePoll() {
 
         let correctAnswer = '';
         const options = optionLines.map(line => {
-          const letterMatch = line.match(/^([a-d])[\)\.]\s*(.*)/i);
+          const letterMatch = line.match(/^([a-d])[\)\.]\ *(.*)/i);
           if (letterMatch) {
             const letter = letterMatch[1].toLowerCase();
             const text = letterMatch[2].trim();
@@ -179,6 +183,53 @@ export default function LivePoll() {
     } catch (err) {
       console.error(err);
       toast.error('Error parsing bulk input. Please check the format.');
+    }
+  };
+
+  // ── Excel bulk import (unified engine — same as AddQuiz) ──
+  const handlePollExcelUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mode', 'poll');        // poll mode → { text, options, correctAnswer(string), imageUrl }
+    formData.append('uploadImages', 'true'); // upload Image URL column values to Cloudinary
+
+    setExcelParsing(true);
+    try {
+      const { data } = await api.post('/import/parse-excel', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const newQuestions = data?.questions;
+      if (!newQuestions || !Array.isArray(newQuestions)) {
+        throw new Error('Invalid server response: missing questions array');
+      }
+
+      // Map to poll question shape
+      const mapped = newQuestions.map((q) => ({
+        text: q.text || '',
+        options: q.options?.length >= 2 ? q.options : ['', ''],
+        correctAnswer: q.correctAnswer || '',
+        imageUrl: q.imageUrl || '',
+      }));
+
+      setQuestions(mapped);
+
+      if (data.errors?.length) {
+        data.errors.forEach((err) => toast.error(err, { duration: 4000 }));
+      }
+
+      toast.success(`${data.count} question(s) imported from Excel!`);
+      setIsBulkMode(false);
+    } catch (err) {
+      console.error('Poll Excel import error:', err);
+      const msg = err.response?.data?.message || err.message || 'Failed to parse Excel';
+      toast.error(msg);
+    } finally {
+      setExcelParsing(false);
+      if (excelFileRef.current) excelFileRef.current.value = '';
     }
   };
 
@@ -351,27 +402,103 @@ export default function LivePoll() {
                   </button>
                 </div>
 
-                {/* Bulk Mode */}
+                {/* Bulk Mode — Excel + Paste tabs */}
                 {isBulkMode ? (
                   <div>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                      Paste your questions and options from Notepad. Separate questions with an empty line.
-                    </p>
-                    <textarea
-                      className="form-input"
-                      style={{ minHeight: '300px', fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem', resize: 'vertical' }}
-                      placeholder={"Example:\nWhat is your favorite color?\n*Red (Correct answer starts with *)\nBlue\nGreen\n\nNext Question?\nOption A\n*Option B (Correct)"}
-                      value={bulkInput}
-                      onChange={(e) => setBulkInput(e.target.value)}
-                    />
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button type="button" className="btn btn-primary btn-full" onClick={handleBulkParse}>
-                        Process &amp; Fill Form
-                      </button>
-                      <button type="button" className="btn btn-secondary" onClick={() => setBulkInput('')}>
-                        Clear
-                      </button>
+                    {/* Tab selector */}
+                    <div style={{ display: 'flex', gap: 8, marginBottom: '1rem' }}>
+                      {['excel', 'paste'].map(tab => (
+                        <button
+                          key={tab}
+                          type="button"
+                          onClick={() => setBulkTab(tab)}
+                          style={{
+                            padding: '8px 18px', borderRadius: 6, fontWeight: 800, fontSize: '0.85rem',
+                            border: '2px solid #f59e0b', cursor: 'pointer',
+                            background: bulkTab === tab ? '#f59e0b' : 'transparent',
+                            color: bulkTab === tab ? '#fff' : '#f59e0b',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          {tab === 'excel' ? '📊 Excel Upload' : '📝 Text Paste'}
+                        </button>
+                      ))}
                     </div>
+
+                    {bulkTab === 'excel' ? (
+                      /* ── Excel Upload Panel ── */
+                      <div>
+                        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.85rem', marginBottom: 14, fontSize: '0.82rem', color: '#475569' }}>
+                          <p style={{ fontWeight: 700, marginBottom: 6, color: '#1e293b' }}>📋 Required Excel Columns:</p>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
+                            {[
+                              { col: 'Question', req: true },
+                              { col: 'Option A', req: true },
+                              { col: 'Option B', req: true },
+                              { col: 'Option C', req: false },
+                              { col: 'Option D', req: false },
+                              { col: 'Correct Answer', req: true, note: 'A/B/C/D' },
+                              { col: 'Image URL', req: false, note: 'optional' },
+                            ].map(({ col, req, note }) => (
+                              <span key={col} style={{ fontWeight: req ? 700 : 400, color: req ? '#1e293b' : '#64748b' }}>
+                                {req ? '●' : '○'} {col}{note ? ` (${note})` : ''}
+                              </span>
+                            ))}
+                          </div>
+                          <p style={{ marginTop: 8, color: '#64748b', fontSize: '0.78rem' }}>
+                            💡 Images in the <b>Image URL</b> column are automatically uploaded to Cloudinary.
+                          </p>
+                        </div>
+
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={handlePollExcelUpload}
+                          style={{ display: 'none' }}
+                          id="poll-excel-upload"
+                          ref={excelFileRef}
+                          disabled={excelParsing}
+                        />
+                        <label
+                          htmlFor="poll-excel-upload"
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 8,
+                            cursor: excelParsing ? 'wait' : 'pointer',
+                            opacity: excelParsing ? 0.65 : 1,
+                            background: '#f59e0b', color: '#fff', fontWeight: 800,
+                            padding: '12px 24px', borderRadius: 8, fontSize: '0.9rem',
+                            border: '2px solid rgba(255,255,255,0.4)',
+                            boxShadow: '0 4px 12px rgba(245,158,11,0.3)',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          <FileText size={18} />
+                          {excelParsing ? 'Parsing & Uploading Images…' : 'Choose Excel File (.xlsx)'}
+                        </label>
+                      </div>
+                    ) : (
+                      /* ── Text Paste Panel ── */
+                      <div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                          Paste your questions and options from Notepad. Separate questions with an empty line.
+                        </p>
+                        <textarea
+                          className="form-input"
+                          style={{ minHeight: '280px', fontFamily: 'monospace', fontSize: '0.9rem', marginBottom: '1rem', resize: 'vertical' }}
+                          placeholder={"Example:\nWhat is your favorite color?\n*Red (Correct answer starts with *)\nBlue\nGreen\n\nNext Question?\nOption A\n*Option B (Correct)"}
+                          value={bulkInput}
+                          onChange={(e) => setBulkInput(e.target.value)}
+                        />
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button type="button" className="btn btn-primary btn-full" onClick={handleBulkParse}>
+                            Process &amp; Fill Form
+                          </button>
+                          <button type="button" className="btn btn-secondary" onClick={() => setBulkInput('')}>
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   /* Manual Form */
@@ -429,6 +556,35 @@ export default function LivePoll() {
                             </button>
                           )}
                         </div>
+
+                        {/* Image preview if imported from Excel */}
+                        {q.imageUrl && (
+                          <div style={{ marginBottom: 12, position: 'relative', display: 'inline-block' }}>
+                            <img
+                              src={q.imageUrl}
+                              alt={`Q${qIndex + 1} image`}
+                              style={{ maxWidth: '100%', maxHeight: 180, borderRadius: 8, border: '1px solid #e2e8f0', display: 'block' }}
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = [...questions];
+                                updated[qIndex].imageUrl = '';
+                                setQuestions(updated);
+                              }}
+                              style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(239,68,68,0.85)', color: '#fff', border: 'none', borderRadius: '50%', width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              title="Remove image"
+                            >
+                              <X size={12} />
+                            </button>
+                            <div style={{ marginTop: 4, fontSize: '0.75rem', color: '#8b5cf6', fontWeight: 600 }}>
+                              <Image size={11} style={{ display: 'inline', marginRight: 4 }} />
+                              Image attached (Cloudinary)
+                            </div>
+                          </div>
+                        )}
+
                         <div className="form-group">
                           <input
                             type="text"
@@ -458,7 +614,6 @@ export default function LivePoll() {
                                 onChange={(e) => {
                                   const oldVal = q.options[oIndex];
                                   handleOptionChange(qIndex, oIndex, e.target.value);
-                                  // If this was the correct answer, update the correctAnswer state too
                                   if (q.correctAnswer === oldVal && oldVal !== '') {
                                     setCorrectAnswer(qIndex, e.target.value);
                                   }

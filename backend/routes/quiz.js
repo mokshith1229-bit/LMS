@@ -197,79 +197,30 @@ router.get('/:quizId', protect, async (req, res) => {
 });
 
 // @route   POST /api/quiz/parse-excel
-// @desc    Upload Excel to parse questions and create Quiz
+// @desc    Upload Excel to parse questions — delegates to shared importQuestionParser
 // @access  Public/Admin
+// NOTE: Prefer POST /api/import/parse-excel?mode=quiz for new callers.
+//       This endpoint is kept for backward compatibility.
 router.post('/parse-excel', upload.single('file'), async (req, res) => {
   try {
-    console.log('--- Received Excel Upload ---');
     if (!req.file) {
-      console.log('No file received');
       return res.status(400).json({ success: false, message: 'Please upload an Excel file' });
     }
 
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
-    
-    console.log(`Parsed ${data.length} rows from Excel`);
+    const { parseExcelQuestions } = require('../shared/importQuestionParser');
+    const { questions, errors, count } = await parseExcelQuestions(
+      req.file.buffer,
+      { mode: 'quiz', uploadImages: true }
+    );
 
-    const parsedQuestions = [];
-
-    data.forEach((row, index) => {
-      // Find keys case-insensitively to be more flexible
-      const findKey = (search) => Object.keys(row).find(k => k.toLowerCase().trim() === search.toLowerCase().trim());
-      
-      const qKey = findKey('Question');
-      const optAKey = findKey('Option A');
-      const optBKey = findKey('Option B');
-      const optCKey = findKey('Option C');
-      const optDKey = findKey('Option D');
-      const ansKey = findKey('Correct Answer');
-
-      const qText = row[qKey];
-      const optA = row[optAKey];
-      const optB = row[optBKey];
-      const optC = row[optCKey];
-      const optD = row[optDKey];
-      const correctChoice = row[ansKey]?.toString().trim().toUpperCase();
-
-      if (qText && optA && optB && optD && correctChoice) {
-        parsedQuestions.push({
-          question: qText.toString().trim(),
-          options: [
-            optA.toString().trim(),
-            optB.toString().trim(),
-            optC ? optC.toString().trim() : '',
-            optD.toString().trim()
-          ].filter(o => o !== ''), // Allow 3 or 4 options
-          correctAnswer: correctChoice, 
-        });
-      } else {
-        console.log(`Row ${index + 1} skipped: Missing required fields`, { qText: !!qText, optA: !!optA, optB: !!optB, optD: !!optD, correctChoice });
-      }
-    });
-
-    if (parsedQuestions.length === 0) {
-      return res.status(400).json({ success: false, message: 'No valid questions found in Excel. Check column names.' });
-    }
-
-    // Map correct answers to indices for frontend compatibility if they are letters
-    const questionsForFrontend = parsedQuestions.map(q => {
-      let correctIndex = q.correctAnswer;
-      if (typeof q.correctAnswer === 'string') {
-        const mapping = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
-        if (mapping[q.correctAnswer.toUpperCase()] !== undefined) {
-          correctIndex = mapping[q.correctAnswer.toUpperCase()];
-        }
-      }
-      return { ...q, correctAnswer: correctIndex };
-    });
-
-    res.status(200).json({ 
-      success: true, 
-      questions: questionsForFrontend, 
-      count: questionsForFrontend.length,
-      message: 'Questions parsed successfully' 
+    return res.status(200).json({
+      success: true,
+      questions,
+      count,
+      errors,
+      message: `${count} question(s) parsed successfully${
+        errors.length ? ` (${errors.length} row(s) skipped)` : ''
+      }`,
     });
   } catch (error) {
     console.error('Excel Parse Error:', error);

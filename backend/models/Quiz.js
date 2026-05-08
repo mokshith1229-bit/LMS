@@ -17,6 +17,11 @@ const questionSchema = new mongoose.Schema({
     type: String, 
     required: true,
   },
+  // Optional: image attached to this question (Cloudinary URL)
+  imageUrl: {
+    type: String,
+    default: '',
+  },
 });
 
 const quizSchema = new mongoose.Schema(

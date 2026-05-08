@@ -25,6 +25,7 @@
     "pdf-poppler": "^0.2.3",
     "pdfjs-dist": "^5.7.284",
     "socket.io": "^4.8.3",
+    "streamifier": "^0.1.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

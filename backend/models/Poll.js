@@ -6,7 +6,9 @@ const pollSchema = new mongoose.Schema({
     {
       text: { type: String, required: true },
       options: [{ type: String, required: true }],
-      correctAnswer: { type: String }
+      correctAnswer: { type: String },
+      // Optional: image attached to this question (Cloudinary URL)
+      imageUrl: { type: String, default: '' },
     }
   ],
   code: { type: String, required: true, unique: true },

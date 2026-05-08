@@ -74,6 +74,7 @@ app.use('/api/assignment', require('./routes/batchAssignment'));
 app.use('/api/batch', require('./routes/batch'));
 app.use('/api/poll', require('./routes/poll'));
 app.use('/api/presentation', require('./routes/presentation'));
+app.use('/api/import', require('./routes/import'));
 
 // Health check
 app.get('/api/health', (req, res) => {
