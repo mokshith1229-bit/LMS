@@ -435,7 +435,7 @@ export default function AssessmentPage() {
           <div style={{ marginTop: 'auto', textAlign: 'center', paddingTop: 32 }}>
             <img
               src="/assets/branding_logo.png"
-              alt="Cube Logo"
+              alt="Minds Logo"
               style={{ width: '90%', opacity: 0.5, filter: 'brightness(1.1)' }}
             />
           </div>
@@ -502,7 +502,7 @@ function FirstConfirmModal({ onCancel, onConfirm, answered, total }) {
                 Confirm Submission
               </h2>
               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-                ASSESSMENT PORTAL • CUBE HIGHWAYS
+                ASSESSMENT PORTAL • MINDS
               </p>
             </div>
           </div>

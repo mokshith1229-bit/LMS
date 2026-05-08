@@ -90,7 +90,7 @@ export default function CourseDetail() {
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 60 }}>
-              <img src="/assets/cube_tech_logo.png" alt="Cube Highways Logo" style={{ height: 45, objectFit: 'contain' }} />
+              <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 45, objectFit: 'contain' }} />
             </div>
           </div>
         </div>

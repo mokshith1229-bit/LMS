@@ -79,7 +79,7 @@ export default function Sidebar() {
               flexShrink: 0, fontWeight: 900, fontSize: 14, color: '#fff',
             }}
           >
-            C
+            M
           </motion.div>
           <AnimatePresence>
             {isOpen && (
@@ -91,7 +91,7 @@ export default function Sidebar() {
                 transition={{ duration: 0.2, delay: 0.05 }}
                 style={{ whiteSpace: 'nowrap', fontWeight: 800, fontSize: '0.95rem', letterSpacing: 0.5 }}
               >
-                CUBE TECH
+                MINDS
               </motion.span>
             )}
           </AnimatePresence>

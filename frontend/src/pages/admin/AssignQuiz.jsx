@@ -176,7 +176,7 @@ export default function AssignQuiz() {
               <h1>Assign Quiz</h1>
               <p>Select students, choose a quiz, and assign in one click.</p>
             </div>
-            <img src="/assets/cube_tech_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
+            <img src="/assets/minds_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
           </div>
         </div>
 

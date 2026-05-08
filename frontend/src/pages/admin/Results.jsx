@@ -68,7 +68,7 @@ export default function AdminResults() {
               <h1>Assessment Results</h1>
               <p>View all student submission results and scores.</p>
             </div>
-            <img src="/assets/cube_tech_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
+            <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 45, objectFit: 'contain' }} />
           </div>
         </div>
 

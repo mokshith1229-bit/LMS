@@ -27,13 +27,13 @@ export default function StudentDashboard() {
       <Sidebar />
       <main className="main-content">
         <div className="simulation-banner fade-in">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h1>Welcome {user?.name} 👋</h1>
-              <p>Explore assessment modules and track your progress.</p>
+              <h1>My Assessments</h1>
+              <p>Track your progress and view completed certifications.</p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 60 }}>
-              <img src="/assets/cube_tech_logo.png" alt="Cube Highways Logo" style={{ height: 45, objectFit: 'contain' }} />
+            <div className="header-logo">
+              <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 45, objectFit: 'contain' }} />
             </div>
           </div>
         </div>

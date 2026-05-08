@@ -145,7 +145,7 @@ export default function AdminSubmissionView() {
               <p className="quiz-name">{data.quizTitle}</p>
             </div>
             <div className="header-logo">
-              <img src="/assets/cube_tech_logo.png" alt="Brand Logo" />
+              <img src="/assets/minds_logo.png" alt="Brand Logo" />
             </div>
           </header>
 

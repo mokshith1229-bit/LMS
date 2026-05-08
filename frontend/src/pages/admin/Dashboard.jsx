@@ -52,7 +52,7 @@ export default function AdminDashboard() {
             <p>Manage courses, students, and assessment data.</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src="/assets/cube_tech_logo.png" alt="Cube Highways Logo" style={{ height: 45, objectFit: 'contain' }} />
+            <img src="/assets/minds_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
           </div>
         </div>
 

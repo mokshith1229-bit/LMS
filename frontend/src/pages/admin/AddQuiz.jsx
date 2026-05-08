@@ -46,7 +46,7 @@ function parseTextBlock(raw) {
 
 export default function AddQuiz() {
   const [courses, setCourses] = useState([]);
-  const [form, setForm] = useState({ courseId: '', title: 'CUBE HIGHWAYS', timeLimitMinutes: 30, passingScore: 60, instructions: '' });
+  const [form, setForm] = useState({ courseId: '', title: 'MINDS', timeLimitMinutes: 30, passingScore: 60, instructions: '' });
   const [questions, setQuestions] = useState([emptyQuestion()]);
   const [loading, setLoading] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
