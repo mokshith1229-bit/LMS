@@ -37,7 +37,29 @@ export default function MyAssessments() {
     navigate(`/student/quiz/${quizId}`);
   };
 
-  const canStart = (status) => status === 'NOT_STARTED' || status === 'IN_PROGRESS';
+  const canStart = (a) => {
+    const isUnderway = a.status === 'NOT_STARTED' || a.status === 'IN_PROGRESS';
+    if (!isUnderway) return false;
+
+    // If it's a batch assignment with a schedule, check the window
+    if (a.type === 'batch') {
+      const now = new Date();
+      if (now < new Date(a.startTime)) return false; // Too early
+      if (now > new Date(a.endTime)) return false;   // Too late
+    }
+    return true;
+  };
+
+  const getScheduleLabel = (a) => {
+    if (a.type !== 'batch') return null;
+    const now = new Date();
+    const start = new Date(a.startTime);
+    const end = new Date(a.endTime);
+
+    if (now < start) return { label: `Opens: ${start.toLocaleString()}`, color: '#666' };
+    if (now > end) return { label: 'Window Expired', color: '#c92a2a' };
+    return { label: `Closes: ${end.toLocaleString()}`, color: '#2f9e44' };
+  };
 
   return (
     <div className="app-layout">
@@ -65,20 +87,28 @@ export default function MyAssessments() {
           <div className="courses-grid fade-in">
             {assignments.map((a) => {
               const sc = statusConfig[a.status] || statusConfig.NOT_STARTED;
-              const startable = canStart(a.status);
+              const startable = canStart(a);
+              const sched = getScheduleLabel(a);
 
               return (
                 <div key={a.assignmentId} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {/* Status badge */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      background: sc.bg, color: sc.color,
-                      padding: '4px 12px', borderRadius: 100,
-                      fontWeight: 700, fontSize: '0.78rem'
-                    }}>
-                      {sc.icon} {sc.label}
-                    </span>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        background: sc.bg, color: sc.color,
+                        padding: '4px 12px', borderRadius: 100,
+                        fontWeight: 700, fontSize: '0.78rem'
+                      }}>
+                        {sc.icon} {sc.label}
+                      </span>
+                      {a.type === 'batch' && (
+                        <span style={{ fontSize: '0.65rem', background: '#e9ecef', color: '#495057', padding: '2px 8px', borderRadius: 4, fontWeight: 800, textTransform: 'uppercase' }}>
+                          Batch
+                        </span>
+                      )}
+                    </div>
                     {a.duration && (
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Clock size={13} /> {formatDuration(a.duration)}
@@ -90,8 +120,14 @@ export default function MyAssessments() {
                     {a.title}
                   </h3>
 
+                  {sched && (
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: sched.color, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Clock size={12} /> {sched.label}
+                    </div>
+                  )}
+
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Assigned: {new Date(a.assignedAt).toLocaleDateString()}
+                    {a.type === 'batch' ? 'Batch Assignment' : 'Direct Assignment'} · {new Date(a.assignedAt).toLocaleDateString()}
                     {a.submittedAt && (
                       <span style={{ marginLeft: 12 }}>
                         · Submitted: {new Date(a.submittedAt).toLocaleDateString()}
@@ -114,9 +150,13 @@ export default function MyAssessments() {
                       marginTop: 4, padding: '10px 16px',
                       background: sc.bg, color: sc.color,
                       borderRadius: 8, fontWeight: 600,
-                      fontSize: '0.875rem', textAlign: 'center'
+                      fontSize: '0.875rem', textAlign: 'center',
+                      opacity: (a.type === 'batch' && a.status === 'NOT_STARTED') ? 0.6 : 1
                     }}>
-                      {a.status === 'COMPLETED' ? '✓ Assessment Completed' : '✗ Assessment Terminated'}
+                      {a.status === 'COMPLETED' ? '✓ Assessment Completed' : 
+                       a.status === 'TERMINATED' ? '✗ Assessment Terminated' :
+                       (a.type === 'batch' && new Date() < new Date(a.startTime)) ? '⏳ Waiting for Window' :
+                       '✗ Window Expired'}
                     </div>
                   )}
                 </div>
