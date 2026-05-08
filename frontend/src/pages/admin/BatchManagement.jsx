@@ -16,6 +16,9 @@ export default function BatchManagement() {
   const [activeTab, setActiveTab] = useState('CREATE_BATCH');
   
   // Form states
+  const [batchSchedules, setBatchSchedules] = useState([]);
+  
+  // Form states
   const [batchName, setBatchName] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedUsers, setSelectedUsers] = useState(new Set());
@@ -29,6 +32,7 @@ export default function BatchManagement() {
 
   useEffect(() => {
     loadData();
+    loadSchedules();
   }, []);
 
   const loadData = async () => {
@@ -46,6 +50,15 @@ export default function BatchManagement() {
       toast.error('Failed to load data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSchedules = async () => {
+    try {
+      const { data } = await api.get('/assignment/batch');
+      setBatchSchedules(data.assignments || []);
+    } catch (err) {
+      console.error('Failed to load schedules');
     }
   };
 
@@ -78,12 +91,29 @@ export default function BatchManagement() {
     e.preventDefault();
     const { batchId, quizId, startTime, endTime } = schedule;
     if (!batchId || !quizId || !startTime || !endTime) return toast.error('All fields are required');
+    
+    if (new Date(startTime) >= new Date(endTime)) {
+      return toast.error('Start time must be before end time');
+    }
+
     try {
       await api.post('/assignment/create', schedule);
       toast.success('Quiz scheduled successfully');
       setSchedule({ batchId: '', quizId: '', startTime: '', endTime: '' });
+      loadSchedules();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to schedule quiz');
+    }
+  };
+
+  const handleDeleteSchedule = async (id) => {
+    if (!window.confirm('Are you sure you want to remove this schedule?')) return;
+    try {
+      await api.delete(`/assignment/batch/${id}`);
+      toast.success('Schedule removed');
+      loadSchedules();
+    } catch (err) {
+      toast.error('Failed to remove schedule');
     }
   };
 
@@ -92,7 +122,7 @@ export default function BatchManagement() {
     if (selectedBatch && activeTab === 'ASSIGN_USERS') {
       const batch = batches.find(b => b._id === selectedBatch);
       if (batch) {
-        setSelectedUsers(new Set(batch.users.map(u => u._id)));
+        setSelectedUsers(new Set(batch.users.map(u => typeof u === 'string' ? u : u._id)));
       }
     }
   }, [selectedBatch, activeTab, batches]);
@@ -128,7 +158,7 @@ export default function BatchManagement() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 20, marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 20, marginBottom: 24, flexWrap: 'wrap' }}>
           <button 
             className={`btn ${activeTab === 'CREATE_BATCH' ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setActiveTab('CREATE_BATCH')}
@@ -235,59 +265,100 @@ export default function BatchManagement() {
           )}
 
           {activeTab === 'SCHEDULE_EXAM' && (
-            <form onSubmit={handleScheduleQuiz}>
-              <h2 className="title-sm" style={{ marginBottom: 16 }}>Schedule Exam for Batch</h2>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, maxWidth: 600 }}>
-                <div className="form-group">
-                  <label className="form-label">Select Batch</label>
-                  <select 
-                    className="form-input" 
-                    value={schedule.batchId} 
-                    onChange={(e) => setSchedule({...schedule, batchId: e.target.value})}
-                  >
-                    <option value="">-- Choose Batch --</option>
-                    {batches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
-                  </select>
+            <div>
+              <form onSubmit={handleScheduleQuiz} style={{ marginBottom: 40 }}>
+                <h2 className="title-sm" style={{ marginBottom: 16 }}>Create New Schedule</h2>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 20, maxWidth: 800 }}>
+                  <div className="form-group">
+                    <label className="form-label">Select Batch</label>
+                    <select 
+                      className="form-input" 
+                      value={schedule.batchId} 
+                      onChange={(e) => setSchedule({...schedule, batchId: e.target.value})}
+                    >
+                      <option value="">-- Choose Batch --</option>
+                      {batches.map(b => <option key={b._id} value={b._id}>{b.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Select Assessment</label>
+                    <select 
+                      className="form-input" 
+                      value={schedule.quizId} 
+                      onChange={(e) => setSchedule({...schedule, quizId: e.target.value})}
+                    >
+                      <option value="">-- Choose Quiz --</option>
+                      {quizzes.map(q => <option key={q._id} value={q._id}>{q.title}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">Start Time</label>
+                    <input 
+                      type="datetime-local" 
+                      className="form-input" 
+                      value={schedule.startTime} 
+                      onChange={(e) => setSchedule({...schedule, startTime: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">End Time</label>
+                    <input 
+                      type="datetime-local" 
+                      className="form-input" 
+                      value={schedule.endTime} 
+                      onChange={(e) => setSchedule({...schedule, endTime: e.target.value})}
+                    />
+                  </div>
                 </div>
 
-                <div className="form-group">
-                  <label className="form-label">Select Assessment</label>
-                  <select 
-                    className="form-input" 
-                    value={schedule.quizId} 
-                    onChange={(e) => setSchedule({...schedule, quizId: e.target.value})}
-                  >
-                    <option value="">-- Choose Quiz --</option>
-                    {quizzes.map(q => <option key={q._id} value={q._id}>{q.title}</option>)}
-                  </select>
-                </div>
+                <button type="submit" className="btn btn-primary" style={{ marginTop: 12 }}>
+                  <Calendar size={16} /> Assign &amp; Schedule
+                </button>
+              </form>
 
-                <div className="form-group">
-                  <label className="form-label">Start Time</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={schedule.startTime} 
-                    onChange={(e) => setSchedule({...schedule, startTime: e.target.value})}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">End Time</label>
-                  <input 
-                    type="datetime-local" 
-                    className="form-input" 
-                    value={schedule.endTime} 
-                    onChange={(e) => setSchedule({...schedule, endTime: e.target.value})}
-                  />
-                </div>
+              <h2 className="title-sm" style={{ marginBottom: 16 }}>Existing Schedules</h2>
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Batch</th>
+                      <th>Assessment</th>
+                      <th>Schedule Window</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchSchedules.length === 0 ? (
+                      <tr><td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>No schedules found</td></tr>
+                    ) : (
+                      batchSchedules.map(s => (
+                        <tr key={s._id}>
+                          <td style={{ fontWeight: 600 }}>{s.batchId?.name || 'Deleted Batch'}</td>
+                          <td>{s.quizId?.title || 'Deleted Quiz'}</td>
+                          <td style={{ fontSize: '0.85rem' }}>
+                            <div style={{ color: '#059669' }}><strong>Starts:</strong> {new Date(s.startTime).toLocaleString()}</div>
+                            <div style={{ color: '#dc2626' }}><strong>Ends:</strong> {new Date(s.endTime).toLocaleString()}</div>
+                          </td>
+                          <td>
+                            <button 
+                              className="btn btn-danger btn-sm" 
+                              onClick={() => handleDeleteSchedule(s._id)}
+                              style={{ padding: '6px 12px' }}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
-
-              <button type="submit" className="btn btn-primary" style={{ marginTop: 12 }}>
-                <Calendar size={16} /> Assign & Schedule
-              </button>
-            </form>
+            </div>
           )}
         </div>
       </main>

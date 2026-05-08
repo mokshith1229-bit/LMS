@@ -13,6 +13,7 @@ const protect = async (req, res, next) => {
     }
 
     if (!token) {
+      console.warn(`[AUTH] No token found for ${req.method} ${req.url}`);
       return res.status(401).json({ success: false, message: 'Not authorized, no token' });
     }
 
@@ -40,6 +41,7 @@ const protect = async (req, res, next) => {
 
     next();
   } catch (error) {
+    console.error(`[AUTH] Token verification failed for ${req.method} ${req.url}:`, error.message);
     return res.status(401).json({ success: false, message: 'Token invalid or expired' });
   }
 };
