@@ -25,7 +25,6 @@ const adminLinks = [
 
 const studentLinks = [
   { to: '/student/assessments', icon: <ClipboardCheck size={18} />, label: 'My Assessments' },
-  { to: '/student/certificates', icon: <Award size={18} />, label: 'GetMy Certificate' },
 ];
 
 const COLLAPSED_WIDTH = 64;
