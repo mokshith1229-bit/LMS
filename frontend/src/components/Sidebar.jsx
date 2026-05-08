@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import Calculator from './Calculator';
 import {
   LayoutDashboard, BookOpen, Upload, ClipboardList,
-  LogOut, Award, UserPlus, BarChart2, ClipboardCheck, FileSpreadsheet, PieChart, MonitorPlay, Users, Activity
+  LogOut, Award, UserPlus, BarChart2, ClipboardCheck, FileSpreadsheet, PieChart, MonitorPlay, Users, Activity,
+  Calculator as CalcIcon
 } from 'lucide-react';
 
 const adminLinks = [
@@ -34,6 +36,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const links = user?.role === 'admin' ? adminLinks : studentLinks;
   const [isOpen, setIsOpen] = useState(false);
+  const [isCalcOpen, setIsCalcOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -42,6 +45,8 @@ export default function Sidebar() {
 
   return (
     <>
+      <Calculator isOpen={isCalcOpen} onClose={() => setIsCalcOpen(false)} />
+      
       {/* Invisible hover trigger zone - slightly wider than collapsed sidebar */}
       <div
         style={{ position: 'fixed', left: 0, top: 0, bottom: 0, width: COLLAPSED_WIDTH + 16, zIndex: 999 }}
@@ -139,6 +144,51 @@ export default function Sidebar() {
                 </AnimatePresence>
               </NavLink>
             ))}
+          </div>
+
+          {/* Tools Section */}
+          <div className="sidebar-section" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 16 }}>
+             <AnimatePresence>
+              {isOpen && (
+                <motion.p
+                  className="sidebar-section-label"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  Tools
+                </motion.p>
+              )}
+            </AnimatePresence>
+            <button 
+              onClick={() => setIsCalcOpen(true)}
+              className="nav-item"
+              style={{ 
+                width: '100%', 
+                background: 'none', 
+                border: 'none', 
+                color: 'inherit',
+                justifyContent: isOpen ? 'flex-start' : 'center',
+                padding: isOpen ? '10px 14px' : '10px',
+                cursor: 'pointer',
+                textAlign: 'left'
+              }}
+              title={!isOpen ? "Scientific Calculator" : undefined}
+            >
+              <span style={{ flexShrink: 0 }}><CalcIcon size={18} /></span>
+              <AnimatePresence>
+                {isOpen && (
+                  <motion.span
+                    initial={{ opacity: 0, x: -6 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -6 }}
+                    style={{ whiteSpace: 'nowrap', marginLeft: 12 }}
+                  >
+                    Scientific Calc
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </button>
           </div>
         </nav>
 
