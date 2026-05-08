@@ -1,12 +1,21 @@
 import { useState, useEffect } from 'react';
 import { X, Delete, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { evaluate } from 'mathjs';
+import { create, all } from 'mathjs';
+
+// Initialize mathjs with high precision
+const math = create(all);
+math.config({
+  number: 'BigNumber',
+  precision: 32
+});
 
 export default function Calculator({ isOpen, onClose }) {
   const [display, setDisplay] = useState('');
   const [history, setHistory] = useState('');
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isDegree, setIsDegree] = useState(true); // Default to Degrees for exams
+  const [lastAns, setLastAns] = useState('0');
 
   // Handle keyboard support
   useEffect(() => {
@@ -41,6 +50,15 @@ export default function Calculator({ isOpen, onClose }) {
       // Replace symbols for mathjs
       let expr = display.replace(/×/g, '*').replace(/÷/g, '/');
       
+      // Handle Degree mode for trig functions
+      if (isDegree) {
+        // This regex looks for trig functions and appends 'deg' inside them if not already present
+        expr = expr.replace(/(sin|cos|tan)\(([^)]+)\)/g, (match, func, args) => {
+          if (args.includes('deg') || args.includes('rad')) return match;
+          return `${func}((${args}) deg)`;
+        });
+      }
+
       // Basic auto-closing brackets if user forgot
       const openBrackets = (expr.match(/\(/g) || []).length;
       const closeBrackets = (expr.match(/\)/g) || []).length;
@@ -48,15 +66,19 @@ export default function Calculator({ isOpen, onClose }) {
         expr += ')';
       }
 
-      const result = evaluate(expr);
+      const result = math.evaluate(expr);
+      const formattedResult = math.format(result, { precision: 14, notation: 'fixed' }).replace(/\.?0+$/, '');
+      
       setHistory(display + ' =');
-      setDisplay(Number.isFinite(result) ? String(Number(result.toFixed(8))) : 'Error');
+      setDisplay(formattedResult);
+      setLastAns(formattedResult);
     } catch (e) {
+      console.error(e);
       setDisplay('Error');
     }
   };
 
-  const btnStyle = (type) => ({
+  const btnStyle = (type, active = false) => ({
     height: 42,
     borderRadius: 8,
     border: 'none',
@@ -64,12 +86,13 @@ export default function Calculator({ isOpen, onClose }) {
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'all 0.2s',
-    background: type === 'operator' ? '#2d3343' : 
+    background: active ? '#3b82f6' : 
+                type === 'operator' ? '#2d3343' : 
                 type === 'sci' ? '#1e293b' :
                 type === 'equals' ? '#3b82f6' :
                 type === 'clear' ? '#ef4444' :
                 type === 'delete' ? '#475569' : '#334155',
-    color: type === 'sci' ? '#94a3b8' : '#fff',
+    color: type === 'sci' ? (active ? '#fff' : '#94a3b8') : '#fff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -79,7 +102,7 @@ export default function Calculator({ isOpen, onClose }) {
     { label: 'sin', action: () => append('sin('), type: 'sci' },
     { label: 'cos', action: () => append('cos('), type: 'sci' },
     { label: 'tan', action: () => append('tan('), type: 'sci' },
-    { label: 'deg', action: () => append(' deg'), type: 'sci' },
+    { label: isDegree ? 'DEG' : 'RAD', action: () => setIsDegree(!isDegree), type: 'sci', active: true },
     { label: 'log', action: () => append('log10('), type: 'sci' },
     { label: 'ln', action: () => append('log('), type: 'sci' },
     { label: '(', action: () => append('('), type: 'sci' },
@@ -113,7 +136,7 @@ export default function Calculator({ isOpen, onClose }) {
     
     { label: '0', action: () => append('0') },
     { label: '.', action: () => append('.') },
-    { label: 'ANS', action: () => {}, type: 'operator' },
+    { label: 'ANS', action: () => append(lastAns), type: 'operator' },
     { label: '=', action: calculate, type: 'equals' },
   ];
 
@@ -144,7 +167,7 @@ export default function Calculator({ isOpen, onClose }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#3b82f6' }} />
-              <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '1.5px' }}>SCIENTIFIC</div>
+              <div style={{ color: '#94a3b8', fontSize: '0.7rem', fontWeight: 800, letterSpacing: '1.5px' }}>PRECISION CALC</div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button 
@@ -205,7 +228,7 @@ export default function Calculator({ isOpen, onClose }) {
                     <button
                       key={i}
                       onClick={btn.action}
-                      style={btnStyle(btn.type)}
+                      style={btnStyle(btn.type, btn.active)}
                       onMouseOver={(e) => e.currentTarget.style.filter = 'brightness(1.3)'}
                       onMouseOut={(e) => e.currentTarget.style.filter = 'none'}
                     >
