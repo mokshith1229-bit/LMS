@@ -84,22 +84,22 @@ router.post('/', protect, async (req, res) => {
     if (isDbConnected && !isDemo && mongoose.Types.ObjectId.isValid(quizId)) {
       assignment = await Assignment.findOne({ userId, quizId });
 
-      if (!assignment) {
-        // Check batch assignment
-        const userBatches = await Batch.find({ users: userId }).select('_id');
-        const batchIds = userBatches.map(b => b._id);
-        
-        batchAssigned = await BatchAssignment.findOne({
-          quizId,
-          batchId: { $in: batchIds },
-          isActive: true
-        });
+      // Always check for batch assignment to ensure results show up in batch reports
+      const userBatches = await Batch.find({ users: userId }).select('_id');
+      const batchIds = userBatches.map(b => b._id);
+      
+      batchAssigned = await BatchAssignment.findOne({
+        quizId,
+        batchId: { $in: batchIds },
+        isActive: true
+      });
 
-        if (!batchAssigned) {
-          return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
-        }
-      } else {
-        // Prevent multiple submissions if manually requested, but allow autoSubmit to finalize
+      if (!assignment && !batchAssigned) {
+        return res.status(403).json({ success: false, message: 'You are not assigned to this quiz' });
+      }
+
+      if (assignment) {
+        // Prevent multiple submissions for individual assignments, but allow autoSubmit
         if ((assignment.status === 'COMPLETED' || assignment.status === 'TERMINATED') && !autoSubmit) {
           return res.status(400).json({ success: false, message: 'You have already submitted this assessment' });
         }
@@ -118,17 +118,20 @@ router.post('/', protect, async (req, res) => {
     }
 
     // Backend Timer Validation
-    if (startTime && quiz.duration && !autoSubmit) {
-      const endTime = Number(startTime) + (quiz.duration * 1000);
-      // Allow a tiny 5s grace period for network latency
-      if (Date.now() > endTime + 5000) {
+    // Prioritize Server-side startedAt for timer validation to prevent client clock drift issues
+    const serverStartTime = assignment ? assignment.startedAt : (startTime ? new Date(Number(startTime)) : null);
+    
+    if (serverStartTime && quiz.duration && !autoSubmit) {
+      const endTime = serverStartTime.getTime() + (quiz.duration * 1000);
+      // Allow a generous 30s grace period for network latency and server processing
+      if (Date.now() > endTime + 30000) {
         // Mark as TERMINATED due to timeout instead of rejecting
         if (assignment) {
           assignment.status = 'TERMINATED';
           assignment.submittedAt = new Date();
           await assignment.save();
         }
-        return res.status(400).json({ success: false, message: 'Time expired' });
+        return res.status(400).json({ success: false, message: 'Time expired (Clock sync or duration exceeded)' });
       }
     }
 

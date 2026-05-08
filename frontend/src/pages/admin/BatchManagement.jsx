@@ -92,17 +92,13 @@ export default function BatchManagement() {
     let { batchId, quizId, startTime, endTime } = schedule;
     if (!batchId || !quizId || !startTime || !endTime) return toast.error('All fields are required');
     
-    // Robust conversion to IST (UTC+5:30)
-    // datetime-local input gives: "YYYY-MM-DDTHH:mm"
+    // Robust conversion of IST input to UTC ISO string
     const convertToISTUtc = (dateTimeStr) => {
-      const [datePart, timePart] = dateTimeStr.split('T');
-      const [year, month, day] = datePart.split('-').map(Number);
-      const [hour, min] = timePart.split(':').map(Number);
-      
-      // Date.UTC(year, monthIndex, day, hour, minute)
-      // IST is UTC + 5:30, so UTC = IST - 5.5 hours
-      const utcMillis = Date.UTC(year, month - 1, day, hour, min) - (5.5 * 60 * 60 * 1000);
-      return new Date(utcMillis).toISOString();
+      if (!dateTimeStr) return '';
+      // datetime-local input gives: "YYYY-MM-DDTHH:mm"
+      // Append +05:30 so the Date constructor knows it's IST
+      const istDate = new Date(`${dateTimeStr}:00+05:30`);
+      return istDate.toISOString();
     };
 
     const startISO = convertToISTUtc(startTime);

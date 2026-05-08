@@ -148,15 +148,29 @@ router.get('/:quizId', protect, async (req, res) => {
         }
 
         const now = new Date();
-        if (now < new Date(batchAssigned.startTime)) {
+        const graceTime = 60 * 1000; // 1 minute grace for scheduling
+        if (now.getTime() + graceTime < new Date(batchAssigned.startTime).getTime()) {
           return res.status(403).json({ success: false, message: 'This quiz is scheduled for a future time' });
         }
-        if (now > new Date(batchAssigned.endTime)) {
+        if (now.getTime() - graceTime > new Date(batchAssigned.endTime).getTime()) {
           return res.status(403).json({ success: false, message: 'The schedule for this quiz has expired' });
         }
 
+        // AUTO-CREATE ASSIGNMENT RECORD TO TRACK START TIME
+        assignment = await Assignment.findOneAndUpdate(
+          { userId, quizId },
+          { 
+            $setOnInsert: { assignedAt: batchAssigned.createdAt },
+            $set: { 
+              status: 'IN_PROGRESS', 
+              startedAt: assignment?.startedAt || new Date() 
+            } 
+          },
+          { upsert: true, new: true }
+        );
+
         // Check if already submitted
-        const submission = await Submission.findOne({ userId, quizId, batchId: batchAssigned.batchId });
+        const submission = await Submission.findOne({ userId, quizId });
         if (submission && (submission.status === 'COMPLETED' || submission.status === 'TERMINATED')) {
           return res.status(400).json({ success: false, message: 'You have already completed this assessment' });
         }
@@ -281,15 +295,29 @@ router.get('/single/:quizId', protect, async (req, res) => {
         }
 
         const now = new Date();
-        if (now < new Date(batchAssigned.startTime)) {
+        const graceTime = 60 * 1000; // 1 minute grace for scheduling
+        if (now.getTime() + graceTime < new Date(batchAssigned.startTime).getTime()) {
           return res.status(403).json({ success: false, message: 'This quiz is scheduled for a future time' });
         }
-        if (now > new Date(batchAssigned.endTime)) {
+        if (now.getTime() - graceTime > new Date(batchAssigned.endTime).getTime()) {
           return res.status(403).json({ success: false, message: 'The schedule for this quiz has expired' });
         }
 
+        // AUTO-CREATE ASSIGNMENT RECORD TO TRACK START TIME
+        assignment = await Assignment.findOneAndUpdate(
+          { userId, quizId },
+          { 
+            $setOnInsert: { assignedAt: batchAssigned.createdAt },
+            $set: { 
+              status: 'IN_PROGRESS', 
+              startedAt: assignment?.startedAt || new Date() 
+            } 
+          },
+          { upsert: true, new: true }
+        );
+
         // Check if already submitted
-        const submission = await Submission.findOne({ userId, quizId, batchId: batchAssigned.batchId });
+        const submission = await Submission.findOne({ userId, quizId });
         if (submission && (submission.status === 'COMPLETED' || submission.status === 'TERMINATED')) {
           return res.status(400).json({ success: false, message: 'You have already completed this assessment' });
         }
