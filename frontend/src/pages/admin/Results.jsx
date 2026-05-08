@@ -157,7 +157,7 @@ export default function AdminResults() {
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                          {r.submittedAt ? new Date(r.submittedAt).toLocaleString() : '—'}
+                          {r.submittedAt ? new Date(r.submittedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : '—'}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
                           <a 

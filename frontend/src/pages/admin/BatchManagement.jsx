@@ -89,15 +89,24 @@ export default function BatchManagement() {
 
   const handleScheduleQuiz = async (e) => {
     e.preventDefault();
-    const { batchId, quizId, startTime, endTime } = schedule;
+    let { batchId, quizId, startTime, endTime } = schedule;
     if (!batchId || !quizId || !startTime || !endTime) return toast.error('All fields are required');
     
-    if (new Date(startTime) >= new Date(endTime)) {
+    // Ensure the times are treated as Asia/Kolkata
+    // datetime-local gives "YYYY-MM-DDTHH:mm". We append +05:30 to force IST interpretation.
+    const startIST = `${startTime}:00+05:30`;
+    const endIST = `${endTime}:00+05:30`;
+
+    if (new Date(startIST) >= new Date(endIST)) {
       return toast.error('Start time must be before end time');
     }
 
     try {
-      await api.post('/assignment/create', schedule);
+      await api.post('/assignment/create', {
+        ...schedule,
+        startTime: new Date(startIST).toISOString(),
+        endTime: new Date(endIST).toISOString()
+      });
       toast.success('Quiz scheduled successfully');
       setSchedule({ batchId: '', quizId: '', startTime: '', endTime: '' });
       loadSchedules();
@@ -210,7 +219,7 @@ export default function BatchManagement() {
                       <tr key={b._id}>
                         <td style={{ fontWeight: 600 }}>{b.name}</td>
                         <td>{b.users?.length || 0} Students</td>
-                        <td>{new Date(b.createdAt).toLocaleDateString()}</td>
+                        <td>{new Date(b.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -340,8 +349,12 @@ export default function BatchManagement() {
                           <td style={{ fontWeight: 600 }}>{s.batchId?.name || 'Deleted Batch'}</td>
                           <td>{s.quizId?.title || 'Deleted Quiz'}</td>
                           <td style={{ fontSize: '0.85rem' }}>
-                            <div style={{ color: '#059669' }}><strong>Starts:</strong> {new Date(s.startTime).toLocaleString()}</div>
-                            <div style={{ color: '#dc2626' }}><strong>Ends:</strong> {new Date(s.endTime).toLocaleString()}</div>
+                            <div style={{ color: '#059669' }}>
+                              <strong>Starts:</strong> {new Date(s.startTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+                            </div>
+                            <div style={{ color: '#dc2626' }}>
+                              <strong>Ends:</strong> {new Date(s.endTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}
+                            </div>
                           </td>
                           <td>
                             <button 

@@ -56,9 +56,11 @@ export default function MyAssessments() {
     const start = new Date(a.startTime);
     const end = new Date(a.endTime);
 
-    if (now < start) return { label: `Opens: ${start.toLocaleString()}`, color: '#666' };
+    const istOptions = { timeZone: "Asia/Kolkata", hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' };
+
+    if (now < start) return { label: `Opens: ${start.toLocaleString("en-IN", istOptions)}`, color: '#666' };
     if (now > end) return { label: 'Window Expired', color: '#c92a2a' };
-    return { label: `Closes: ${end.toLocaleString()}`, color: '#2f9e44' };
+    return { label: `Closes: ${end.toLocaleString("en-IN", istOptions)}`, color: '#2f9e44' };
   };
 
   return (
@@ -127,10 +129,10 @@ export default function MyAssessments() {
                   )}
 
                   <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    {a.type === 'batch' ? 'Batch Assignment' : 'Direct Assignment'} · {new Date(a.assignedAt).toLocaleDateString()}
+                    {a.type === 'batch' ? 'Batch Assignment' : 'Direct Assignment'} · {new Date(a.assignedAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
                     {a.submittedAt && (
                       <span style={{ marginLeft: 12 }}>
-                        · Submitted: {new Date(a.submittedAt).toLocaleDateString()}
+                        · Submitted: {new Date(a.submittedAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
                       </span>
                     )}
                   </div>
