@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
 import { ChevronLeft, Download, CheckCircle2, XCircle, User, Mail, BookOpen, Clock, BarChart3, ArrowLeft } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { useReactToPrint } from 'react-to-print';
 
 export default function AdminSubmissionView() {
   const { id } = useParams();
@@ -14,6 +13,7 @@ export default function AdminSubmissionView() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
+  const reportRef = useRef(null);
 
   useEffect(() => {
     const fetchSubmission = async () => {
@@ -38,41 +38,22 @@ export default function AdminSubmissionView() {
     fetchSubmission();
   }, [id]);
 
-  const handleDownloadPDF = async () => {
-    const element = document.getElementById('report-wrapper');
-    if (!element) return;
-
-    setDownloading(true);
-    const toastId = toast.loading('Preparing high-quality PDF report...');
-
-    try {
-      // Capture the element
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: 1200
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const imgProps = pdf.getImageProperties(imgData);
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-      // Handle multi-page if necessary (simplified here for single page capture)
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Assessment_Report_${data?.user?.name.split(' ')[0]}_${id.substring(0, 5)}.pdf`);
-      
-      toast.success('Report downloaded successfully!', { id: toastId });
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      toast.error('Failed to generate PDF. Please try again.', { id: toastId });
-    } finally {
+  const handleDownloadPDF = useReactToPrint({
+    contentRef: reportRef,
+    documentTitle: `Assessment_Report_${data?.user?.name.split(' ')[0]}_${id.substring(0, 5)}`,
+    onBeforePrint: async () => {
+      setDownloading(true);
+      return Promise.resolve();
+    },
+    onAfterPrint: () => {
       setDownloading(false);
+      toast.success('Report generated successfully!');
+    },
+    onPrintError: () => {
+      setDownloading(false);
+      toast.error('Failed to generate report');
     }
-  };
+  });
 
   if (loading) {
     return (
@@ -135,7 +116,7 @@ export default function AdminSubmissionView() {
       </div>
 
       {/* Main Report Container */}
-      <div id="report-wrapper" className="report-wrapper">
+      <div id="report-wrapper" ref={reportRef} className="report-wrapper">
         <div className="report-container">
           {/* Brand Header */}
           <header className="report-header">
@@ -397,9 +378,33 @@ export default function AdminSubmissionView() {
         @keyframes spin { to { transform: rotate(360deg); } }
 
         @media print {
-          .admin-submission-view { background: white; padding: 0; }
-          .view-controls { display: none; }
-          .report-wrapper { box-shadow: none; border-radius: 0; }
+          @page {
+            size: A4;
+            margin: 20mm;
+          }
+          body { background: white !important; }
+          .app-layout { display: block !important; }
+          .sidebar, .view-controls { display: none !important; }
+          .main-content { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+          .admin-submission-view { background: white !important; padding: 0 !important; }
+          .report-wrapper { 
+            box-shadow: none !important; 
+            border-radius: 0 !important; 
+            width: 100% !important; 
+            max-width: none !important;
+            margin: 0 !important;
+          }
+          .report-header { padding: 2rem !important; }
+          .info-section { padding: 0 2rem !important; margin-top: -1.5rem !important; }
+          .info-card { padding: 1.5rem !important; }
+          .answers-section { padding: 2rem !important; }
+          .question-item { 
+            page-break-inside: avoid !important; 
+            break-inside: avoid !important;
+            margin-bottom: 2rem !important;
+          }
+          .options-grid { margin-bottom: 1rem !important; }
+          .report-footer { padding: 2rem !important; page-break-before: auto !important; }
         }
       ` }} />
       </div>
