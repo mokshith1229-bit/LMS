@@ -120,15 +120,11 @@ export default function AdminSubmissionView() {
         <div className="report-container">
           {/* Brand Header */}
           <header className="report-header">
-            <div className="header-logo">
-              <img src="/assets/minds_logo.png" alt="Brand Logo" />
-            </div>
             <div className="header-info">
               <span className="report-badge">Official Assessment Record</span>
               <h1>Detailed Report</h1>
               <p className="quiz-name">{data.quizTitle}</p>
             </div>
-            <div className="header-placeholder"></div> {/* For balancing flex */}
           </header>
 
           {/* Student & Summary Card */}
@@ -280,18 +276,15 @@ export default function AdminSubmissionView() {
           background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%);
           color: white;
           display: flex;
-          justify-content: space-between;
+          justify-content: center;
           align-items: center;
           text-align: center;
         }
 
         .header-info {
-          flex: 1;
+          width: 100%;
         }
 
-        .header-placeholder {
-          width: 80px; /* Match logo width for centering */
-        }
 
 
         .report-badge {
