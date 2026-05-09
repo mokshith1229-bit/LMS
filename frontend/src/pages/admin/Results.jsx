@@ -10,8 +10,11 @@ import { saveAs } from 'file-saver';
 export default function AdminResults() {
   const navigate = useNavigate();
   const [results, setResults] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingCourses, setLoadingCourses] = useState(true);
   const [filterExam, setFilterExam] = useState('');
+  const [filterCourse, setFilterCourse] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
 
   const loadResults = async () => {
@@ -26,8 +29,22 @@ export default function AdminResults() {
     }
   };
 
+  const loadCourses = async () => {
+    try {
+      const { data } = await api.get('/courses');
+      setCourses(data.courses || []);
+    } catch (err) {
+      console.error('Failed to load courses', err);
+    } finally {
+      setLoadingCourses(false);
+    }
+  };
+
   const handleExportExcel = () => {
-    const filteredResults = results.filter(r => filterExam === '' || r.quizTitle === filterExam);
+    const filteredResults = results.filter(r => 
+      (filterExam === '' || r.quizTitle === filterExam) &&
+      (filterCourse === '' || r.courseTitle === filterCourse)
+    );
     const selectedData = filteredResults.filter(r => selectedIds.includes(r.submissionId));
     
     if (selectedData.length === 0) {
@@ -133,7 +150,10 @@ export default function AdminResults() {
   };
 
   const handleSelectAll = (e) => {
-    const filtered = results.filter(r => filterExam === '' || r.quizTitle === filterExam);
+    const filtered = results.filter(r => 
+      (filterExam === '' || r.quizTitle === filterExam) &&
+      (filterCourse === '' || r.courseTitle === filterCourse)
+    );
     if (e.target.checked) {
       setSelectedIds(filtered.map(r => r.submissionId));
     } else {
@@ -147,7 +167,10 @@ export default function AdminResults() {
     );
   };
 
-  useEffect(() => { loadResults(); }, []);
+  useEffect(() => { 
+    loadResults(); 
+    loadCourses();
+  }, []);
 
   const statusColors = {
     COMPLETED:  { bg: '#ebfbee', color: '#2f9e44' },
@@ -188,6 +211,29 @@ export default function AdminResults() {
               )}
             </h2>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              {/* Course Filter */}
+              <select 
+                className="input" 
+                style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto', minWidth: 150 }}
+                value={filterCourse}
+                onChange={(e) => {
+                  setFilterCourse(e.target.value);
+                  setFilterExam(''); // Reset quiz filter when course changes
+                }}
+              >
+                <option value="">All Courses</option>
+                {courses.length > 0 ? (
+                  courses.map(c => (
+                    <option key={c._id} value={c.title}>{c.title}</option>
+                  ))
+                ) : (
+                  [...new Set(results.map(r => r.courseTitle).filter(Boolean))].sort().map(title => (
+                    <option key={title} value={title}>{title}</option>
+                  ))
+                )}
+              </select>
+
+              {/* Quiz Filter */}
               <select 
                 className="input" 
                 style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto', minWidth: 150 }}
@@ -195,7 +241,11 @@ export default function AdminResults() {
                 onChange={(e) => setFilterExam(e.target.value)}
               >
                 <option value="">All Exams</option>
-                {[...new Set(results.map(r => r.quizTitle))].sort().map(title => (
+                {[...new Set(
+                  results
+                    .filter(r => filterCourse === '' || r.courseTitle === filterCourse)
+                    .map(r => r.quizTitle)
+                )].sort().map(title => (
                   <option key={title} value={title}>{title}</option>
                 ))}
               </select>
@@ -212,7 +262,10 @@ export default function AdminResults() {
                 className="btn btn-secondary"
                 style={{ padding: '6px 14px', fontSize: '0.85rem' }}
                 onClick={() => {
-                  const filtered = results.filter(r => filterExam === '' || r.quizTitle === filterExam);
+                  const filtered = results.filter(r => 
+                    (filterExam === '' || r.quizTitle === filterExam) &&
+                    (filterCourse === '' || r.courseTitle === filterCourse)
+                  );
                   setSelectedIds(filtered.map(r => r.submissionId));
                 }}
               >
@@ -254,7 +307,10 @@ export default function AdminResults() {
                         onChange={handleSelectAll}
                         checked={
                           results.length > 0 && 
-                          selectedIds.length === results.filter(r => filterExam === '' || r.quizTitle === filterExam).length
+                          selectedIds.length === results.filter(r => 
+                            (filterExam === '' || r.quizTitle === filterExam) &&
+                            (filterCourse === '' || r.courseTitle === filterCourse)
+                          ).length
                         }
                       />
                     </th>
@@ -264,8 +320,11 @@ export default function AdminResults() {
                   </tr>
                 </thead>
                 <tbody>
-                  {results
-                    .filter(r => filterExam === '' || r.quizTitle === filterExam)
+                   {results
+                    .filter(r => 
+                      (filterExam === '' || r.quizTitle === filterExam) &&
+                      (filterCourse === '' || r.courseTitle === filterCourse)
+                    )
                     .map((r) => {
                     const s = statusColors[r.status] || statusColors.COMPLETED;
                     const isSelected = selectedIds.includes(r.submissionId);
