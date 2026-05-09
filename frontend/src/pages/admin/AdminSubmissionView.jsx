@@ -120,14 +120,15 @@ export default function AdminSubmissionView() {
         <div className="report-container">
           {/* Brand Header */}
           <header className="report-header">
+            <div className="header-logo">
+              <img src="/assets/minds_logo.png" alt="Brand Logo" />
+            </div>
             <div className="header-info">
               <span className="report-badge">Official Assessment Record</span>
               <h1>Detailed Report</h1>
               <p className="quiz-name">{data.quizTitle}</p>
             </div>
-            <div className="header-logo">
-              <img src="/assets/minds_logo.png" alt="Brand Logo" />
-            </div>
+            <div className="header-placeholder"></div> {/* For balancing flex */}
           </header>
 
           {/* Student & Summary Card */}
@@ -281,7 +282,17 @@ export default function AdminSubmissionView() {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          text-align: center;
         }
+
+        .header-info {
+          flex: 1;
+        }
+
+        .header-placeholder {
+          width: 80px; /* Match logo width for centering */
+        }
+
 
         .report-badge {
           background: rgba(255,255,255,0.1);
@@ -295,9 +306,9 @@ export default function AdminSubmissionView() {
           display: inline-block;
         }
 
-        .report-header h1 { font-size: 2.5rem; font-weight: 800; margin: 0.5rem 0; }
-        .quiz-name { font-size: 1.1rem; opacity: 0.9; font-weight: 500; }
-        .header-logo img { height: 60px; filter: brightness(0) invert(1); }
+        .report-header h1 { font-size: 2.5rem; font-weight: 800; margin: 0.2rem 0; }
+        .quiz-name { font-size: 1rem; opacity: 0.9; font-weight: 500; }
+        .header-logo img { height: 50px; filter: brightness(0) invert(1); }
 
         .info-section { padding: 0 3rem; margin-top: -2rem; }
         .info-card {
@@ -380,7 +391,7 @@ export default function AdminSubmissionView() {
         @media print {
           @page {
             size: A4;
-            margin: 15mm;
+            margin: 0mm !important; /* Suppress browser headers/footers */
           }
           * {
             -webkit-print-color-adjust: exact !important;
@@ -389,6 +400,7 @@ export default function AdminSubmissionView() {
           body { 
             background: white !important; 
             color: black !important;
+            margin: 0 !important;
           }
           .app-layout { display: block !important; }
           .sidebar, .view-controls { display: none !important; }
@@ -411,6 +423,7 @@ export default function AdminSubmissionView() {
             width: 100% !important; 
             max-width: none !important;
             margin: 0 !important;
+            padding: 15mm !important; /* Add internal margin back */
             overflow: visible !important;
           }
           .report-header { 
