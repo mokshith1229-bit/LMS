@@ -380,31 +380,79 @@ export default function AdminSubmissionView() {
         @media print {
           @page {
             size: A4;
-            margin: 20mm;
+            margin: 15mm;
           }
-          body { background: white !important; }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body { 
+            background: white !important; 
+            color: black !important;
+          }
           .app-layout { display: block !important; }
           .sidebar, .view-controls { display: none !important; }
-          .main-content { padding: 0 !important; margin: 0 !important; width: 100% !important; }
-          .admin-submission-view { background: white !important; padding: 0 !important; }
+          .main-content { 
+            padding: 0 !important; 
+            margin: 0 !important; 
+            width: 100% !important; 
+            height: auto !important;
+            overflow: visible !important;
+          }
+          .admin-submission-view { 
+            background: white !important; 
+            padding: 0 !important; 
+            min-height: auto !important;
+          }
           .report-wrapper { 
             box-shadow: none !important; 
+            border: none !important;
             border-radius: 0 !important; 
             width: 100% !important; 
             max-width: none !important;
             margin: 0 !important;
+            overflow: visible !important;
           }
-          .report-header { padding: 2rem !important; }
-          .info-section { padding: 0 2rem !important; margin-top: -1.5rem !important; }
-          .info-card { padding: 1.5rem !important; }
-          .answers-section { padding: 2rem !important; }
+          .report-header { 
+            padding: 2.5rem !important; 
+            background: linear-gradient(135deg, #1e3a8a 0%, #312e81 100%) !important;
+            color: white !important;
+            page-break-after: avoid !important;
+          }
+          .info-section { 
+            padding: 0 2.5rem !important; 
+            margin-top: -1.5rem !important;
+            page-break-inside: avoid !important;
+          }
+          .info-card { 
+            border: 1px solid #e2e8f0 !important;
+            padding: 1.5rem !important; 
+          }
+          .answers-section { 
+            padding: 2.5rem !important; 
+            overflow: visible !important;
+          }
+          .section-title {
+            page-break-after: avoid !important;
+          }
           .question-item { 
             page-break-inside: avoid !important; 
             break-inside: avoid !important;
-            margin-bottom: 2rem !important;
+            margin-bottom: 2.5rem !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+            padding-bottom: 2rem !important;
           }
-          .options-grid { margin-bottom: 1rem !important; }
-          .report-footer { padding: 2rem !important; page-break-before: auto !important; }
+          .options-grid { 
+            margin-bottom: 1rem !important; 
+            page-break-inside: avoid !important;
+          }
+          .option-box {
+            border: 1.5px solid #e2e8f0 !important;
+          }
+          .report-footer { 
+            padding: 2.5rem !important; 
+            page-break-before: auto !important; 
+          }
         }
       ` }} />
       </div>
