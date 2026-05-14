@@ -14,13 +14,13 @@ import {
 import toast from 'react-hot-toast';
 import './AdminAnalytics.css';
 
-const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+const COLORS = ['#8DC63F', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 const CHART_COLORS = {
   pass: '#10b981',
   fail: '#ef4444',
-  attempted: '#2563eb',
+  attempted: '#8DC63F',
   pending: '#94a3b8',
-  primary: '#2563eb'
+  primary: '#8DC63F'
 };
 
 export default function AdminAnalytics() {
@@ -276,7 +276,7 @@ export default function AdminAnalytics() {
             <div className="fade-in">
               <div className="kpi-grid">
                 {[
-                  { label: 'Total Cohort', value: analytics.totalStudents, icon: Users, color: '#3b82f6', bg: '#eff6ff', target: 'cohort' },
+                  { label: 'Total Cohort', value: analytics.totalStudents, icon: Users, color: '#8DC63F', bg: '#eff6ff', target: 'cohort' },
                   { label: 'Attempted', value: analytics.attemptedStudents, subValue: `${analytics.completionRate}%`, icon: Activity, color: '#6366f1', bg: '#e0e7ff', target: 'attempted' },
                   { label: 'Pending', value: analytics.pendingStudents, icon: Clock, color: '#64748b', bg: '#f1f5f9', target: 'pending' },
                   { label: 'Avg Score', value: `${analytics.averageScore}%`, icon: TrendingUp, color: '#f59e0b', bg: '#fef3c7', target: 'average-score' },
@@ -318,7 +318,7 @@ export default function AdminAnalytics() {
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} tickFormatter={(val) => val.split(' ')[0]} />
                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Area type="monotone" dataKey="score" stroke={CHART_COLORS.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorScore)" activeDot={{ r: 6, strokeWidth: 0, fill: '#2563eb' }} />
+                        <Area type="monotone" dataKey="score" stroke={CHART_COLORS.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorScore)" activeDot={{ r: 6, strokeWidth: 0, fill: '#8DC63F' }} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -368,7 +368,7 @@ export default function AdminAnalytics() {
                       </div>
                       <div className="widget-legend">
                         <div className="legend-item">
-                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#2563eb'}}></span><span className="legend-label">Attempted</span></div>
+                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#8DC63F'}}></span><span className="legend-label">Attempted</span></div>
                           <span className="legend-val">{analytics.attemptedStudents}</span>
                         </div>
                         <div className="legend-item">
@@ -429,7 +429,7 @@ export default function AdminAnalytics() {
                                 <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
                                   <span style={{fontFamily: 'monospace', fontWeight: '600', color: '#333', width: '40px', textAlign: 'right'}}>{q.accuracy}%</span>
                                   <div className="dist-bar-wrap" style={{flex: 1, backgroundColor: '#e2e8f0'}}>
-                                    <div className="dist-bar-fill" style={{ width: `${q.accuracy}%`, backgroundColor: isPerfect ? '#10b981' : isWeak ? '#ef4444' : '#2563eb' }}></div>
+                                    <div className="dist-bar-fill" style={{ width: `${q.accuracy}%`, backgroundColor: isPerfect ? '#10b981' : isWeak ? '#ef4444' : '#8DC63F' }}></div>
                                   </div>
                                 </div>
                               </td>
