@@ -348,7 +348,7 @@ export default function DetailedAnalytics() {
         <div className="analytics-content">
           <div className="header-row">
             <div>
-              <button onClick={() => navigate('/admin/analytics')} className="back-btn">
+              <button onClick={() => navigate(`/admin/analytics?batchId=${batchId}&quizId=${quizId}`)} className="back-btn">
                 <ArrowLeft size={16} /> Back to Dashboard
               </button>
               <h1 className="page-title">

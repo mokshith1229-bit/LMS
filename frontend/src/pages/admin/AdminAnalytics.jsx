@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../../api/axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import { 
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, 
@@ -25,11 +25,13 @@ const CHART_COLORS = {
 
 export default function AdminAnalytics() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const [batches, setBatches] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   
-  const [selectedBatch, setSelectedBatch] = useState('');
-  const [selectedQuiz, setSelectedQuiz] = useState('');
+  const [selectedBatch, setSelectedBatch] = useState(searchParams.get('batchId') || '');
+  const [selectedQuiz, setSelectedQuiz] = useState(searchParams.get('quizId') || '');
   
   const [analytics, setAnalytics] = useState(null);
   const [loadingBatches, setLoadingBatches] = useState(true);
@@ -84,8 +86,13 @@ export default function AdminAnalytics() {
 
   useEffect(() => {
     if (selectedBatch && selectedQuiz) {
+      setSearchParams({ batchId: selectedBatch, quizId: selectedQuiz }, { replace: true });
       fetchAnalytics();
+    } else if (selectedBatch) {
+      setSearchParams({ batchId: selectedBatch }, { replace: true });
+      setAnalytics(null);
     } else {
+      setSearchParams({}, { replace: true });
       setAnalytics(null);
     }
   }, [selectedBatch, selectedQuiz]);
