@@ -598,8 +598,8 @@
   overflow-x: auto;
 }
 .table-wrap.scrollable {
-  max-height: 600px;
-  overflow-y: auto;
+  max-height: none;
+  overflow-y: visible;
 }
 .data-table {
   width: 100%;
