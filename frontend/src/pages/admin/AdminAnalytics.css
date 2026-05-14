@@ -2,7 +2,7 @@
 
 .analytics-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   background-color: var(--bg-primary, #f8fafc);
   color: var(--text-primary, #333333);
   font-family: 'Roboto', 'Arial', sans-serif;
