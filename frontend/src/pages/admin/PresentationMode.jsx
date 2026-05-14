@@ -67,6 +67,27 @@ export default function PresentationMode() {
   const hideTimer = useRef(null);
   const autoStartTimer = useRef(null);
   const containerRef = useRef(null);
+  const focusIntervalRef = useRef(null);
+
+  // ── Auto-focus on mount (extended display / remote support) ─────────────────
+  useEffect(() => {
+    // Immediately claim window focus so the presentation window receives
+    // keyboard events from a Logitech remote even in extended display mode.
+    window.focus();
+    containerRef.current?.focus();
+
+    // Failsafe: re-claim focus every 3 seconds in case an overlay or
+    // the iframe steals it while the presenter interacts on another monitor.
+    focusIntervalRef.current = setInterval(() => {
+      if (document.visibilityState === 'visible' && document.activeElement !== containerRef.current) {
+        containerRef.current?.focus({ preventScroll: true });
+      }
+    }, 3000);
+
+    return () => {
+      clearInterval(focusIntervalRef.current);
+    };
+  }, []);
 
   // ── Data loading ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -247,9 +268,17 @@ export default function PresentationMode() {
     };
   }, [resetHideTimer]);
 
-  // ── Fullscreen listener ─────────────────────────────────────────────────────
+  // ── Fullscreen listener + focus restore ────────────────────────────────────
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    const handler = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+      // Restore focus to presentation container after fullscreen transition
+      // so the remote continues working immediately after going fullscreen.
+      setTimeout(() => {
+        window.focus();
+        containerRef.current?.focus({ preventScroll: true });
+      }, 150);
+    };
     document.addEventListener('fullscreenchange', handler);
     return () => document.removeEventListener('fullscreenchange', handler);
   }, []);
@@ -318,19 +347,29 @@ export default function PresentationMode() {
     setThumbnailsOpen(false);
   };
 
-  // ── Keyboard ────────────────────────────────────────────────────────────────
+  // ── Keyboard (window-level listener for remote / extended display) ──────────
   useEffect(() => {
-    const fn = (e) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') goNext();
-      else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') goPrev();
-      else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
-      else if (e.key === 'Escape') {
+    const handleSlideKeys = (e) => {
+      // Navigation keys used by Logitech and other presentation remotes
+      const NAV_NEXT = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
+      const NAV_PREV = ['ArrowLeft', 'ArrowUp', 'PageUp'];
+
+      if (NAV_NEXT.includes(e.key)) {
+        // Prevent default scroll so Space/PageDown don't scroll the page
+        e.preventDefault();
+        goNext();
+      } else if (NAV_PREV.includes(e.key)) {
+        e.preventDefault();
+        goPrev();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullscreen();
+      } else if (e.key === 'Escape') {
         if (document.fullscreenElement) document.exitFullscreen();
         else navigate('/admin/presentations');
       }
     };
-    window.addEventListener('keydown', fn);
-    return () => window.removeEventListener('keydown', fn);
+    window.addEventListener('keydown', handleSlideKeys);
+    return () => window.removeEventListener('keydown', handleSlideKeys);
   }, [goNext, goPrev, navigate]);
 
   // ── Fullscreen ──────────────────────────────────────────────────────────────
@@ -389,7 +428,15 @@ export default function PresentationMode() {
     path?.startsWith('http') ? path : `${API_BASE}${path}`;
 
   return (
-    <div ref={containerRef} style={{ position: 'fixed', inset: 0, background: '#f8fafc', color: '#1e293b', overflow: 'hidden', fontFamily: "'Outfit', 'Inter', sans-serif", userSelect: 'none' }}>
+    <div
+      ref={containerRef}
+      tabIndex={0}
+      onBlur={() => {
+        // Re-claim focus when the container loses it (e.g. iframe click)
+        setTimeout(() => containerRef.current?.focus({ preventScroll: true }), 100);
+      }}
+      style={{ position: 'fixed', inset: 0, background: '#f8fafc', color: '#1e293b', overflow: 'hidden', fontFamily: "'Outfit', 'Inter', sans-serif", userSelect: 'none', outline: 'none' }}
+    >
 
       {/* ─── TOP TOOLBAR ─────────────────────────────────────────── */}
       <motion.div
@@ -511,13 +558,25 @@ export default function PresentationMode() {
               style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent' }}
             >
               {presentation.pptxFile ? (
-                <iframe
-                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
-                    presentation.pptxFile.startsWith('http') ? presentation.pptxFile : API_BASE + presentation.pptxFile
-                  )}`}
-                  style={{ width: '100%', height: '100%', border: 'none' }}
-                  title="PPTX Viewer"
-                />
+                // Wrapper with a transparent overlay so the iframe never
+                // captures keyboard events from the presentation remote.
+                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                  <iframe
+                    src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(
+                      presentation.pptxFile.startsWith('http') ? presentation.pptxFile : API_BASE + presentation.pptxFile
+                    )}`}
+                    style={{ width: '100%', height: '100%', border: 'none' }}
+                    title="PPTX Viewer"
+                  />
+                  {/* Transparent overlay — blocks iframe from stealing pointer/keyboard focus */}
+                  <div
+                    style={{
+                      position: 'absolute', inset: 0, zIndex: 10,
+                      cursor: 'default', background: 'transparent'
+                    }}
+                    onClick={() => containerRef.current?.focus({ preventScroll: true })}
+                  />
+                </div>
               ) : (
                 <img
                   src={slideImageSrc(presentation.slides[currentSlide])}
