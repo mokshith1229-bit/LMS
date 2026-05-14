@@ -534,13 +534,13 @@ export default function AdminAnalytics() {
               <div className="table-panel">
                 <div className="table-header-row">
                   <div>
-                    <h2 className="table-title">Assessment Roster</h2>
+                    <h2 className="table-title">Assessment Report</h2>
                     <p className="table-subtitle">Individual performance records and submission timestamps</p>
                   </div>
                   <div className="table-controls">
                     <div className="control-input-wrap">
                       <Search className="control-icon" size={16} />
-                      <input type="text" placeholder="Search roster..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="control-input" />
+                      <input type="text" placeholder="Search report..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="control-input" />
                     </div>
                     <div className="control-input-wrap">
                       <Filter className="control-icon" size={16} />

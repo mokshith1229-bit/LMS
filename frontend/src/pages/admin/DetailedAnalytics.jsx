@@ -237,13 +237,13 @@ export default function DetailedAnalytics() {
           <div className="table-panel">
             <div className="table-header-row">
               <div>
-                <h2 className="table-title">{type === 'highest-score' ? 'Top Performers Ranking' : 'Student Roster'}</h2>
+                <h2 className="table-title">{type === 'highest-score' ? 'Top Performers Ranking' : 'Student Report'}</h2>
                 <p className="table-subtitle">Individual performance metrics and outcomes</p>
               </div>
               <div className="table-controls">
                 <div className="control-input-wrap">
                   <Search className="control-icon" size={16} />
-                  <input type="text" placeholder="Search roster..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="control-input" />
+                  <input type="text" placeholder="Search report..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="control-input" />
                 </div>
                 <div className="control-input-wrap">
                   <Filter className="control-icon" size={16} />
@@ -319,7 +319,7 @@ export default function DetailedAnalytics() {
            <div className="table-panel">
             <div className="table-header-row">
               <div>
-                <h2 className="table-title">Pending Roster Status</h2>
+                <h2 className="table-title">Pending Report Status</h2>
                 <p className="table-subtitle">Summary of outstanding assessments</p>
               </div>
             </div>
