@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../api/axios';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
@@ -10,7 +10,6 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#ff6b6b'
 
 export default function AdminAnalytics() {
   const navigate = useNavigate();
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const [batches, setBatches] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   
@@ -27,18 +26,14 @@ export default function AdminAnalytics() {
 
   const fetchFilters = async () => {
     try {
-      const token = localStorage.getItem('token');
       const [batchRes, quizRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/batch`, {
-          headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${API_BASE}/api/quiz`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
+        api.get('/batch'),
+        api.get('/quiz')
       ]);
       setBatches(batchRes.data.batches || []);
       setQuizzes(quizRes.data || []); 
     } catch (error) {
+      console.error('Filter fetch error:', error);
       toast.error('Failed to load filters');
     }
   };
@@ -51,12 +46,10 @@ export default function AdminAnalytics() {
     setExpandedRow(null);
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_BASE}/api/admin/analytics?batchId=${selectedBatch}&quizId=${selectedQuiz}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get(`/admin/analytics?batchId=${selectedBatch}&quizId=${selectedQuiz}`);
       setAnalytics(res.data.data);
     } catch (error) {
+      console.error('Analytics fetch error:', error);
       toast.error('Failed to load analytics');
     } finally {
       setLoading(false);
