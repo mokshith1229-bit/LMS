@@ -154,6 +154,17 @@ export default function AdminAnalytics() {
     return null;
   };
 
+  const scrollToSection = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('highlight-section');
+      setTimeout(() => {
+        if (element) element.classList.remove('highlight-section');
+      }, 1500);
+    }
+  };
+
   return (
     <div className="analytics-container">
       <Sidebar />
@@ -265,14 +276,14 @@ export default function AdminAnalytics() {
             <div className="fade-in">
               <div className="kpi-grid">
                 {[
-                  { label: 'Total Cohort', value: analytics.totalStudents, icon: Users, color: '#3b82f6', bg: '#eff6ff' },
-                  { label: 'Attempted', value: analytics.attemptedStudents, subValue: `${analytics.completionRate}%`, icon: Activity, color: '#6366f1', bg: '#e0e7ff' },
-                  { label: 'Pending', value: analytics.pendingStudents, icon: Clock, color: '#64748b', bg: '#f1f5f9' },
-                  { label: 'Avg Score', value: `${analytics.averageScore}%`, icon: TrendingUp, color: '#f59e0b', bg: '#fef3c7' },
-                  { label: 'Pass Rate', value: `${analytics.passPercentage}%`, icon: CheckCircle, color: '#10b981', bg: '#d1fae5' },
-                  { label: 'Highest Score', value: `${analytics.highestScore}%`, icon: Award, color: '#8b5cf6', bg: '#ede9fe' },
+                  { label: 'Total Cohort', value: analytics.totalStudents, icon: Users, color: '#3b82f6', bg: '#eff6ff', target: 'cohort-section' },
+                  { label: 'Attempted', value: analytics.attemptedStudents, subValue: `${analytics.completionRate}%`, icon: Activity, color: '#6366f1', bg: '#e0e7ff', target: 'attempted-section' },
+                  { label: 'Pending', value: analytics.pendingStudents, icon: Clock, color: '#64748b', bg: '#f1f5f9', target: 'attempted-section' },
+                  { label: 'Avg Score', value: `${analytics.averageScore}%`, icon: TrendingUp, color: '#f59e0b', bg: '#fef3c7', target: 'score-section' },
+                  { label: 'Pass Rate', value: `${analytics.passPercentage}%`, icon: CheckCircle, color: '#10b981', bg: '#d1fae5', target: 'passrate-section' },
+                  { label: 'Highest Score', value: `${analytics.highestScore}%`, icon: Award, color: '#8b5cf6', bg: '#ede9fe', target: 'highestscore-section' },
                 ].map((kpi, idx) => (
-                  <div key={idx} className="kpi-card">
+                  <div key={idx} className="kpi-card interactive-kpi" onClick={() => scrollToSection(kpi.target)}>
                     <kpi.icon size={64} className="kpi-bg-icon" style={{color: kpi.color}} />
                     <div className="kpi-icon-box" style={{backgroundColor: kpi.bg, color: kpi.color}}>
                       <kpi.icon size={20} />
@@ -287,7 +298,7 @@ export default function AdminAnalytics() {
               </div>
 
               <div className="charts-grid">
-                <div className="chart-card">
+                <div className="chart-card" id="score-section">
                   <div className="chart-header">
                     <div>
                       <h2 className="chart-title">Score Distribution Trend</h2>
@@ -314,7 +325,7 @@ export default function AdminAnalytics() {
                 </div>
 
                 <div className="widgets-col">
-                  <div className="widget-card">
+                  <div className="widget-card" id="passrate-section">
                     <h3 className="widget-title">Performance Outcome</h3>
                     <div className="widget-content">
                       <div className="widget-chart-wrapper">
@@ -341,7 +352,7 @@ export default function AdminAnalytics() {
                     </div>
                   </div>
 
-                  <div className="widget-card">
+                  <div className="widget-card" id="attempted-section">
                     <h3 className="widget-title">Participation Rate</h3>
                     <div className="widget-content">
                       <div className="widget-chart-wrapper">
@@ -370,7 +381,7 @@ export default function AdminAnalytics() {
                 </div>
               </div>
 
-              <div className="table-panel">
+              <div className="table-panel" id="highestscore-section">
                 <div className="table-header-row" style={{borderBottom: 'none'}}>
                   <div>
                     <h2 className="table-title">Item Analysis</h2>
@@ -520,7 +531,7 @@ export default function AdminAnalytics() {
                 </div>
               </div>
 
-              <div className="table-panel">
+              <div className="table-panel" id="cohort-section">
                 <div className="table-header-row">
                   <div>
                     <h2 className="table-title">Assessment Roster</h2>
