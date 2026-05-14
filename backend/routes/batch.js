@@ -25,7 +25,6 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Batch name already exists' });
     }
 
-    // Validate users array if provided
     let validUsers = [];
     if (users && Array.isArray(users)) {
       validUsers = users.filter((id) => mongoose.Types.ObjectId.isValid(id));
@@ -54,6 +53,73 @@ router.get('/', async (req, res) => {
       .sort({ createdAt: -1 });
 
     res.json({ success: true, batches, count: batches.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/batch/:batchId/quizzes
+// @desc    Get all quizzes assigned to a specific batch via BatchAssignment
+// @access  Admin
+// NOTE: This route MUST be registered before /:batchId to avoid param clash
+router.get('/:batchId/quizzes', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(batchId)) {
+      return res.status(400).json({ success: false, message: 'Invalid batch ID' });
+    }
+
+    const BatchAssignment = require('../models/BatchAssignment');
+
+    const assignments = await BatchAssignment.find({ batchId })
+      .populate({
+        path: 'quizId',
+        select: 'title duration questions passingScore courseId',
+        populate: { path: 'courseId', select: 'title' }
+      })
+      .sort({ createdAt: -1 });
+
+    // Filter out orphaned assignments where quiz was deleted
+    const quizzes = assignments
+      .filter(a => a.quizId)
+      .map(a => ({
+        _id: a.quizId._id,
+        title: a.quizId.title,
+        duration: a.quizId.duration,
+        questionCount: a.quizId.questions?.length || 0,
+        passingScore: a.quizId.passingScore,
+        courseTitle: a.quizId.courseId?.title || '',
+        startTime: a.startTime,
+        endTime: a.endTime,
+        isActive: a.isActive,
+        assignmentId: a._id,
+      }));
+
+    res.json({ success: true, quizzes, count: quizzes.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/batch/:batchId
+// @desc    Get a single batch with its users
+// @access  Admin
+router.get('/:batchId', async (req, res) => {
+  try {
+    const { batchId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(batchId)) {
+      return res.status(400).json({ success: false, message: 'Invalid batch ID' });
+    }
+
+    const batch = await Batch.findById(batchId)
+      .populate('users', 'name email')
+      .populate('createdBy', 'name email');
+
+    if (!batch) {
+      return res.status(404).json({ success: false, message: 'Batch not found' });
+    }
+
+    res.json({ success: true, batch });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

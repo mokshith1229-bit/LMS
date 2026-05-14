@@ -605,7 +605,7 @@ router.get('/analytics', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid or missing quizId' });
     }
 
-    const batch = await Batch.findById(batchId);
+    const batch = await Batch.findById(batchId).populate('users', 'name email');
     if (!batch) {
       return res.status(404).json({ success: false, message: 'Batch not found' });
     }
@@ -615,32 +615,62 @@ router.get('/analytics', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    const submissions = await Submission.find({ batchId, quizId })
-      .populate('userId', 'name')
+    const batchUserIds = (batch.users || []).map(u => u._id);
+    const totalStudents = batchUserIds.length;
+
+    // Query submissions by batch member user IDs + quizId.
+    // This covers both batch-scheduled and individually-assigned submissions
+    // since not all submissions have batchId set on the document.
+    const submissions = await Submission.find({
+      userId: { $in: batchUserIds },
+      quizId,
+    })
+      .populate('userId', 'name email')
       .lean();
 
-    const totalStudents = batch.users ? batch.users.length : 0;
-    const completedStudents = submissions.length;
-    const completionRate = totalStudents > 0 ? (completedStudents / totalStudents) * 100 : 0;
+    const attemptedStudents = submissions.length;
+    const pendingStudents = Math.max(0, totalStudents - attemptedStudents);
 
     let averageScore = 0;
     let highestScore = 0;
     let lowestScore = 0;
+    let passCount = 0;
     const studentScores = [];
+    const studentTable = [];
 
-    if (completedStudents > 0) {
-      const totalScore = submissions.reduce((sum, sub) => sum + sub.percentage, 0);
-      averageScore = totalScore / completedStudents;
-      highestScore = Math.max(...submissions.map(s => s.percentage));
-      lowestScore = Math.min(...submissions.map(s => s.percentage));
+    if (attemptedStudents > 0) {
+      const percentages = submissions.map(s => s.percentage);
+      averageScore = percentages.reduce((a, b) => a + b, 0) / attemptedStudents;
+      highestScore = Math.max(...percentages);
+      lowestScore = Math.min(...percentages);
+      passCount = submissions.filter(s => s.passed).length;
     }
 
     submissions.forEach(sub => {
       studentScores.push({
         name: sub.userId?.name || 'Unknown',
-        score: sub.percentage
+        score: sub.percentage,
+      });
+      studentTable.push({
+        name: sub.userId?.name || 'Unknown',
+        email: sub.userId?.email || '',
+        correct: sub.correct,
+        wrong: sub.wrong,
+        unattempted: sub.unattempted,
+        total: sub.correct + sub.wrong + sub.unattempted,
+        percentage: sub.percentage,
+        passed: sub.passed,
+        status: sub.status || 'COMPLETED',
+        submittedAt: sub.submittedAt,
       });
     });
+
+    const passPercentage = attemptedStudents > 0
+      ? Number(((passCount / attemptedStudents) * 100).toFixed(2))
+      : 0;
+    const failPercentage = attemptedStudents > 0
+      ? Number((((attemptedStudents - passCount) / attemptedStudents) * 100).toFixed(2))
+      : 0;
 
     const getLetter = (index) => {
       if (index === null || index === undefined || index === '') return '';
@@ -650,15 +680,18 @@ router.get('/analytics', async (req, res) => {
     const questions = quiz.questions.map((q) => {
       let correctIdx = parseInt(q.correctAnswer);
       if (isNaN(correctIdx)) {
-         correctIdx = q.options.findIndex(opt => 
-            opt && q.correctAnswer && String(opt).trim().toUpperCase() === String(q.correctAnswer).trim().toUpperCase()
-         );
+        correctIdx = q.options.findIndex(opt =>
+          opt && q.correctAnswer &&
+          String(opt).trim().toUpperCase() === String(q.correctAnswer).trim().toUpperCase()
+        );
       }
-      const correctLetter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : String(q.correctAnswer || '');
+      const correctLetter = correctIdx !== -1 && !isNaN(correctIdx)
+        ? getLetter(correctIdx)
+        : String(q.correctAnswer || '');
 
       let correctCount = 0;
       const optionCounts = {};
-      
+
       q.options.forEach((opt, idx) => {
         optionCounts[getLetter(idx)] = 0;
       });
@@ -672,14 +705,17 @@ router.get('/analytics', async (req, res) => {
         if (userAns !== null && userAns !== undefined && userAns !== '') {
           let userIdx = parseInt(userAns);
           if (isNaN(userIdx)) {
-            userIdx = q.options.findIndex(opt => 
-               opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
+            userIdx = q.options.findIndex(opt =>
+              opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
             );
           }
           userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
         }
 
-        if (userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase() && userLetter !== 'NA') {
+        if (
+          userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase() &&
+          userLetter !== 'NA'
+        ) {
           correctCount++;
         }
 
@@ -690,28 +726,46 @@ router.get('/analytics', async (req, res) => {
         }
       });
 
-      const accuracy = completedStudents > 0 ? (correctCount / completedStudents) * 100 : 0;
+      const accuracy = attemptedStudents > 0
+        ? Number(((correctCount / attemptedStudents) * 100).toFixed(2))
+        : 0;
+
+      const mostSelected = Object.entries(optionCounts)
+        .filter(([k]) => k !== 'NA')
+        .sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
 
       return {
         question: q.question,
-        accuracy: Number(accuracy.toFixed(2)),
+        options: q.options,
+        accuracy,
         correctAnswer: correctLetter,
-        optionCounts
+        mostSelected,
+        optionCounts,
       };
     });
 
-    res.json({
-      success: true,
+    const analyticsData = {
       totalStudents,
-      completedStudents,
+      attemptedStudents,
+      pendingStudents,
+      completionRate: totalStudents > 0
+        ? Number(((attemptedStudents / totalStudents) * 100).toFixed(2))
+        : 0,
       averageScore: Number(averageScore.toFixed(2)),
       highestScore,
       lowestScore,
-      completionRate: Number(completionRate.toFixed(2)),
+      passCount,
+      failCount: attemptedStudents - passCount,
+      passPercentage,
+      failPercentage,
       questions,
-      studentScores
-    });
+      studentScores,
+      studentTable,
+    };
+
+    res.json({ success: true, data: analyticsData });
   } catch (error) {
+    console.error('[Analytics Error]', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
