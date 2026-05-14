@@ -395,9 +395,17 @@ export default function AdminAnalytics() {
                         const isPerfect = q.accuracy === 100;
                         const optionData = Object.keys(q.optionCounts)
                           .filter(k => k !== 'NA' && q.optionCounts[k] > 0)
-                          .map((key, i) => ({
-                            name: `Opt ${key}`, fullname: `Option ${key}`, value: q.optionCounts[key], color: COLORS[i % COLORS.length]
-                          }));
+                          .map((key, i) => {
+                            const optIndex = key.charCodeAt(0) - 65;
+                            const optText = q.options && q.options[optIndex] ? q.options[optIndex] : `Option ${key}`;
+                            return {
+                              name: `Opt ${key}`, 
+                              fullname: `Option ${key}`, 
+                              text: optText,
+                              value: q.optionCounts[key], 
+                              color: COLORS[i % COLORS.length]
+                            };
+                          });
 
                         return (
                           <React.Fragment key={idx}>
@@ -449,9 +457,12 @@ export default function AdminAnalytics() {
                                             const pct = ((opt.value / analytics.attemptedStudents) * 100).toFixed(1);
                                             return (
                                               <div key={i} className="dist-item">
-                                                <div className="dist-item-left">
-                                                  <div className="dist-box" style={{backgroundColor: '#f8fafc', color: '#333', border: '1px solid #e2e8f0'}}>{opt.fullname.replace('Option ', '')}</div>
-                                                  <span className={`dist-label ${isCorrect ? 'correct' : ''}`}>{isCorrect && <Check size={14} />} Selected</span>
+                                                <div className="dist-item-left" style={{ maxWidth: '60%' }}>
+                                                  <div className="dist-box" style={{backgroundColor: '#f8fafc', color: '#333', border: '1px solid #e2e8f0', flexShrink: 0}}>{opt.fullname.replace('Option ', '')}</div>
+                                                  <span className={`dist-label ${isCorrect ? 'correct' : ''}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {isCorrect && <Check size={14} style={{ flexShrink: 0 }} />} 
+                                                    {opt.text}
+                                                  </span>
                                                 </div>
                                                 <div className="dist-item-right">
                                                   <div className="dist-bar-wrap">
