@@ -14,13 +14,13 @@ import {
 import toast from 'react-hot-toast';
 import './AdminAnalytics.css';
 
-const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 const CHART_COLORS = {
-  pass: '#10B981',
-  fail: '#EF4444',
-  attempted: '#3B82F6',
-  pending: '#64748B',
-  primary: '#3B82F6'
+  pass: '#10b981',
+  fail: '#ef4444',
+  attempted: '#2563eb',
+  pending: '#94a3b8',
+  primary: '#2563eb'
 };
 
 export default function AdminAnalytics() {
@@ -158,9 +158,6 @@ export default function AdminAnalytics() {
     <div className="analytics-container">
       <Sidebar />
       <main className="analytics-main">
-        <div className="glow-left"></div>
-        <div className="glow-right"></div>
-
         <div className="analytics-content">
           <div className="header-row">
             <div>
@@ -168,9 +165,9 @@ export default function AdminAnalytics() {
                 <ArrowLeft size={16} /> Back to Dashboard
               </button>
               <h1 className="page-title">
-                <Activity size={32} /> Intelligence Hub
+                <Activity size={28} /> Admin Analytics
               </h1>
-              <p className="page-subtitle">Real-time assessment analytics and batch performance metrics.</p>
+              <p className="page-subtitle">Assessment performance and batch reporting.</p>
             </div>
 
             <div className="header-actions">
@@ -180,7 +177,7 @@ export default function AdminAnalytics() {
                 className="action-btn btn-refresh"
               >
                 <RefreshCw size={16} className={loadingAnalytics ? "spin" : ""} />
-                Refresh
+                Refresh Data
               </button>
               <button 
                 disabled={!analytics || analytics.attemptedStudents === 0}
@@ -201,7 +198,7 @@ export default function AdminAnalytics() {
                 disabled={loadingBatches}
                 className="filter-select"
               >
-                <option value="">{loadingBatches ? 'Loading workspace...' : 'Select Target Batch'}</option>
+                <option value="">{loadingBatches ? 'Loading batches...' : 'Select Target Batch'}</option>
                 {batches.map(b => (
                   <option key={b._id} value={b._id}>{b.name}</option>
                 ))}
@@ -240,14 +237,16 @@ export default function AdminAnalytics() {
                 <div className="loader-outer"></div>
                 <div className="loader-inner"></div>
               </div>
-              <p className="state-desc" style={{marginTop: '16px'}}>Aggregating Intelligence...</p>
+              <p className="state-desc" style={{marginTop: '16px'}}>Retrieving analytics data...</p>
             </div>
           )}
 
           {!loadingAnalytics && !analytics && selectedBatch && selectedQuiz && (
             <div className="state-container fade-in">
-              <AlertCircle size={48} className="state-icon-bg" style={{color: '#64748b', background: 'transparent'}} />
-              <h3 className="state-title">No Data Signals Detected</h3>
+              <div className="state-icon-bg">
+                <AlertCircle size={32} color="#64748b" />
+              </div>
+              <h3 className="state-title">No Data Available</h3>
               <p className="state-desc">The analytics engine could not retrieve data for this selection. Verify assessment status.</p>
             </div>
           )}
@@ -255,10 +254,10 @@ export default function AdminAnalytics() {
           {!loadingAnalytics && analytics && analytics.attemptedStudents === 0 && (
             <div className="state-container fade-in">
               <div className="state-icon-bg">
-                <Clock size={32} color="#94a3b8" />
+                <Clock size={32} color="#64748b" />
               </div>
               <h3 className="state-title">Awaiting Submissions</h3>
-              <p className="state-desc">The selected batch has not initiated this assessment. Metrics will populate in real-time as submissions stream in.</p>
+              <p className="state-desc">The selected batch has not initiated this assessment. Metrics will populate once submissions begin.</p>
             </div>
           )}
 
@@ -266,12 +265,12 @@ export default function AdminAnalytics() {
             <div className="fade-in">
               <div className="kpi-grid">
                 {[
-                  { label: 'Total Cohort', value: analytics.totalStudents, icon: Users, color: '#60a5fa', bg: 'rgba(96, 165, 250, 0.1)' },
-                  { label: 'Attempted', value: analytics.attemptedStudents, subValue: `${analytics.completionRate}%`, icon: Activity, color: '#818cf8', bg: 'rgba(129, 140, 248, 0.1)' },
-                  { label: 'Pending', value: analytics.pendingStudents, icon: Clock, color: '#94a3b8', bg: 'rgba(148, 163, 184, 0.1)' },
-                  { label: 'Avg Score', value: `${analytics.averageScore}%`, icon: TrendingUp, color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.1)' },
-                  { label: 'Pass Rate', value: `${analytics.passPercentage}%`, icon: CheckCircle, color: '#34d399', bg: 'rgba(52, 211, 153, 0.1)' },
-                  { label: 'Highest Score', value: `${analytics.highestScore}%`, icon: Award, color: '#c084fc', bg: 'rgba(192, 132, 252, 0.1)' },
+                  { label: 'Total Cohort', value: analytics.totalStudents, icon: Users, color: '#3b82f6', bg: '#eff6ff' },
+                  { label: 'Attempted', value: analytics.attemptedStudents, subValue: `${analytics.completionRate}%`, icon: Activity, color: '#6366f1', bg: '#e0e7ff' },
+                  { label: 'Pending', value: analytics.pendingStudents, icon: Clock, color: '#64748b', bg: '#f1f5f9' },
+                  { label: 'Avg Score', value: `${analytics.averageScore}%`, icon: TrendingUp, color: '#f59e0b', bg: '#fef3c7' },
+                  { label: 'Pass Rate', value: `${analytics.passPercentage}%`, icon: CheckCircle, color: '#10b981', bg: '#d1fae5' },
+                  { label: 'Highest Score', value: `${analytics.highestScore}%`, icon: Award, color: '#8b5cf6', bg: '#ede9fe' },
                 ].map((kpi, idx) => (
                   <div key={idx} className="kpi-card">
                     <kpi.icon size={64} className="kpi-bg-icon" style={{color: kpi.color}} />
@@ -291,25 +290,24 @@ export default function AdminAnalytics() {
                 <div className="chart-card">
                   <div className="chart-header">
                     <div>
-                      <h2 className="chart-title">Score Distribution Trajectory</h2>
-                      <p className="chart-subtitle">Individual performance across the assessment lifecycle</p>
+                      <h2 className="chart-title">Score Distribution Trend</h2>
+                      <p className="chart-subtitle">Individual performance across the assessment</p>
                     </div>
-                    <div className="live-badge"><TrendingUp size={12} /> Live</div>
                   </div>
                   <div className="chart-container">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={analytics.studentScores} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <defs>
                           <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3}/>
+                            <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.1}/>
                             <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} tickFormatter={(val) => val.split(' ')[0]} />
                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Area type="monotone" dataKey="score" stroke={CHART_COLORS.primary} strokeWidth={3} fillOpacity={1} fill="url(#colorScore)" activeDot={{ r: 6, strokeWidth: 0, fill: '#60a5fa' }} />
+                        <Area type="monotone" dataKey="score" stroke={CHART_COLORS.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorScore)" activeDot={{ r: 6, strokeWidth: 0, fill: '#2563eb' }} />
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
@@ -317,12 +315,12 @@ export default function AdminAnalytics() {
 
                 <div className="widgets-col">
                   <div className="widget-card">
-                    <h3 className="widget-title">Outcome Matrix</h3>
+                    <h3 className="widget-title">Performance Outcome</h3>
                     <div className="widget-content">
                       <div className="widget-chart-wrapper">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                            <Pie data={passFailData} cx="50%" cy="50%" innerRadius={45} outerRadius={60} paddingAngle={5} dataKey="value" stroke="none">
+                            <Pie data={passFailData} cx="50%" cy="50%" innerRadius={40} outerRadius={55} paddingAngle={2} dataKey="value" stroke="none">
                               {passFailData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
                             </Pie>
                             <Tooltip content={<CustomTooltip />} />
@@ -344,12 +342,12 @@ export default function AdminAnalytics() {
                   </div>
 
                   <div className="widget-card">
-                    <h3 className="widget-title">Cohort Engagement</h3>
+                    <h3 className="widget-title">Participation Rate</h3>
                     <div className="widget-content">
                       <div className="widget-chart-wrapper">
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart>
-                            <Pie data={attemptData} cx="50%" cy="50%" innerRadius={45} outerRadius={60} paddingAngle={5} dataKey="value" stroke="none">
+                            <Pie data={attemptData} cx="50%" cy="50%" innerRadius={40} outerRadius={55} paddingAngle={2} dataKey="value" stroke="none">
                               {attemptData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
                             </Pie>
                             <Tooltip content={<CustomTooltip />} />
@@ -359,11 +357,11 @@ export default function AdminAnalytics() {
                       </div>
                       <div className="widget-legend">
                         <div className="legend-item">
-                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#3b82f6'}}></span><span className="legend-label">Attempted</span></div>
+                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#2563eb'}}></span><span className="legend-label">Attempted</span></div>
                           <span className="legend-val">{analytics.attemptedStudents}</span>
                         </div>
                         <div className="legend-item">
-                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#64748b'}}></span><span className="legend-label">Pending</span></div>
+                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#94a3b8'}}></span><span className="legend-label">Pending</span></div>
                           <span className="legend-val">{analytics.pendingStudents}</span>
                         </div>
                       </div>
@@ -375,7 +373,7 @@ export default function AdminAnalytics() {
               <div className="table-panel">
                 <div className="table-header-row" style={{borderBottom: 'none'}}>
                   <div>
-                    <h2 className="table-title">Item Analysis Matrix</h2>
+                    <h2 className="table-title">Item Analysis</h2>
                     <p className="table-subtitle">Detailed breakdown of question-level performance</p>
                   </div>
                 </div>
@@ -410,9 +408,9 @@ export default function AdminAnalytics() {
                               </td>
                               <td>
                                 <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                                  <span style={{fontFamily: 'monospace', fontWeight: '600', color: '#fff', width: '40px', textAlign: 'right'}}>{q.accuracy}%</span>
-                                  <div className="dist-bar-wrap" style={{flex: 1, backgroundColor: '#1e293b'}}>
-                                    <div className="dist-bar-fill" style={{ width: `${q.accuracy}%`, backgroundColor: isPerfect ? '#34d399' : isWeak ? '#f87171' : '#3b82f6', boxShadow: isPerfect ? '0 0 10px rgba(52,211,153,0.5)' : 'none' }}></div>
+                                  <span style={{fontFamily: 'monospace', fontWeight: '600', color: '#333', width: '40px', textAlign: 'right'}}>{q.accuracy}%</span>
+                                  <div className="dist-bar-wrap" style={{flex: 1, backgroundColor: '#e2e8f0'}}>
+                                    <div className="dist-bar-fill" style={{ width: `${q.accuracy}%`, backgroundColor: isPerfect ? '#10b981' : isWeak ? '#ef4444' : '#2563eb' }}></div>
                                   </div>
                                 </div>
                               </td>
@@ -423,9 +421,9 @@ export default function AdminAnalytics() {
                               </td>
                               <td style={{textAlign: 'center'}}>
                                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-                                  <span style={{fontSize: '0.75rem', color: '#64748b'}}>Ans: <span style={{color: '#34d399', fontWeight: '700'}}>{q.correctAnswer}</span></span>
+                                  <span style={{fontSize: '0.75rem', color: '#64748b'}}>Ans: <span style={{color: '#10b981', fontWeight: '600'}}>{q.correctAnswer}</span></span>
                                   {q.mostSelected !== q.correctAnswer && q.mostSelected !== 'N/A' && (
-                                    <span style={{fontSize: '0.65rem', color: '#f87171', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px'}}>
+                                    <span style={{fontSize: '0.65rem', color: '#ef4444', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px'}}>
                                       <ArrowUpRight size={10} /> Shifted to {q.mostSelected}
                                     </span>
                                   )}
@@ -452,7 +450,7 @@ export default function AdminAnalytics() {
                                             return (
                                               <div key={i} className="dist-item">
                                                 <div className="dist-item-left">
-                                                  <div className="dist-box" style={{backgroundColor: `${opt.color}20`, color: opt.color}}>{opt.fullname.replace('Option ', '')}</div>
+                                                  <div className="dist-box" style={{backgroundColor: '#f8fafc', color: '#333', border: '1px solid #e2e8f0'}}>{opt.fullname.replace('Option ', '')}</div>
                                                   <span className={`dist-label ${isCorrect ? 'correct' : ''}`}>{isCorrect && <Check size={14} />} Selected</span>
                                                 </div>
                                                 <div className="dist-item-right">
@@ -468,11 +466,11 @@ export default function AdminAnalytics() {
                                           {q.optionCounts['NA'] > 0 && (
                                             <div className="dist-item dashed">
                                               <div className="dist-item-left">
-                                                <div className="dist-box empty">--</div>
-                                                <span className="dist-label" style={{color: '#94a3b8'}}>Unattempted</span>
+                                                <div className="dist-box" style={{backgroundColor: '#f1f5f9', color: '#94a3b8', border: '1px dashed #cbd5e1'}}>--</div>
+                                                <span className="dist-label" style={{color: '#64748b'}}>Unattempted</span>
                                               </div>
                                               <div className="dist-item-right">
-                                                <span className="dist-pct" style={{color: '#94a3b8'}}>{((q.optionCounts['NA'] / analytics.attemptedStudents) * 100).toFixed(1)}%</span>
+                                                <span className="dist-pct" style={{color: '#64748b'}}>{((q.optionCounts['NA'] / analytics.attemptedStudents) * 100).toFixed(1)}%</span>
                                                 <span className="dist-count">({q.optionCounts['NA']})</span>
                                               </div>
                                             </div>
@@ -486,8 +484,8 @@ export default function AdminAnalytics() {
                                             <ResponsiveContainer width="100%" height="100%">
                                               <BarChart data={optionData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                                                 <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} width={60} />
-                                                <Tooltip cursor={{ fill: '#1e293b' }} contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} />
+                                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} width={60} />
+                                                <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: '6px' }} itemStyle={{ color: '#0f172a' }} />
                                                 <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
                                                   {optionData.map((entry, i) => (<Cell key={`cell-${i}`} fill={entry.color} />))}
                                                 </Bar>
@@ -514,7 +512,7 @@ export default function AdminAnalytics() {
               <div className="table-panel">
                 <div className="table-header-row">
                   <div>
-                    <h2 className="table-title">Student Roster Metrics</h2>
+                    <h2 className="table-title">Assessment Roster</h2>
                     <p className="table-subtitle">Individual performance records and submission timestamps</p>
                   </div>
                   <div className="table-controls">
@@ -536,7 +534,7 @@ export default function AdminAnalytics() {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Identity</th>
+                        <th>Candidate</th>
                         <th>Score</th>
                         <th style={{textAlign: 'center'}}>Correct</th>
                         <th style={{textAlign: 'center'}}>Incorrect</th>
@@ -557,12 +555,12 @@ export default function AdminAnalytics() {
                             <td style={{textAlign: 'center'}}><span className="count-box count-wrong">{student.wrong}</span></td>
                             <td>
                               {student.passed ? 
-                                <span className="badge-status badge-mastered" style={{boxShadow: '0 0 10px rgba(16,185,129,0.1)'}}><Check size={12} /> Certified</span> : 
+                                <span className="badge-status badge-mastered"><Check size={12} /> Passed</span> : 
                                 <span className="badge-status badge-critical"><X size={12} /> Failed</span>
                               }
                             </td>
                             <td style={{textAlign: 'right'}}>
-                              <div className="cell-secondary" style={{color: '#cbd5e1'}}>{new Date(student.submittedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                              <div className="cell-secondary" style={{color: '#475569', marginTop: 0}}>{new Date(student.submittedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                               <div className="cell-secondary" style={{fontSize: '0.65rem'}}>{new Date(student.submittedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute:'2-digit' })}</div>
                             </td>
                           </tr>
