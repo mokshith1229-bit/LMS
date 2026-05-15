@@ -296,7 +296,8 @@ export default function Presentations() {
                         className="btn btn-primary"
                         style={{ flex: 1, fontSize: '0.85rem' }}
                         onClick={() => {
-                          const url = `/admin/presentations/${p._id}/present`;
+                          const viewUrl = `/admin/presentations/${p._id}/view`;
+                          const consoleUrl = `/admin/presentations/${p._id}/console`;
                           const features = [
                             'fullscreen=yes',
                             'toolbar=no',
@@ -308,10 +309,14 @@ export default function Presentations() {
                             'left=0',
                             'top=0',
                           ].join(',');
-                          const win = window.open(url, '_blank', features);
-                          // If popup was blocked fall back to navigation
-                          if (!win) navigate(url);
-                          else win.focus();
+                          
+                          const win = window.open(viewUrl, '_blank', features);
+                          if (win) {
+                            navigate(consoleUrl);
+                          } else {
+                            toast.error('Popup blocked! Please allow popups for the Audience View window.', { duration: 5000 });
+                            navigate(consoleUrl);
+                          }
                         }}
                       >
                         ▶ Present
