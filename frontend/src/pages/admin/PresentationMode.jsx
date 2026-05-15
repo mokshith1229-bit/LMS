@@ -138,6 +138,45 @@ export default function PresentationMode() {
     };
   }, [isController]);
 
+  // ── Auto-Fullscreen for TV View ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!isController) {
+      const attemptFullscreen = () => {
+        if (!document.fullscreenElement && (containerRef.current || document.documentElement).requestFullscreen) {
+          (containerRef.current || document.documentElement).requestFullscreen().then(() => {
+            window.focus();
+            containerRef.current?.focus({ preventScroll: true });
+          }).catch(err => console.log('Auto-fullscreen requires interaction fallback:', err));
+        }
+      };
+
+      attemptFullscreen();
+      const timer = setTimeout(attemptFullscreen, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isController]);
+
+  // ── Auto-hide Cursor for TV View ────────────────────────────────────────────
+  useEffect(() => {
+    if (isController) return;
+    let timeout;
+    const hideCursor = () => { document.body.style.cursor = 'none'; };
+    const showCursor = () => {
+      document.body.style.cursor = 'default';
+      clearTimeout(timeout);
+      timeout = setTimeout(hideCursor, 3000);
+    };
+    
+    window.addEventListener('mousemove', showCursor);
+    showCursor(); // initial setup
+    
+    return () => {
+      window.removeEventListener('mousemove', showCursor);
+      document.body.style.cursor = 'default';
+      clearTimeout(timeout);
+    };
+  }, [isController]);
+
   // ── Data loading ────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
