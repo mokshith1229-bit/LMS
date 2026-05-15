@@ -40,6 +40,17 @@ io.on('connection', (socket) => {
     console.log(`Socket ${socket.id} joined student room poll_users_${code}`);
   });
 
+  // Presentation Sync logic
+  socket.on('join_presentation', (presentationId) => {
+    socket.join(`presentation_${presentationId}`);
+    console.log(`Socket ${socket.id} joined presentation ${presentationId}`);
+  });
+
+  socket.on('slide_change', (data) => {
+    // data should contain { presentationId, slideIndex }
+    io.to(`presentation_${data.presentationId}`).emit('slide_changed', data.slideIndex);
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });

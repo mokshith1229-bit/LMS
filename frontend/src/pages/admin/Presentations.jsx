@@ -296,22 +296,7 @@ export default function Presentations() {
                         className="btn btn-primary"
                         style={{ flex: 1, fontSize: '0.85rem' }}
                         onClick={() => {
-                          const url = `/admin/presentations/${p._id}/present`;
-                          const features = [
-                            'fullscreen=yes',
-                            'toolbar=no',
-                            'menubar=no',
-                            'scrollbars=no',
-                            'resizable=yes',
-                            `width=${window.screen.width}`,
-                            `height=${window.screen.height}`,
-                            'left=0',
-                            'top=0',
-                          ].join(',');
-                          const win = window.open(url, '_blank', features);
-                          // If popup was blocked fall back to navigation
-                          if (!win) navigate(url);
-                          else win.focus();
+                          navigate(`/admin/presentation-controller/${p._id}`);
                         }}
                       >
                         ▶ Present

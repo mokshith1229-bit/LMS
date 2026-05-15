@@ -120,9 +120,13 @@ function App() {
             path="/admin/presentations/:id/setup"
             element={<ProtectedRoute role="admin"><PresentationSetup /></ProtectedRoute>}
           />
-          {/* Presentation Mode is fullscreen — no sidebar shell needed */}
+          {/* Presentation Sync Architecture */}
           <Route
-            path="/admin/presentations/:id/present"
+            path="/admin/presentation-controller/:id"
+            element={<ProtectedRoute role="admin"><PresentationMode /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/presentation-view/:id"
             element={<ProtectedRoute role="admin"><PresentationMode /></ProtectedRoute>}
           />
           <Route

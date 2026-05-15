@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { QRCodeSVG } from 'qrcode.react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from 'recharts';
@@ -37,6 +37,8 @@ const TRANSITION_NAMES = ['fade', 'slideLeft', 'zoom'];
 export default function PresentationMode() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isController = location.pathname.includes('controller');
 
   const [presentation, setPresentation] = useState(null);
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -68,9 +70,42 @@ export default function PresentationMode() {
   const autoStartTimer = useRef(null);
   const containerRef = useRef(null);
   const focusIntervalRef = useRef(null);
+  const syncSocket = useRef(null);
+
+  // ── Sync Socket Setup ────────────────────────────────────────────────────────
+  useEffect(() => {
+    syncSocket.current = io(API_BASE);
+    syncSocket.current.emit('join_presentation', id);
+
+    if (!isController) {
+      syncSocket.current.on('slide_changed', (newIndex) => {
+        setCurrentSlide((prev) => {
+          if (prev !== newIndex) {
+            setSlideDir(newIndex > prev ? 1 : -1);
+            setMode('slide'); // auto-trigger poll logic via other effects
+            return newIndex;
+          }
+          return prev;
+        });
+      });
+    }
+
+    return () => {
+      if (syncSocket.current) syncSocket.current.disconnect();
+    };
+  }, [id, isController, API_BASE]);
+
+  // Emit slide change from controller
+  useEffect(() => {
+    if (isController && syncSocket.current) {
+      syncSocket.current.emit('slide_change', { presentationId: id, slideIndex: currentSlide });
+    }
+  }, [currentSlide, id, isController]);
 
   // ── Auto-focus on mount (extended display / remote support) ─────────────────
   useEffect(() => {
+    if (!isController) return; // Only controller needs aggressive focus for remote
+
     // Immediately claim window focus so the presentation window receives
     // keyboard events from a Logitech remote even in extended display mode.
     window.focus();
@@ -101,7 +136,7 @@ export default function PresentationMode() {
       window.removeEventListener('blur', forceFocus);
       document.removeEventListener('visibilitychange', forceFocus);
     };
-  }, []);
+  }, [isController]);
 
   // ── Data loading ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -264,10 +299,11 @@ export default function PresentationMode() {
 
   // ── Auto-hide toolbar ───────────────────────────────────────────────────────
   const resetHideTimer = useCallback(() => {
+    if (!isController) return; // TV view never shows toolbar anyway
     setToolbarVisible(true);
     clearTimeout(hideTimer.current);
     hideTimer.current = setTimeout(() => setToolbarVisible(false), 3500);
-  }, []);
+  }, [isController]);
 
   useEffect(() => {
     resetHideTimer();
@@ -363,6 +399,8 @@ export default function PresentationMode() {
 
   // ── Keyboard (window-level listener for remote / extended display) ──────────
   useEffect(() => {
+    if (!isController) return; // TV view doesn't listen to keyboard
+    
     const handleSlideKeys = (e) => {
       // Navigation keys used by Logitech and other presentation remotes
       const NAV_NEXT = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
@@ -384,7 +422,7 @@ export default function PresentationMode() {
     };
     window.addEventListener('keydown', handleSlideKeys);
     return () => window.removeEventListener('keydown', handleSlideKeys);
-  }, [goNext, goPrev, navigate]);
+  }, [goNext, goPrev, navigate, isController]);
 
   // ── Fullscreen ──────────────────────────────────────────────────────────────
   const toggleFullscreen = () => {
@@ -453,8 +491,9 @@ export default function PresentationMode() {
     >
 
       {/* ─── TOP TOOLBAR ─────────────────────────────────────────── */}
-      <motion.div
-        animate={{ y: toolbarVisible ? 0 : -80, opacity: toolbarVisible ? 1 : 0 }}
+      {isController && (
+        <motion.div
+          animate={{ y: toolbarVisible ? 0 : -80, opacity: toolbarVisible ? 1 : 0 }}
         transition={{ duration: 0.25 }}
         style={{
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200,
@@ -531,14 +570,21 @@ export default function PresentationMode() {
           {isFullscreen ? 'Exit Full' : 'Full Screen'}
         </button>
 
+        {/* Launch TV View */}
+        <button onClick={() => window.open(`/admin/presentation-view/${id}`, '_blank', 'menubar=no,toolbar=no,scrollbars=no,resizable=yes')} style={{ ...toolBtn(), color: '#8DC63F', border: '1px solid rgba(141,198,63,0.5)', background: 'rgba(141,198,63,0.1)' }} title="Launch TV / Projector Display">
+          🖥️ Launch Display
+        </button>
+
         {/* End */}
         <button onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); navigate('/admin/presentations'); }} style={{ ...toolBtn(), color: '#f87171' }} title="End presentation (Esc)">
           End
         </button>
-      </motion.div>
+        </motion.div>
+      )}
 
       {/* ─── THUMBNAIL PANEL ─────────────────────────────────────── */}
-      <AnimatePresence>
+      {isController && (
+        <AnimatePresence>
         {thumbnailsOpen && (
           <motion.div
             initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
@@ -560,6 +606,7 @@ export default function PresentationMode() {
           </motion.div>
         )}
       </AnimatePresence>
+      )}
 
       {/* ─── MAIN CONTENT AREA ──────────────────────────────────── */}
       <div style={{ position: 'absolute', inset: 0, paddingLeft: thumbnailsOpen ? 220 : 0, transition: 'padding-left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
