@@ -191,6 +191,33 @@ export default function PresentationView() {
   // No keyboard listeners or fullscreen toggling needed in the dumb display client
   // It just displays what PresenterConsole dictates.
 
+
+  // ── Keyboard Remote Relay ───────────────────────────────────────────────────
+  useEffect(() => {
+    const handleSlideKeys = (e) => {
+      const NAV_NEXT = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
+      const NAV_PREV = ['ArrowLeft', 'ArrowUp', 'PageUp'];
+      
+      if (NAV_NEXT.includes(e.key) || NAV_PREV.includes(e.key)) {
+        e.preventDefault();
+        const channel = new BroadcastChannel('presentation_sync_' + id);
+        channel.postMessage({
+          type: 'REMOTE_ACTION',
+          action: NAV_NEXT.includes(e.key) ? 'NEXT' : 'PREV'
+        });
+        channel.close();
+      } else if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          (containerRef.current || document.documentElement).requestFullscreen?.();
+        } else {
+          document.exitFullscreen?.();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleSlideKeys);
+    return () => window.removeEventListener('keydown', handleSlideKeys);
+  }, [id]);
+
   if (loading || !presentation) {
     return (
       <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', background: '#ffffff', color: '#1e293b', flexDirection: 'column', gap: '1rem' }}>

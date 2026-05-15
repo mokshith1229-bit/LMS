@@ -373,6 +373,19 @@ export default function PresenterConsole() {
   }, [goNext, goPrev, navigate]);
 
 
+
+  // ── Listen for TV Window Remote Commands ────────────────────────────────────
+  useEffect(() => {
+    const channel = new BroadcastChannel('presentation_sync_' + id);
+    channel.onmessage = (event) => {
+      if (event.data.type === 'REMOTE_ACTION') {
+        if (event.data.action === 'NEXT') goNext();
+        if (event.data.action === 'PREV') goPrev();
+      }
+    };
+    return () => channel.close();
+  }, [id, goNext, goPrev]);
+
   // ── Broadcast State to PresentationView ──────────────────────────────────
   useEffect(() => {
     const channel = new BroadcastChannel('presentation_sync_' + id);
