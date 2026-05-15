@@ -34,7 +34,7 @@ const TRANSITIONS = {
 
 const TRANSITION_NAMES = ['fade', 'slideLeft', 'zoom'];
 
-export default function PresentationView() {
+export default function PresentationMode() {
   const { id } = useParams();
   const navigate = useNavigate();
 
@@ -101,28 +101,187 @@ export default function PresentationView() {
     return () => { if (socketRef) socketRef.disconnect(); };
   }, [id]);
 
-
-  // ── Sync via BroadcastChannel ───────────────────────────────────────────────
+  // ── Poll auto-start ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const channel = new BroadcastChannel('presentation_sync_' + id);
-    channel.onmessage = (event) => {
-      if (event.data.type === 'SYNC_STATE') {
-        const state = event.data.state;
-        if (state.currentSlide !== undefined) setCurrentSlide(state.currentSlide);
-        if (state.slideDir !== undefined) setSlideDir(state.slideDir);
-        if (state.mode !== undefined) setMode(state.mode);
-        if (state.activePoll !== undefined) setActivePoll(state.activePoll);
-        if (state.chartData !== undefined) setChartData(state.chartData);
-        if (state.presentationResponseCount !== undefined) setPresentationResponseCount(state.presentationResponseCount);
-        if (state.pollTimerActive !== undefined) setPollTimerActive(state.pollTimerActive);
-        if (state.timeLeft !== undefined) setTimeLeft(state.timeLeft);
-        if (state.pollRevealed !== undefined) setPollRevealed(state.pollRevealed);
-        if (state.summaryPage !== undefined) setSummaryPage(state.summaryPage);
-        if (state.currentQuestionIndex !== undefined) setCurrentQuestionIndex(state.currentQuestionIndex);
+    if (!presentation) return;
+
+    // Clear any pending auto-starts
+    clearTimeout(autoStartTimer.current);
+
+    // Tear down previous socket
+    if (socketRef) { socketRef.disconnect(); setSocketRef(null); }
+    setChartData([]); setMode('slide'); setActivePoll(null); setCurrentQuestionIndex(0); setPollActivating(false);
+    setPollTimerActive(false); setTimeLeft(0); setPollRevealed(false); setPresentationResponseCount(0);
+
+    const linked = presentation.slidePolls?.find(sp => sp.slideIndex === currentSlide);
+    if (!linked?.pollId) return; // no poll on this slide
+
+    // Auto-activate: call backend to start/reuse session
+    const pollId = typeof linked.pollId === 'object' ? linked.pollId._id : linked.pollId;
+
+    (async () => {
+      setPollActivating(true);
+      try {
+        const { data } = await api.post(`/poll/activate/${pollId}`);
+        if (!data.success) return;
+
+        const poll = data.poll;
+        setActivePoll({ ...poll, isExpired: data.isExpired });
+        setChartData(data.results || []);
+        
+        // Initialize presentationResponseCount from existing data.results if available
+        if (data.results && data.results[currentQuestionIndex]) {
+          const count = data.results[currentQuestionIndex].reduce((a, c) => a + c.value, 0);
+          setPresentationResponseCount(count);
+        }
+
+        // Delayed start: Show slide for 2s first
+        autoStartTimer.current = setTimeout(async () => {
+          setMode('poll');
+          if (!data.isExpired) {
+            // Connect socket when entering poll view
+            const socket = io(API_BASE);
+            socket.emit('join_poll', `poll_admin_${poll.code}`);
+
+            // Live mode: full chart update
+            socket.on('poll_update', d => setChartData(d));
+
+            // Delayed mode: only response count during timer
+            socket.on('poll_response_count', ({ count }) => setPresentationResponseCount(count));
+
+            // Presentation reveal: auto-switch to summary
+            socket.on('poll_revealed', ({ results }) => {
+              if (results) {
+                setChartData(results);
+                // Also update presentationResponseCount for the UI if still in timer mode transition
+                if (results[currentQuestionIndex]) {
+                  const count = results[currentQuestionIndex].reduce((a, c) => a + c.value, 0);
+                  setPresentationResponseCount(count);
+                }
+              }
+              setSummaryPage(0);
+              setPollRevealed(true);
+              setPollTimerActive(false);
+              setTimeLeft(0);
+              // Auto-switch to summary after a brief pause
+              setTimeout(() => setMode('summary'), 800);
+            });
+
+            setSocketRef(socket);
+
+            // If delayed mode, auto-start the presentation timer
+            if (poll.revealMode === 'delayed' && !data.isExpired) {
+              if (poll.revealResults) {
+                setPollRevealed(true);
+                setTimeout(() => setMode('summary'), 800);
+              } else if (poll.startedAt) {
+                const elapsedSecs = (Date.now() - new Date(poll.startedAt).getTime()) / 1000;
+                const totalDelaySecs = (poll.revealDelayMinutes || 1) * 60;
+                const remaining = Math.max(0, Math.floor(totalDelaySecs - elapsedSecs));
+                if (remaining > 0) {
+                  setPollTimerActive(true);
+                  setTimeLeft(remaining);
+                } else {
+                  setPollRevealed(true);
+                }
+              } else {
+                try {
+                  const timerRes = await api.post(`/poll/start-presentation-timer/${poll._id}`);
+                  if (timerRes.data.success) {
+                    const delaySecs = (poll.revealDelayMinutes || 1) * 60;
+                    setPollTimerActive(true);
+                    setTimeLeft(delaySecs);
+                    setActivePoll(prev => ({ ...prev, startedAt: timerRes.data.startedAt }));
+                  }
+                } catch (timerErr) {
+                  console.error('[presentation timer start]', timerErr);
+                }
+              }
+            }
+          }
+        }, 2000);
+
+        if (data.isExpired) {
+          toast('Poll has expired. Showing final results.', { icon: '⚠️', duration: 3000 });
+        } else if (!data.reused) {
+          toast.success(`Poll "${poll.title}" ready! (Starting in 2s)`, { icon: '📊', duration: 2500 });
+        }
+      } catch (err) {
+        console.error('[auto-start poll]', err);
+        toast.error('Could not start poll for this slide');
+      } finally {
+        setPollActivating(false);
       }
+    })();
+
+    return () => clearTimeout(autoStartTimer.current);
+  }, [currentSlide, presentation]);
+
+  // ── Presentation countdown tick ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!pollTimerActive) return;
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          // Fallback: If timer hits 0 and socket event hasn't fired or was missed
+          if (pollTimerActive) {
+             setPollTimerActive(false);
+             setPollRevealed(true);
+             // Ensure results are fetched before switching
+             (async () => {
+                try {
+                  const pId = typeof activePoll?._id === 'object' ? activePoll._id._id : activePoll?._id;
+                  if (pId) {
+                    const { data } = await api.get(`/poll/${pId}/results`);
+                    if (data.success) setChartData(data.results);
+                  }
+                } catch (e) { console.error('Fallback results fetch failed', e); }
+                setTimeout(() => setMode('summary'), 800);
+             })();
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [pollTimerActive]);
+
+  // ── Auto-hide toolbar ───────────────────────────────────────────────────────
+  const resetHideTimer = useCallback(() => {
+    setToolbarVisible(true);
+    clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setToolbarVisible(false), 3500);
+  }, []);
+
+  useEffect(() => {
+    resetHideTimer();
+    window.addEventListener('mousemove', resetHideTimer);
+    window.addEventListener('mousedown', resetHideTimer);
+    window.addEventListener('keydown', resetHideTimer);
+    return () => {
+      clearTimeout(hideTimer.current);
+      window.removeEventListener('mousemove', resetHideTimer);
+      window.removeEventListener('mousedown', resetHideTimer);
+      window.removeEventListener('keydown', resetHideTimer);
     };
-    return () => channel.close();
-  }, [id]);
+  }, [resetHideTimer]);
+
+  // ── Fullscreen listener + focus restore ────────────────────────────────────
+  useEffect(() => {
+    const handler = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+      // Restore focus to presentation container after fullscreen transition
+      // so the remote continues working immediately after going fullscreen.
+      setTimeout(() => {
+        window.focus();
+        containerRef.current?.focus({ preventScroll: true });
+      }, 150);
+    };
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const endPollAndShowSummary = useCallback(async () => {
@@ -188,35 +347,39 @@ export default function PresentationView() {
     setThumbnailsOpen(false);
   };
 
-  // No keyboard listeners or fullscreen toggling needed in the dumb display client
-  // It just displays what PresenterConsole dictates.
-
-
-  // ── Keyboard Remote Relay ───────────────────────────────────────────────────
+  // ── Keyboard (window-level listener for remote / extended display) ──────────
   useEffect(() => {
     const handleSlideKeys = (e) => {
+      // Navigation keys used by Logitech and other presentation remotes
       const NAV_NEXT = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
       const NAV_PREV = ['ArrowLeft', 'ArrowUp', 'PageUp'];
-      
-      if (NAV_NEXT.includes(e.key) || NAV_PREV.includes(e.key)) {
+
+      if (NAV_NEXT.includes(e.key)) {
+        // Prevent default scroll so Space/PageDown don't scroll the page
         e.preventDefault();
-        const channel = new BroadcastChannel('presentation_sync_' + id);
-        channel.postMessage({
-          type: 'REMOTE_ACTION',
-          action: NAV_NEXT.includes(e.key) ? 'NEXT' : 'PREV'
-        });
-        channel.close();
+        goNext();
+      } else if (NAV_PREV.includes(e.key)) {
+        e.preventDefault();
+        goPrev();
       } else if (e.key === 'f' || e.key === 'F') {
-        if (!document.fullscreenElement) {
-          (containerRef.current || document.documentElement).requestFullscreen?.();
-        } else {
-          document.exitFullscreen?.();
-        }
+        toggleFullscreen();
+      } else if (e.key === 'Escape') {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else navigate('/admin/presentations');
       }
     };
     window.addEventListener('keydown', handleSlideKeys);
     return () => window.removeEventListener('keydown', handleSlideKeys);
-  }, [id]);
+  }, [goNext, goPrev, navigate]);
+
+  // ── Fullscreen ──────────────────────────────────────────────────────────────
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      (containerRef.current || document.documentElement).requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  };
 
   if (loading || !presentation) {
     return (
@@ -275,6 +438,114 @@ export default function PresentationView() {
       style={{ position: 'fixed', inset: 0, background: '#f8fafc', color: '#1e293b', overflow: 'hidden', fontFamily: "'Outfit', 'Inter', sans-serif", userSelect: 'none', outline: 'none' }}
     >
 
+      {/* ─── TOP TOOLBAR ─────────────────────────────────────────── */}
+      <motion.div
+        animate={{ y: toolbarVisible ? 0 : -80, opacity: toolbarVisible ? 1 : 0 }}
+        transition={{ duration: 0.25 }}
+        style={{
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)',
+          padding: '0 1.5rem', height: 64,
+          display: 'flex', alignItems: 'center', gap: '0.5rem'
+        }}
+      >
+        {/* Title */}
+        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#e2e8f0', marginRight: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '30%' }}>
+          {presentation.title}
+        </span>
+
+        {/* Slide counter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 12px' }}>
+          <button onClick={goPrev} disabled={currentSlide === 0} style={btnStyle(currentSlide === 0)}>‹</button>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: 60, textAlign: 'center', color: '#1e293b' }}>
+            {mode === 'poll' ? '📊 Poll' : mode === 'summary' ? '📈 Summary' : `${currentSlide + 1} / ${totalSlides}`}
+          </span>
+          <button onClick={goNext} disabled={mode === 'slide' && currentSlide === totalSlides - 1} style={btnStyle(mode === 'slide' && currentSlide === totalSlides - 1)}>›</button>
+        </div>
+
+        {/* Poll activating indicator */}
+        {pollActivating && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(141,198,63,0.15)', border: '1px solid rgba(141,198,63,0.4)', borderRadius: 8, padding: '4px 12px' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F', animation: 'pulse 1s infinite' }} />
+            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#8DC63F' }}>Starting poll…</span>
+          </div>
+        )}
+
+        {/* Transitions */}
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowTransitionPicker(p => !p)}
+            style={toolBtn()}
+            title="Change transition"
+          >
+            ✨
+          </button>
+          {showTransitionPicker && (
+            <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden', minWidth: 140, boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
+              {TRANSITION_NAMES.map(t => (
+                <button key={t} onClick={() => { setTransitionType(t); setShowTransitionPicker(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', background: transitionType === t ? 'rgba(141,198,63,0.15)' : 'none', color: transitionType === t ? '#8DC63F' : '#e2e8f0', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>
+                  {t === 'slideLeft' ? 'Slide' : t === 'fade' ? 'Fade' : 'Zoom'}
+                  {transitionType === t && ' (Selected)'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Thumbnails toggle */}
+        <button onClick={() => setThumbnailsOpen(p => !p)} style={toolBtn(thumbnailsOpen)} title="Slide panel">Slides</button>
+
+        {/* Poll controls — auto-started, but allow manual toggle */}
+        {hasLinkedPoll && mode === 'slide' && !pollActivating && (
+          <button onClick={() => setMode('poll')} style={{ ...toolBtn(), background: 'rgba(141,198,63,0.2)', color: '#8DC63F', border: '1px solid rgba(141,198,63,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+            Show Poll
+          </button>
+        )}
+        {mode === 'poll' && (
+          <button onClick={endPollAndShowSummary} style={{ ...toolBtn(), background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+            End Poll & Summary
+          </button>
+        )}
+        {mode === 'summary' && (
+          <button onClick={() => setMode('slide')} style={{ ...toolBtn(), background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', border: '1px solid rgba(56, 189, 248, 0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+            Back to Slide
+          </button>
+        )}
+
+        {/* Fullscreen */}
+        <button onClick={toggleFullscreen} style={toolBtn()} title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}>
+          {isFullscreen ? 'Exit Full' : 'Full Screen'}
+        </button>
+
+        {/* End */}
+        <button onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); navigate('/admin/presentations'); }} style={{ ...toolBtn(), color: '#f87171' }} title="End presentation (Esc)">
+          End
+        </button>
+      </motion.div>
+
+      {/* ─── THUMBNAIL PANEL ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {thumbnailsOpen && (
+          <motion.div
+            initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            style={{
+              position: 'absolute', left: 0, top: 64, bottom: 0, width: 220, zIndex: 150,
+              background: 'rgba(15,15,20,0.95)', borderRight: '1px solid rgba(255,255,255,0.07)',
+              overflowY: 'auto', padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: 8
+            }}
+          >
+            {presentation.slides?.map((slide, i) => (
+              <div key={i} onClick={() => jumpTo(i)} style={{ cursor: 'pointer', borderRadius: 8, overflow: 'hidden', border: i === currentSlide ? '2px solid #8DC63F' : '2px solid transparent', position: 'relative', flexShrink: 0 }}>
+                <img src={slideImageSrc(slide)} alt={`Slide ${i + 1}`} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block', background: '#1e293b' }} />
+                <div style={{ position: 'absolute', bottom: 4, right: 6, fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(0,0,0,0.6)', padding: '1px 5px', borderRadius: 4 }}>
+                  {i + 1}
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ─── MAIN CONTENT AREA ──────────────────────────────────── */}
       <div style={{ position: 'absolute', inset: 0, paddingLeft: thumbnailsOpen ? 220 : 0, transition: 'padding-left 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -416,8 +687,8 @@ export default function PresentationView() {
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
-                          
-                          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'default' }}
+                          onClick={() => setQrExpanded(false)}
+                          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
                         >
                           <motion.div
                             initial={{ scale: 0.5 }}
@@ -440,11 +711,11 @@ export default function PresentationView() {
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ delay: 0.4 }}
-                      
-                      style={{ position: 'absolute', bottom: '2.5rem', right: '2.5rem', background: '#fff', padding: '1rem', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'default', zIndex: 100 }}
+                      onClick={() => setQrExpanded(true)}
+                      style={{ position: 'absolute', bottom: '2.5rem', right: '2.5rem', background: '#fff', padding: '1rem', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'zoom-in', zIndex: 100 }}
                     >
                       <QRCodeSVG value={pollUrl} size={120} />
-                      
+                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', letterSpacing: 1 }}>CLICK TO EXPAND</span>
                     </motion.div>
                   )}
 
@@ -454,8 +725,8 @@ export default function PresentationView() {
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ delay: 0.4 }}
-                      
-                      style={{ position: 'absolute', bottom: '2.5rem', right: '2.5rem', background: '#fff', padding: '1.25rem', borderRadius: 16, border: '2px solid #f59e0b', boxShadow: '0 10px 30px rgba(245,158,11,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'default', zIndex: 100 }}
+                      onClick={() => setQrExpanded(true)}
+                      style={{ position: 'absolute', bottom: '2.5rem', right: '2.5rem', background: '#fff', padding: '1.25rem', borderRadius: 16, border: '2px solid #f59e0b', boxShadow: '0 10px 30px rgba(245,158,11,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'zoom-in', zIndex: 100 }}
                     >
                       <QRCodeSVG value={pollUrl} size={140} />
                       <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f59e0b', letterSpacing: 1 }}>SCAN TO VOTE</span>

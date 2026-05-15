@@ -21,8 +21,7 @@ import BatchManagement from './pages/admin/BatchManagement';
 import LivePoll from './pages/admin/LivePoll';
 import Presentations from './pages/admin/Presentations';
 import PresentationSetup from './pages/admin/PresentationSetup';
-import PresentationView from './pages/admin/PresentationView';
-import PresenterConsole from './pages/admin/PresenterConsole';
+import PresentationMode from './pages/admin/PresentationMode';
 import AdminAnalytics from './pages/admin/AdminAnalytics';
 import DetailedAnalytics from './pages/admin/DetailedAnalytics';
 
@@ -121,14 +120,10 @@ function App() {
             path="/admin/presentations/:id/setup"
             element={<ProtectedRoute role="admin"><PresentationSetup /></ProtectedRoute>}
           />
-          {/* Presentation Dual Screen Setup */}
+          {/* Presentation Mode is fullscreen — no sidebar shell needed */}
           <Route
-            path="/admin/presentations/:id/view"
-            element={<ProtectedRoute role="admin"><PresentationView /></ProtectedRoute>}
-          />
-          <Route
-            path="/admin/presentations/:id/console"
-            element={<ProtectedRoute role="admin"><PresenterConsole /></ProtectedRoute>}
+            path="/admin/presentations/:id/present"
+            element={<ProtectedRoute role="admin"><PresentationMode /></ProtectedRoute>}
           />
           <Route
             path="/admin/analytics"

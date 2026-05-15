@@ -74,18 +74,33 @@ export default function PresentationMode() {
     // Immediately claim window focus so the presentation window receives
     // keyboard events from a Logitech remote even in extended display mode.
     window.focus();
-    containerRef.current?.focus();
+    containerRef.current?.focus({ preventScroll: true });
 
-    // Failsafe: re-claim focus every 3 seconds in case an overlay or
-    // the iframe steals it while the presenter interacts on another monitor.
-    focusIntervalRef.current = setInterval(() => {
-      if (document.visibilityState === 'visible' && document.activeElement !== containerRef.current) {
+    const forceFocus = () => {
+      if (!document.hidden) {
+        window.focus();
         containerRef.current?.focus({ preventScroll: true });
       }
-    }, 3000);
+    };
+
+    window.addEventListener('blur', forceFocus);
+    document.addEventListener('visibilitychange', forceFocus);
+
+    // Failsafe: re-claim focus every 2.5 seconds in case an overlay or
+    // the presenter interacts on another monitor.
+    focusIntervalRef.current = setInterval(() => {
+      if (!document.hidden) {
+        window.focus();
+        if (document.activeElement !== containerRef.current) {
+          containerRef.current?.focus({ preventScroll: true });
+        }
+      }
+    }, 2500);
 
     return () => {
       clearInterval(focusIntervalRef.current);
+      window.removeEventListener('blur', forceFocus);
+      document.removeEventListener('visibilitychange', forceFocus);
     };
   }, []);
 
