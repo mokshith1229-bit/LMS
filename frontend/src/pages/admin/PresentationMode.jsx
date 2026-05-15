@@ -610,7 +610,24 @@ export default function PresentationMode() {
         </button>
 
         {/* Launch TV View */}
-        <button onClick={() => window.open(`/admin/presentation-view/${id}`, '_blank', 'menubar=no,toolbar=no,scrollbars=no,resizable=yes')} style={{ ...toolBtn(), color: '#8DC63F', border: '1px solid rgba(141,198,63,0.5)', background: 'rgba(141,198,63,0.1)' }} title="Launch TV / Projector Display">
+        <button 
+          onClick={() => {
+            const features = [
+              'fullscreen=yes',
+              'toolbar=no',
+              'menubar=no',
+              'scrollbars=no',
+              'resizable=yes',
+              `width=${window.screen.width}`,
+              `height=${window.screen.height}`,
+              'left=0',
+              'top=0',
+            ].join(',');
+            window.open(`/admin/presentation-view/${id}`, '_blank', features);
+          }} 
+          style={{ ...toolBtn(), color: '#8DC63F', border: '1px solid rgba(141,198,63,0.5)', background: 'rgba(141,198,63,0.1)' }} 
+          title="Launch TV / Projector Display"
+        >
           🖥️ Launch Display
         </button>
 
