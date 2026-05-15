@@ -77,7 +77,7 @@ export default function PresentationMode() {
     containerRef.current?.focus({ preventScroll: true });
 
     const forceFocus = () => {
-      if (!document.hidden) {
+      if (!document.hidden && document.fullscreenElement) {
         window.focus();
         containerRef.current?.focus({ preventScroll: true });
       }
@@ -86,10 +86,9 @@ export default function PresentationMode() {
     window.addEventListener('blur', forceFocus);
     document.addEventListener('visibilitychange', forceFocus);
 
-    // Failsafe: re-claim focus every 2.5 seconds in case an overlay or
-    // the presenter interacts on another monitor.
+    // Failsafe: re-claim focus every 2.5 seconds only if in fullscreen
     focusIntervalRef.current = setInterval(() => {
-      if (!document.hidden) {
+      if (!document.hidden && document.fullscreenElement) {
         window.focus();
         if (document.activeElement !== containerRef.current) {
           containerRef.current?.focus({ preventScroll: true });
