@@ -50,21 +50,22 @@ function ToggleSwitch({ checked, onChange, id, label, description }) {
     <div
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 16px', borderRadius: 10,
-        background: checked ? 'rgba(99,102,241,0.06)' : '#fafafa',
-        border: `1.5px solid ${checked ? '#818cf8' : '#e2e8f0'}`,
-        cursor: 'pointer', transition: 'all 0.2s',
+        padding: '14px 16px', borderRadius: 8,
+        background: checked ? 'rgba(141, 198, 63, 0.05)' : '#ffffff',
+        border: `1.5px solid ${checked ? '#8DC63F' : '#cbd5e1'}`,
+        cursor: 'pointer', transition: 'all 0.2s ease',
+        boxShadow: checked ? '0 2px 8px rgba(141, 198, 63, 0.08)' : 'none',
       }}
       onClick={() => onChange(!checked)}
     >
       <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1e293b', marginBottom: 2 }}>{label}</div>
-        <div style={{ fontSize: '0.77rem', color: '#64748b' }}>{description}</div>
+        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#3D3D3D', marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: '0.77rem', color: '#5b5b5b' }}>{description}</div>
       </div>
       <div style={{ marginLeft: 16, flexShrink: 0 }}>
         {checked
-          ? <ToggleRight size={32} color="#6366f1" />
-          : <ToggleLeft size={32} color="#cbd5e1" />}
+          ? <ToggleRight size={32} color="#8DC63F" />
+          : <ToggleLeft size={32} color="#94a3b8" />}
       </div>
     </div>
   );
@@ -337,9 +338,10 @@ Correct Answer: C`}
           {/* ── Randomization Engine ─────────────────────────────────────────── */}
           <div className="card" style={{
             maxWidth: 780, marginBottom: 24,
-            border: isRandomizationOpen ? '2px solid #6366f1' : '1px solid #e2e8f0',
-            background: isRandomizationOpen ? 'linear-gradient(135deg, #fafaff 0%, #f0f0ff 100%)' : '#fff',
-            transition: 'all 0.25s',
+            border: isRandomizationOpen ? '2px solid #8DC63F' : '1px solid #cbd5e1',
+            background: isRandomizationOpen ? 'linear-gradient(135deg, #fcfefe 0%, #f7fbf2 100%)' : '#ffffff',
+            transition: 'all 0.25s ease',
+            boxShadow: isRandomizationOpen ? '0 4px 20px rgba(141, 198, 63, 0.08)' : 'var(--shadow-sm)',
           }}>
             {/* Header */}
             <div
@@ -349,30 +351,30 @@ Correct Answer: C`}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{
                   width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: isRandomized ? '#6366f1' : '#f1f5f9',
+                  background: isRandomized ? '#8DC63F' : '#e2e8f0',
                 }}>
-                  <Shuffle size={18} color={isRandomized ? '#fff' : '#64748b'} />
+                  <Shuffle size={18} color={isRandomized ? '#ffffff' : '#5b5b5b'} />
                 </div>
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: '#1e293b' }}>
+                    <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: '#3D3D3D' }}>
                       Randomization Engine
                     </h2>
                     {isRandomized && (
                       <span style={{
-                        background: '#6366f1', color: '#fff', fontSize: '0.65rem',
+                        background: '#8DC63F', color: '#ffffff', fontSize: '0.65rem',
                         fontWeight: 800, padding: '2px 8px', borderRadius: 20, letterSpacing: '0.5px'
                       }}>
                         ACTIVE
                       </span>
                     )}
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#5b5b5b' }}>
                     Configure anti-cheating paper randomization for this assessment
                   </p>
                 </div>
               </div>
-              <div style={{ color: '#64748b' }}>
+              <div style={{ color: '#5b5b5b' }}>
                 {isRandomizationOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
               </div>
             </div>
@@ -381,20 +383,20 @@ Correct Answer: C`}
             <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0',
+                background: 'rgba(141, 198, 63, 0.05)', color: '#3D3D3D', border: '1px solid rgba(141, 198, 63, 0.3)',
                 borderRadius: 20, padding: '4px 12px', fontSize: '0.78rem', fontWeight: 700,
               }}>
-                <Users size={13} /> Master Pool: {questions.length} question{questions.length !== 1 ? 's' : ''}
+                <Users size={13} color="#8DC63F" /> Master Pool: {questions.length} question{questions.length !== 1 ? 's' : ''}
               </span>
               {qps > 0 && (
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
-                  background: qpsError ? '#fff1f2' : '#eff6ff',
-                  color: qpsError ? '#b91c1c' : '#1d4ed8',
-                  border: `1px solid ${qpsError ? '#fecaca' : '#bfdbfe'}`,
+                  background: qpsError ? '#fff1f2' : 'rgba(141, 198, 63, 0.05)',
+                  color: qpsError ? '#b91c1c' : '#3D3D3D',
+                  border: `1px solid ${qpsError ? '#fecaca' : 'rgba(141, 198, 63, 0.3)'}`,
                   borderRadius: 20, padding: '4px 12px', fontSize: '0.78rem', fontWeight: 700,
                 }}>
-                  {qpsError ? <AlertCircle size={13} /> : <Shuffle size={13} />}
+                  {qpsError ? <AlertCircle size={13} /> : <Shuffle size={13} color="#8DC63F" />}
                   {qpsError ? qpsError : `Each student receives: ${qps} questions`}
                 </span>
               )}
@@ -402,16 +404,17 @@ Correct Answer: C`}
 
             {/* Expanded config */}
             {isRandomizationOpen && (
-              <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #e2e8f0' }}>
+              <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #cbd5e1' }}>
 
                 {/* Info box */}
                 <div style={{
-                  background: 'rgba(99,102,241,0.06)', border: '1px solid #c7d2fe',
-                  borderRadius: 10, padding: '12px 16px', marginBottom: 20,
+                  background: 'rgba(61, 61, 61, 0.03)', border: '1px solid #cbd5e1',
+                  borderLeft: '4px solid #8DC63F',
+                  borderRadius: 6, padding: '12px 16px', marginBottom: 20,
                   display: 'flex', gap: 10, alignItems: 'flex-start',
                 }}>
-                  <Info size={16} color="#6366f1" style={{ marginTop: 1, flexShrink: 0 }} />
-                  <div style={{ fontSize: '0.8rem', color: '#4338ca', lineHeight: 1.5 }}>
+                  <Info size={16} color="#8DC63F" style={{ marginTop: 2, flexShrink: 0 }} />
+                  <div style={{ fontSize: '0.8rem', color: '#3D3D3D', lineHeight: 1.5 }}>
                     <strong>How it works:</strong> When a student opens this exam, the system generates a unique frozen paper —
                     randomly selecting questions from your pool, shuffling their order and option order (if enabled).
                     The paper is saved permanently so <strong>refresh or reconnect always restores the same paper</strong>.
@@ -421,10 +424,10 @@ Correct Answer: C`}
 
                 {/* Questions Per Student */}
                 <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Users size={14} color="#6366f1" />
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#3D3D3D' }}>
+                    <Users size={14} color="#8DC63F" />
                     Questions Per Student
-                    <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: '0.78rem' }}>(leave blank to deliver all {questions.length})</span>
+                    <span style={{ fontWeight: 400, color: '#5b5b5b', fontSize: '0.78rem' }}>(leave blank to deliver all {questions.length})</span>
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <input
@@ -438,12 +441,14 @@ Correct Answer: C`}
                       placeholder={`Max ${questions.length} (pool size)`}
                       style={{
                         maxWidth: 220,
+                        borderRadius: 6,
+                        border: '1px solid #cbd5e1',
                         borderColor: qpsError ? '#f87171' : undefined,
                         boxShadow: qpsError ? '0 0 0 3px rgba(239,68,68,0.15)' : undefined,
                       }}
                     />
                     {qps > 0 && !qpsError && (
-                      <div style={{ fontSize: '0.82rem', color: '#6366f1', fontWeight: 600 }}>
+                      <div style={{ fontSize: '0.82rem', color: '#8DC63F', fontWeight: 600 }}>
                         {Math.round((qps / questions.length) * 100)}% of pool selected per student
                       </div>
                     )}
@@ -473,14 +478,14 @@ Correct Answer: C`}
 
                 {/* Preview summary */}
                 <div style={{
-                  marginTop: 16, padding: '12px 16px', borderRadius: 10,
-                  background: isRandomized ? '#f0fdf4' : '#f8fafc',
-                  border: `1px solid ${isRandomized ? '#bbf7d0' : '#e2e8f0'}`,
+                  marginTop: 16, padding: '12px 16px', borderRadius: 8,
+                  background: isRandomized ? 'rgba(141, 198, 63, 0.04)' : '#f8fafc',
+                  border: `1px solid ${isRandomized ? 'rgba(141, 198, 63, 0.25)' : '#cbd5e1'}`,
                 }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: isRandomized ? '#15803d' : '#64748b', marginBottom: 6 }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: isRandomized ? '#3D3D3D' : '#5b5b5b', marginBottom: 6 }}>
                     {isRandomized ? '✅ Randomization Active — Summary' : '⚪ No Randomization — Standard delivery'}
                   </div>
-                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: '0.78rem', color: isRandomized ? '#166534' : '#94a3b8', lineHeight: 1.8 }}>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: '0.78rem', color: isRandomized ? '#4F4F4F' : '#5b5b5b', lineHeight: 1.8 }}>
                     <li>Pool size: <strong>{questions.length} questions</strong></li>
                     <li>Delivered per student: <strong>{qps > 0 ? `${qps} (randomly selected)` : `All ${questions.length}`}</strong></li>
                     <li>Question order: <strong>{form.shuffleQuestions ? 'Shuffled per student' : 'Fixed'}</strong></li>
