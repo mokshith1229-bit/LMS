@@ -10,6 +10,7 @@ const { protect } = require('../middleware/auth');
 const { checkRole } = require('../middleware/role');
 const xlsx = require('xlsx');
 const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit');
 
 // All admin routes require authentication + admin role
 router.use(protect, checkRole('admin'));
@@ -128,6 +129,7 @@ router.get('/results', async (req, res) => {
     const results = submissions.map((sub) => {
       return {
         submissionId: sub._id.toString(),
+        quizId: sub.quizId?._id ? sub.quizId._id.toString() : '',
         userName: sub.userId?.name || 'Unknown',
         userEmail: sub.userId?.email || '',
         userMobile: sub.userId?.mobile || '',
@@ -878,6 +880,454 @@ router.get('/analytics', async (req, res) => {
   } catch (error) {
     console.error('[Analytics Error]', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// @route   POST /api/admin/batch-pdf/:quizId
+// @desc    Generate consolidated batch PDF report for selected submissions
+//          Includes cover page, summary table, per-student Q&A with frozen snapshot
+// @access  Admin only
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/batch-pdf/:quizId', async (req, res) => {
+  // ── Brand Colors ────────────────────────────────────────────────────────────
+  const CUBE_GREEN  = '#8DC63F';
+  const CUBE_DARK   = '#3D3D3D';
+  const CUBE_LIGHT  = '#4F4F4F';
+  const PASS_GREEN  = '#2f9e44';
+  const FAIL_RED    = '#c92a2a';
+  const BORDER_GREY = '#cbd5e1';
+  const BG_LIGHT    = '#f8fafc';
+  const WHITE       = '#ffffff';
+
+  // Helper: hex colour → PDFKit array [r,g,b]
+  const hex = (h) => {
+    const c = h.replace('#', '');
+    return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)];
+  };
+
+  try {
+    const { quizId } = req.params;
+    const { submissionIds = [], batchName = 'Batch' } = req.body;
+
+    // ── Input Validation ────────────────────────────────────────────────────
+    if (!mongoose.Types.ObjectId.isValid(quizId)) {
+      return res.status(400).json({ success: false, message: 'Invalid quizId' });
+    }
+    if (!Array.isArray(submissionIds) || submissionIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'submissionIds array is required' });
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Quiz not found' });
+    }
+
+    // ── Fetch Submissions ────────────────────────────────────────────────────
+    const submissions = await Submission.find({
+      _id: { $in: submissionIds },
+      quizId,
+    })
+      .populate('userId', 'name email')
+      .sort({ 'userId.name': 1 })
+      .lean();
+
+    // ── Load Frozen Paper Snapshots ──────────────────────────────────────────
+    const userIds = submissions.map(s => s.userId?._id).filter(Boolean);
+    const assignments = await Assignment.find({ quizId, userId: { $in: userIds } }).lean();
+    const assignmentMap = {};
+    assignments.forEach(a => { assignmentMap[a.userId.toString()] = a.attemptPaper || []; });
+
+    // ── Batch metadata ───────────────────────────────────────────────────────
+    const totalStudents = submissions.length;
+    const passCount     = submissions.filter(s => s.passed).length;
+    const avgScore      = totalStudents > 0
+      ? (submissions.reduce((acc, s) => acc + s.percentage, 0) / totalStudents).toFixed(1)
+      : 0;
+    const reportDate = new Date().toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata', day: '2-digit', month: 'long', year: 'numeric'
+    });
+    const safeTitle = (quiz.title || 'Assessment').replace(/[^a-zA-Z0-9_\- ]/g, '').trim();
+    const safeBatch = (batchName || 'Batch').replace(/[^a-zA-Z0-9_\- ]/g, '').trim();
+    const filename  = `${safeTitle}_${safeBatch}_Report.pdf`.replace(/ /g, '_');
+
+    // ── Increase request timeout for large PDFs ───────────────────────────────
+    req.socket.setTimeout(180000);
+
+    // ── Set response headers ─────────────────────────────────────────────────
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Connection', 'keep-alive');
+
+    // ── Create PDF Document ──────────────────────────────────────────────────
+    const doc = new PDFDocument({
+      size: 'A4',
+      margin: 0,
+      autoFirstPage: false,
+      bufferPages: false, // streaming mode
+      info: {
+        Title: `${quiz.title} — Batch Report`,
+        Author: 'Cube Tech LMS',
+        Creator: 'Cube Tech Enterprise Assessment Engine',
+      },
+    });
+
+    doc.pipe(res);
+
+    const PAGE_W  = 595.28;  // A4 points
+    const PAGE_H  = 841.89;
+    const MARGIN  = 40;
+    const CONTENT_W = PAGE_W - MARGIN * 2;
+
+    // ────────────────────────────────────────────────────────────────────────
+    // HELPER: add page-number footer and optional header bar
+    // ────────────────────────────────────────────────────────────────────────
+    let currentPage = 0;
+    const addPageWithHeader = (headerLabel = '') => {
+      doc.addPage({ size: 'A4', margin: 0 });
+      currentPage++;
+
+      // Top bar
+      doc.rect(0, 0, PAGE_W, 36)
+         .fill(hex(CUBE_DARK));
+
+      doc.fontSize(8).fillColor(hex(WHITE))
+         .text('CUBE TECH LMS  •  CONFIDENTIAL', MARGIN, 13, { width: CONTENT_W, align: 'left' });
+      doc.fontSize(8).fillColor(hex(WHITE))
+         .text(reportDate, MARGIN, 13, { width: CONTENT_W, align: 'right' });
+
+      if (headerLabel) {
+        doc.fontSize(7).fillColor(hex(CUBE_GREEN))
+           .text(headerLabel.toUpperCase(), MARGIN, 24, { width: CONTENT_W, align: 'left' });
+      }
+
+      // Bottom bar
+      doc.rect(0, PAGE_H - 28, PAGE_W, 28).fill(hex(BG_LIGHT));
+      doc.fontSize(7).fillColor(hex(CUBE_LIGHT))
+         .text(`${quiz.title}  |  Page ${currentPage}`, MARGIN, PAGE_H - 18, { width: CONTENT_W, align: 'center' });
+
+      return 50; // return Y cursor after header
+    };
+
+    // ────────────────────────────────────────────────────────────────────────
+    // PAGE 1: COVER PAGE
+    // ────────────────────────────────────────────────────────────────────────
+    doc.addPage({ size: 'A4', margin: 0 });
+    currentPage++;
+
+    // Full dark background
+    doc.rect(0, 0, PAGE_W, PAGE_H).fill(hex(CUBE_DARK));
+
+    // Green accent strip (left)
+    doc.rect(0, 0, 8, PAGE_H).fill(hex(CUBE_GREEN));
+
+    // OFFICIAL ASSESSMENT RECORD label
+    doc.fontSize(9).fillColor(hex(CUBE_GREEN))
+       .text('OFFICIAL ASSESSMENT RECORD', MARGIN + 8, 100, { align: 'center', width: CONTENT_W });
+
+    // Thin line under label
+    const lineY = 118;
+    doc.moveTo(MARGIN + 8, lineY).lineTo(PAGE_W - MARGIN - 8, lineY)
+       .strokeColor(hex(CUBE_GREEN)).lineWidth(0.5).stroke();
+
+    // Main title
+    doc.fontSize(38).fillColor(hex(WHITE)).font('Helvetica-Bold')
+       .text('Batch Report', MARGIN, 140, { align: 'center', width: CONTENT_W });
+
+    // Assessment name
+    doc.fontSize(18).fillColor(hex(CUBE_GREEN)).font('Helvetica-Bold')
+       .text(quiz.title, MARGIN, 200, { align: 'center', width: CONTENT_W });
+
+    // Divider
+    doc.moveTo(MARGIN + 80, 238).lineTo(PAGE_W - MARGIN - 80, 238)
+       .strokeColor(hex(CUBE_LIGHT)).lineWidth(0.5).stroke();
+
+    // Stats block
+    const statY = 270;
+    const statBoxW = CONTENT_W / 3;
+    const stats = [
+      { label: 'Total Students', value: totalStudents },
+      { label: 'Pass Rate', value: `${Math.round((passCount/Math.max(1,totalStudents))*100)}%` },
+      { label: 'Average Score', value: `${avgScore}%` },
+    ];
+    stats.forEach((s, i) => {
+      const x = MARGIN + i * statBoxW;
+      doc.fontSize(28).fillColor(hex(CUBE_GREEN)).font('Helvetica-Bold')
+         .text(String(s.value), x, statY, { width: statBoxW, align: 'center' });
+      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica')
+         .text(s.label, x, statY + 38, { width: statBoxW, align: 'center' });
+    });
+
+    // Info block
+    const infoY = 390;
+    const infoData = [
+      ['Assessment', quiz.title],
+      ['Batch', batchName],
+      ['Report Date', reportDate],
+      ['Total Submissions', String(totalStudents)],
+      ['Passed / Failed', `${passCount} / ${totalStudents - passCount}`],
+    ];
+    infoData.forEach(([label, val], i) => {
+      const y = infoY + i * 38;
+      doc.rect(MARGIN, y, CONTENT_W, 32).fill(hex('#2a2a2a'));
+      doc.fontSize(8).fillColor('#64748b').font('Helvetica')
+         .text(label.toUpperCase(), MARGIN + 16, y + 8);
+      doc.fontSize(12).fillColor(hex(WHITE)).font('Helvetica-Bold')
+         .text(val, MARGIN + 16, y + 18);
+    });
+
+    // Footer branding
+    doc.fontSize(10).fillColor(hex(CUBE_GREEN)).font('Helvetica-Bold')
+       .text('CUBE TECH  •  ENTERPRISE LMS', MARGIN, PAGE_H - 80, { align: 'center', width: CONTENT_W });
+    doc.fontSize(8).fillColor('#64748b').font('Helvetica')
+       .text('Confidential — For Internal Use Only', MARGIN, PAGE_H - 64, { align: 'center', width: CONTENT_W });
+
+    // ────────────────────────────────────────────────────────────────────────
+    // PAGE 2: SUMMARY TABLE
+    // ────────────────────────────────────────────────────────────────────────
+    let y = addPageWithHeader('Batch Summary');
+    y += 10;
+
+    // Section title
+    doc.fontSize(16).fillColor(hex(CUBE_DARK)).font('Helvetica-Bold')
+       .text('Student Summary', MARGIN, y);
+    y += 28;
+
+    // Table header
+    const colWidths = [180, 60, 55, 55, 55, 65, 65];
+    const colHeaders = ['Student Name', 'Score', 'Correct', 'Wrong', 'Unattempted', 'Result', 'Submitted'];
+    let xCur = MARGIN;
+
+    doc.rect(MARGIN, y, CONTENT_W, 22).fill(hex(CUBE_DARK));
+    colHeaders.forEach((h, i) => {
+      doc.fontSize(8).fillColor(hex(WHITE)).font('Helvetica-Bold')
+         .text(h, xCur + 4, y + 7, { width: colWidths[i] - 4, align: i > 0 ? 'center' : 'left' });
+      xCur += colWidths[i];
+    });
+    y += 22;
+
+    submissions.forEach((sub, idx) => {
+      // Check page space
+      if (y > PAGE_H - 60) {
+        y = addPageWithHeader('Batch Summary (continued)');
+        y += 10;
+      }
+
+      const rowH = 20;
+      const rowBg = idx % 2 === 0 ? hex(BG_LIGHT) : hex(WHITE);
+      doc.rect(MARGIN, y, CONTENT_W, rowH).fill(rowBg);
+
+      // Border
+      doc.rect(MARGIN, y, CONTENT_W, rowH).strokeColor(hex(BORDER_GREY)).lineWidth(0.3).stroke();
+
+      const name = sub.userId?.name || 'Unknown';
+      const submittedStr = sub.submittedAt
+        ? new Date(sub.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+        : '—';
+
+      const rowValues = [
+        { text: name.length > 22 ? name.slice(0,20)+'…' : name, align: 'left' },
+        { text: `${sub.percentage}%`, align: 'center' },
+        { text: String(sub.correct),  align: 'center' },
+        { text: String(sub.wrong),    align: 'center' },
+        { text: String(sub.unattempted), align: 'center' },
+        { text: sub.passed ? 'PASS' : 'FAIL', align: 'center', color: sub.passed ? PASS_GREEN : FAIL_RED },
+        { text: submittedStr, align: 'center' },
+      ];
+
+      xCur = MARGIN;
+      rowValues.forEach((rv, i) => {
+        doc.fontSize(8).fillColor(hex(rv.color || CUBE_DARK)).font('Helvetica')
+           .text(rv.text, xCur + 4, y + 6, { width: colWidths[i] - 4, align: rv.align });
+        xCur += colWidths[i];
+      });
+      y += rowH;
+    });
+
+    // ────────────────────────────────────────────────────────────────────────
+    // STUDENT SECTIONS: one section per student
+    // ────────────────────────────────────────────────────────────────────────
+    for (const sub of submissions) {
+      y = addPageWithHeader(`Student: ${sub.userId?.name || 'Unknown'}`);
+      y += 10;
+
+      const studentName = sub.userId?.name || 'Unknown';
+      const studentEmail = sub.userId?.email || '';
+      const userId = sub.userId?._id?.toString();
+      const attemptPaper = assignmentMap[userId] || [];
+      const isRandomized = attemptPaper.length > 0;
+
+      // ── Name Banner ──────────────────────────────────────────────────────
+      doc.rect(MARGIN, y, CONTENT_W, 40).fill(hex(CUBE_DARK));
+      doc.rect(MARGIN, y, 4, 40).fill(hex(CUBE_GREEN));
+      doc.fontSize(16).fillColor(hex(WHITE)).font('Helvetica-Bold')
+         .text(studentName, MARGIN + 14, y + 8, { width: CONTENT_W - 160 });
+      doc.fontSize(9).fillColor('#94a3b8').font('Helvetica')
+         .text(studentEmail, MARGIN + 14, y + 26, { width: CONTENT_W - 160 });
+
+      // Score pill (top right of banner)
+      const pillX = PAGE_W - MARGIN - 100;
+      doc.rect(pillX, y + 5, 90, 30)
+         .fill(hex(sub.passed ? PASS_GREEN : FAIL_RED));
+      doc.fontSize(18).fillColor(hex(WHITE)).font('Helvetica-Bold')
+         .text(`${sub.percentage}%`, pillX, y + 9, { width: 90, align: 'center' });
+      y += 50;
+
+      // ── Score Card row ───────────────────────────────────────────────────
+      const cardData = [
+        { label: 'Correct',  value: String(sub.correct),     color: PASS_GREEN },
+        { label: 'Wrong',    value: String(sub.wrong),       color: FAIL_RED   },
+        { label: 'Unattempted', value: String(sub.unattempted), color: CUBE_LIGHT },
+        { label: 'Result',   value: sub.passed ? 'PASS' : 'FAIL', color: sub.passed ? PASS_GREEN : FAIL_RED },
+      ];
+      const cardW = CONTENT_W / 4;
+      cardData.forEach((c, i) => {
+        const cx = MARGIN + i * cardW;
+        doc.rect(cx, y, cardW - 4, 46)
+           .fill(hex(BG_LIGHT)).strokeColor(hex(BORDER_GREY)).lineWidth(0.5).stroke();
+        doc.fontSize(20).fillColor(hex(c.color)).font('Helvetica-Bold')
+           .text(c.value, cx, y + 6, { width: cardW - 4, align: 'center' });
+        doc.fontSize(8).fillColor(hex(CUBE_LIGHT)).font('Helvetica')
+           .text(c.label, cx, y + 30, { width: cardW - 4, align: 'center' });
+      });
+      y += 56;
+
+      // Submission time
+      const subTime = sub.submittedAt
+        ? new Date(sub.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+        : '—';
+      doc.fontSize(8).fillColor(hex(CUBE_LIGHT)).font('Helvetica')
+         .text(`Submitted: ${subTime}`, MARGIN, y);
+      y += 18;
+
+      // ── Q&A Section ──────────────────────────────────────────────────────
+      doc.fontSize(11).fillColor(hex(CUBE_DARK)).font('Helvetica-Bold')
+         .text('Question-by-Question Review', MARGIN, y);
+      if (isRandomized) {
+        doc.fontSize(8).fillColor(hex(CUBE_GREEN)).font('Helvetica')
+           .text('  (Student-specific randomized paper)', MARGIN + 170, y + 1);
+      }
+      y += 20;
+
+      // Thin separator
+      doc.moveTo(MARGIN, y).lineTo(PAGE_W - MARGIN, y)
+         .strokeColor(hex(BORDER_GREY)).lineWidth(0.5).stroke();
+      y += 8;
+
+      // Build answer list from frozen snapshot or master pool
+      let answers = [];
+      try {
+        if (isRandomized) {
+          answers = attemptPaper.map((item) => {
+            const ansObj = sub.answers.find(a => a.questionId === item.questionId);
+            const userAnswer = ansObj ? ansObj.selectedOption : null;
+            const correctIdxInt = parseInt(item.correctAnswer);
+            const userIdxInt = (userAnswer !== null && userAnswer !== undefined && userAnswer !== '')
+              ? parseInt(userAnswer) : null;
+            const isCorrect = userIdxInt !== null && userIdxInt === correctIdxInt;
+            return {
+              question: item.questionText,
+              options: item.shuffledOptions,
+              correctAnswer: item.correctAnswer,
+              userAnswer,
+              isCorrect,
+              isUnattempted: userAnswer === null || userAnswer === '' || userAnswer === undefined,
+            };
+          });
+        } else {
+          answers = quiz.questions.map((q) => {
+            const userAnswerObj = sub.answers.find(a => a.questionId === q._id.toString());
+            const userAnswer = userAnswerObj ? userAnswerObj.selectedOption : null;
+            const correctAnswer = q.correctAnswer.toString().trim();
+            const isCorrect = userAnswer !== null &&
+              userAnswer.toString().trim().toUpperCase() === correctAnswer.toUpperCase();
+            return {
+              question: q.question,
+              options: q.options,
+              correctAnswer,
+              userAnswer,
+              isCorrect,
+              isUnattempted: userAnswer === null,
+            };
+          });
+        }
+      } catch (snapErr) {
+        // Corrupted snapshot — emit warning, continue
+        doc.fontSize(9).fillColor(hex(FAIL_RED)).font('Helvetica')
+           .text('⚠ Unable to load question snapshot for this student.', MARGIN, y);
+        y += 20;
+        answers = [];
+      }
+
+      // Render each question
+      for (let qi = 0; qi < answers.length; qi++) {
+        const item = answers[qi];
+        const correctIdxInt = parseInt(item.correctAnswer);
+        const userIdxInt = (item.userAnswer !== null && item.userAnswer !== undefined && item.userAnswer !== '')
+          ? parseInt(item.userAnswer) : null;
+
+        // Estimate height needed for this question
+        const optionLines = item.options.length;
+        const estHeight = 24 + 14 + optionLines * 16 + 10;
+
+        if (y + estHeight > PAGE_H - 40) {
+          y = addPageWithHeader(`Student: ${studentName} (continued)`);
+          y += 10;
+        }
+
+        // Question number + status dot
+        const statusColor = item.isUnattempted ? CUBE_LIGHT
+          : item.isCorrect ? PASS_GREEN : FAIL_RED;
+
+        doc.circle(MARGIN + 8, y + 8, 7).fill(hex(statusColor));
+        doc.fontSize(8).fillColor(hex(WHITE)).font('Helvetica-Bold')
+           .text(String(qi + 1), MARGIN + 4, y + 4, { width: 14, align: 'center' });
+
+        // Question text
+        doc.fontSize(9).fillColor(hex(CUBE_DARK)).font('Helvetica-Bold')
+           .text(item.question, MARGIN + 20, y, { width: CONTENT_W - 20 });
+        y += Math.max(14, doc.heightOfString(item.question, { width: CONTENT_W - 20, fontSize: 9 })) + 4;
+
+        // Options
+        item.options.forEach((opt, oi) => {
+          const letter = String.fromCharCode(65 + oi); // A, B, C, D...
+          const isUserChoice = userIdxInt === oi;
+          const isCorrectChoice = correctIdxInt === oi;
+
+          let optBg = null;
+          let optColor = CUBE_DARK;
+
+          if (isCorrectChoice) { optBg = PASS_GREEN; optColor = WHITE; }
+          else if (isUserChoice && !isCorrectChoice) { optBg = FAIL_RED; optColor = WHITE; }
+
+          if (optBg) {
+            doc.rect(MARGIN + 22, y - 1, CONTENT_W - 22, 15).fill(hex(optBg));
+          }
+
+          doc.fontSize(8).fillColor(hex(optColor)).font(isUserChoice || isCorrectChoice ? 'Helvetica-Bold' : 'Helvetica')
+             .text(`${letter}.  ${opt}`, MARGIN + 26, y + 1, { width: CONTENT_W - 26 });
+          y += 16;
+        });
+
+        // Unattempted notice
+        if (item.isUnattempted) {
+          doc.fontSize(7).fillColor(hex(CUBE_LIGHT)).font('Helvetica')
+             .text('Not attempted', MARGIN + 22, y);
+          y += 12;
+        }
+
+        y += 6; // gap between questions
+      }
+    }
+
+    // ── Finalize PDF ────────────────────────────────────────────────────────
+    doc.end();
+  } catch (err) {
+    console.error('[Batch PDF Error]', err);
+    // Only send error JSON if headers not sent yet
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: err.message });
+    }
   }
 });
 

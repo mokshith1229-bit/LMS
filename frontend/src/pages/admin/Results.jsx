@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown, ArrowLeft } from 'lucide-react';
+import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown, ArrowLeft, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx-js-style';
 import { saveAs } from 'file-saver';
 
@@ -16,6 +16,67 @@ export default function AdminResults() {
   const [filterExam, setFilterExam] = useState('');
   const [filterCourse, setFilterCourse] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
+  const [batchPdfLoading, setBatchPdfLoading] = useState(false);
+
+  const handleDownloadBatchPDF = async () => {
+    if (selectedIds.length === 0) {
+      toast.error('Please select students to download Batch PDF');
+      return;
+    }
+
+    // Get the selected rows data
+    const selectedData = results.filter(r => selectedIds.includes(r.submissionId));
+
+    // Validate that all selected submissions are from the same quiz
+    const uniqueQuizIds = [...new Set(selectedData.map(r => r.quizId).filter(Boolean))];
+    if (uniqueQuizIds.length > 1) {
+      toast.error('Select submissions from a single assessment for Batch PDF');
+      return;
+    }
+
+    if (uniqueQuizIds.length === 0) {
+      toast.error('Invalid quiz selection');
+      return;
+    }
+
+    const quizId = uniqueQuizIds[0];
+    const firstSelected = selectedData[0];
+    const quizTitle = firstSelected?.quizTitle || 'Assessment';
+    const batchName = filterExam || 'Batch';
+
+    setBatchPdfLoading(true);
+    const loadingToast = toast.loading('Generating consolidated Batch PDF... This may take a while.');
+
+    try {
+      const response = await api.post(`/admin/batch-pdf/${quizId}`, {
+        submissionIds: selectedIds,
+        batchName: batchName
+      }, {
+        responseType: 'blob',
+        timeout: 180000 // 3 minutes timeout for this large generation
+      });
+
+      // Check if response is JSON (error case) instead of PDF
+      if (response.data && response.data.type === 'application/json') {
+        const text = await response.data.text();
+        const errObj = JSON.parse(text);
+        throw new Error(errObj.message || 'Server error generating PDF');
+      }
+
+      const fileBlob = new Blob([response.data], { type: 'application/pdf' });
+      const safeTitle = quizTitle.replace(/[^a-zA-Z0-9_\- ]/g, '').trim().replace(/ /g, '_');
+      const safeBatch = batchName.replace(/[^a-zA-Z0-9_\- ]/g, '').trim().replace(/ /g, '_');
+      const filename = `${safeTitle}_${safeBatch}_Report.pdf`;
+
+      saveAs(fileBlob, filename);
+      toast.success('Batch PDF downloaded successfully!', { id: loadingToast });
+    } catch (err) {
+      console.error('[Batch PDF Error]', err);
+      toast.error(err.message || 'Failed to download Batch PDF', { id: loadingToast });
+    } finally {
+      setBatchPdfLoading(false);
+    }
+  };
 
   const loadResults = async () => {
     setLoading(true);
@@ -278,6 +339,35 @@ export default function AdminResults() {
                 disabled={selectedIds.length === 0}
               >
                 <FileDown size={14} /> Get Excel Report ({selectedIds.length})
+              </button>
+              <button
+                className="btn"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 14px',
+                  fontSize: '0.85rem',
+                  background: 'var(--bg-sidebar)',
+                  color: '#fff',
+                  border: 'none',
+                  opacity: selectedIds.length === 0 || batchPdfLoading ? 0.6 : 1,
+                  cursor: selectedIds.length === 0 || batchPdfLoading ? 'not-allowed' : 'pointer'
+                }}
+                onClick={handleDownloadBatchPDF}
+                disabled={selectedIds.length === 0 || batchPdfLoading}
+              >
+                {batchPdfLoading ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Generating Batch PDF...
+                  </>
+                ) : (
+                  <>
+                    <FileText size={14} />
+                    Download Batch PDF ({selectedIds.length})
+                  </>
+                )}
               </button>
               <button
                 className="btn btn-secondary"

@@ -24,6 +24,7 @@
     "multer-storage-cloudinary": "^4.0.0",
     "pdf-poppler": "^0.2.3",
     "pdfjs-dist": "^5.7.284",
+    "pdfkit": "^0.18.0",
     "socket.io": "^4.8.3",
     "streamifier": "^0.1.1",
     "xlsx": "^0.18.5"
