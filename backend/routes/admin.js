@@ -40,12 +40,13 @@ router.post('/assign', async (req, res) => {
     }
 
     // Upsert assignment (Create if new, Reset if exists)
+    // IMPORTANT: Clear attemptPaper so a fresh random paper is generated on next exam start
     const assignment = await Assignment.findOneAndUpdate(
       { userId: user._id, quizId },
       {
         status: 'NOT_STARTED',
         assignedAt: new Date(),
-        $unset: { startedAt: 1, submittedAt: 1 }
+        $unset: { startedAt: 1, submittedAt: 1, attemptPaper: 1 }
       },
       { upsert: true, new: true }
     );
@@ -150,6 +151,31 @@ router.get('/results', async (req, res) => {
   }
 });
 
+// ── Helper: Map numeric index to letter ──────────────────────────────────────
+const getLetter = (index) => {
+  if (index === null || index === undefined || index === '') return '';
+  return String.fromCharCode(65 + parseInt(index));
+};
+
+// ── Helper: Build per-student question rows from frozen snapshot ─────────────
+// Returns { questionId→letter } map for this submission.
+function buildStudentAnswerMap(sub, attemptPaper) {
+  const map = {}; // questionId → { userLetter, correctLetter, shuffledOptions }
+  if (attemptPaper && attemptPaper.length > 0) {
+    // Randomized quiz: use frozen snapshot
+    attemptPaper.forEach(item => {
+      const ansObj = sub.answers.find(a => a.questionId === item.questionId);
+      const userAns = ansObj ? ansObj.selectedOption : null;
+      const userLetter = (userAns !== null && userAns !== undefined && userAns !== '')
+        ? getLetter(userAns)
+        : 'NA';
+      const correctLetter = getLetter(item.correctAnswer);
+      map[item.questionId] = { userLetter, correctLetter, shuffledOptions: item.shuffledOptions };
+    });
+  }
+  return map;
+}
+
 // @route   GET /api/admin/results/export
 // @desc    Export results as Excel
 // @access  Admin only
@@ -175,15 +201,16 @@ router.get('/results/export', async (req, res) => {
        return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
+    // Load all assignment snapshots for these submissions
+    const userIds = submissions.map(s => s.userId?._id).filter(Boolean);
+    const assignments = await Assignment.find({ quizId, userId: { $in: userIds } }).lean();
+    const assignmentMap = {}; // userId string → attemptPaper
+    assignments.forEach(a => { assignmentMap[a.userId.toString()] = a.attemptPaper || []; });
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Batch Results');
 
-    // Helper: Map index to Letter (0 -> A, 1 -> B, ...)
-    const getLetter = (index) => {
-      if (index === null || index === undefined || index === '') return '';
-      return String.fromCharCode(65 + parseInt(index));
-    };
-
+    // Use master pool for columns (all possible questions)
     const columns = [{ header: 'Student Name', key: 'studentName', width: 25 }];
     quiz.questions.forEach((q, idx) => {
       columns.push({ header: `Q${idx + 1}`, key: `q${idx + 1}`, width: 10 });
@@ -191,9 +218,9 @@ router.get('/results/export', async (req, res) => {
     columns.push({ header: 'Score', key: 'score', width: 15 });
     worksheet.columns = columns;
 
-    // Row 2: Correct Answers
+    // Row 2: Correct Answers (from master pool)
     const correctAnswersRow = { studentName: 'Correct Answers' };
-    const correctLetters = [];
+    const masterCorrectLetters = [];
     
     quiz.questions.forEach((q, idx) => {
       let correctIdx = parseInt(q.correctAnswer);
@@ -203,7 +230,7 @@ router.get('/results/export', async (req, res) => {
          );
       }
       const letter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : String(q.correctAnswer || '');
-      correctLetters.push(letter);
+      masterCorrectLetters.push(letter);
       correctAnswersRow[`q${idx + 1}`] = letter;
     });
     correctAnswersRow.score = '';
@@ -219,23 +246,37 @@ router.get('/results/export', async (req, res) => {
         score: sub.percentage + '%'
       };
       const rowValues = [];
+      const attemptPaper = assignmentMap[sub.userId?._id?.toString()] || [];
+      const snapshotMap = buildStudentAnswerMap(sub, attemptPaper);
+
       quiz.questions.forEach((q, idx) => {
-        const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
-        const userAns = ansObj ? ansObj.selectedOption : null;
+        const qId = q._id.toString();
         let userLetter = 'NA';
-        if (userAns !== null && userAns !== undefined && userAns !== '') {
-          let userIdx = parseInt(userAns);
-          if (isNaN(userIdx)) {
-            userIdx = q.options.findIndex(opt => 
-               opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
-            );
+        let correctLetter = masterCorrectLetters[idx];
+
+        if (snapshotMap[qId]) {
+          // Randomized: use snapshot data
+          userLetter = snapshotMap[qId].userLetter;
+          // correctLetter from master pool (original position) — for the header row
+        } else {
+          // Legacy (non-randomized): use raw answer
+          const ansObj = sub.answers.find(a => a.questionId === qId);
+          const userAns = ansObj ? ansObj.selectedOption : null;
+          if (userAns !== null && userAns !== undefined && userAns !== '') {
+            let userIdx = parseInt(userAns);
+            if (isNaN(userIdx)) {
+              userIdx = q.options.findIndex(opt => 
+                 opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
+              );
+            }
+            userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
           }
-          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
         }
+
         studentRow[`q${idx + 1}`] = userLetter;
         rowValues.push({ 
           text: userLetter, 
-          isCorrect: userLetter.trim().toUpperCase() === correctLetters[idx].trim().toUpperCase() 
+          isCorrect: userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase()
         });
       });
 
@@ -256,6 +297,7 @@ router.get('/results/export', async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
+
 // @desc    Get all assignments with user and quiz info
 // @access  Admin only
 router.get('/assignments', async (req, res) => {
@@ -325,6 +367,7 @@ router.post('/assign-batch', async (req, res) => {
     }
 
     // Prepare bulk operations to reset/create assignments
+    // IMPORTANT: Unset attemptPaper so each student gets a fresh random paper on next start
     const ops = userIds.map(userId => ({
       updateOne: {
         filter: { userId, quizId },
@@ -335,7 +378,8 @@ router.post('/assign-batch', async (req, res) => {
           },
           $unset: {
             startedAt: 1,
-            submittedAt: 1
+            submittedAt: 1,
+            attemptPaper: 1,  // clear frozen paper — new random paper generated at exam start
           }
         },
         upsert: true
@@ -390,6 +434,8 @@ router.get('/submissions/debug', async (req, res) => {
 
 // @route   GET /api/admin/submissions/:id
 // @desc    Get detailed submission answers for admin review
+//          Uses frozen attempt paper snapshot when available (randomized quizzes)
+//          Falls back to master pool for legacy/non-randomized quizzes
 // @access  Admin only
 router.get('/submissions/:id', async (req, res) => {
   try {
@@ -415,22 +461,62 @@ router.get('/submissions/:id', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz associated with this submission no longer exists.' });
     }
 
-    // Map answers to include question text and options
-    const answers = quiz.questions.map((q) => {
-      const userAnswerObj = submission.answers.find(a => a.questionId === q._id.toString());
-      const userAnswer = userAnswerObj ? userAnswerObj.selectedOption : null;
-      const correctAnswer = q.correctAnswer.toString().trim();
-      const isCorrect = userAnswer !== null && userAnswer.toString().trim().toUpperCase() === correctAnswer.toUpperCase();
+    // Load the frozen attempt paper for this student (if it exists)
+    const assignment = await Assignment.findOne({ userId: user._id, quizId: quiz._id }).lean();
+    const attemptPaper = assignment?.attemptPaper || [];
+    const isRandomized = attemptPaper.length > 0;
 
-      return {
-        question: q.question,
-        options: q.options,
-        correctAnswer,
-        userAnswer,
-        isCorrect,
-        isUnattempted: userAnswer === null
-      };
-    });
+    let answers;
+
+    if (isRandomized) {
+      // ── RANDOMIZED QUIZ: Build answer list from FROZEN SNAPSHOT ──────────────
+      // This guarantees the PDF/review shows EXACTLY what the student saw.
+      answers = attemptPaper.map((item, idx) => {
+        const ansObj = submission.answers.find(a => a.questionId === item.questionId);
+        const userAnswer = ansObj ? ansObj.selectedOption : null;
+
+        // correctAnswer is index into shuffledOptions
+        const correctIdxInt = parseInt(item.correctAnswer);
+        const correctOptionText = item.shuffledOptions[correctIdxInt] || item.correctAnswer;
+
+        const userIdxInt = (userAnswer !== null && userAnswer !== undefined && userAnswer !== '')
+          ? parseInt(userAnswer)
+          : null;
+        
+        const isCorrect = userIdxInt !== null && userIdxInt === correctIdxInt;
+
+        return {
+          question: item.questionText,
+          imageUrl: item.imageUrl || '',
+          options: item.shuffledOptions,    // EXACT shuffled options shown to student
+          correctAnswer: item.correctAnswer, // index string into shuffledOptions
+          correctOptionText,
+          userAnswer: userAnswer !== null ? userAnswer : null,
+          isCorrect,
+          isUnattempted: userAnswer === null || userAnswer === '' || userAnswer === undefined,
+          displayedOrder: item.displayedOrder,
+        };
+      });
+    } else {
+      // ── LEGACY / NON-RANDOMIZED: Fall back to master pool ───────────────────
+      answers = quiz.questions.map((q) => {
+        const userAnswerObj = submission.answers.find(a => a.questionId === q._id.toString());
+        const userAnswer = userAnswerObj ? userAnswerObj.selectedOption : null;
+        const correctAnswer = q.correctAnswer.toString().trim();
+        const isCorrect = userAnswer !== null && userAnswer.toString().trim().toUpperCase() === correctAnswer.toUpperCase();
+
+        return {
+          question: q.question,
+          imageUrl: q.imageUrl || '',
+          options: q.options,
+          correctAnswer,
+          correctOptionText: q.options[parseInt(correctAnswer)] || correctAnswer,
+          userAnswer,
+          isCorrect,
+          isUnattempted: userAnswer === null
+        };
+      });
+    }
 
     res.json({
       success: true,
@@ -442,7 +528,10 @@ router.get('/submissions/:id', async (req, res) => {
       percentage: submission.percentage,
       status: submission.status,
       submittedAt: submission.submittedAt,
-      answers
+      isRandomized,
+      questionsDelivered: answers.length,
+      totalPoolSize: quiz.questions.length,
+      answers,
     });
   } catch (error) {
     console.error('Submission View Error:', error);
@@ -452,6 +541,7 @@ router.get('/submissions/:id', async (req, res) => {
 
 // @route   POST /api/admin/export/detailed/:quizId
 // @desc    Export detailed question-by-question results for selected submissions as Excel
+//          Uses frozen attempt paper when available (shows student-specific question ordering)
 // @access  Admin only
 router.post('/export/detailed/:quizId', async (req, res) => {
   try {
@@ -479,32 +569,26 @@ router.post('/export/detailed/:quizId', async (req, res) => {
       .sort({ submittedAt: -1 })
       .lean();
 
+    // Load frozen papers for all relevant users
+    const userIds = submissions.map(s => s.userId?._id).filter(Boolean);
+    const assignments = await Assignment.find({ quizId, userId: { $in: userIds } }).lean();
+    const assignmentMap = {};
+    assignments.forEach(a => { assignmentMap[a.userId.toString()] = a.attemptPaper || []; });
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Detailed Results');
 
-    // Helper: Map index to Letter (0 -> A, 1 -> B, ...)
-    const getLetter = (index) => {
-      if (index === null || index === undefined || index === '') return '';
-      // Support if answer is text instead of index. Try to find index if it's text.
-      return String.fromCharCode(65 + parseInt(index));
-    };
-
-    // Prepare columns
-    const columns = [
-      { header: 'Student Name', key: 'studentName', width: 25 }
-    ];
-
+    // Columns: based on master pool (all possible questions shown in pool order)
+    const columns = [{ header: 'Student Name', key: 'studentName', width: 25 }];
     quiz.questions.forEach((q, idx) => {
       columns.push({ header: `Q${idx + 1}`, key: `q${idx + 1}`, width: 10 });
     });
-
     columns.push({ header: 'Score', key: 'score', width: 15 });
     worksheet.columns = columns;
 
-    // Row 2: Correct Answers
-    const correctAnswersRow = { studentName: 'Correct Answers' };
-    const correctLetters = [];
-    
+    // Row 2: Master Pool Correct Answers header
+    const correctAnswersRow = { studentName: 'Correct Answers (Pool Order)' };
+    const masterCorrectLetters = [];
     quiz.questions.forEach((q, idx) => {
       let correctIdx = parseInt(q.correctAnswer);
       if (isNaN(correctIdx)) {
@@ -512,77 +596,68 @@ router.post('/export/detailed/:quizId', async (req, res) => {
             opt && q.correctAnswer && String(opt).trim().toUpperCase() === String(q.correctAnswer).trim().toUpperCase()
          );
       }
-      
       const letter = correctIdx !== -1 && !isNaN(correctIdx) ? getLetter(correctIdx) : String(q.correctAnswer || '');
-      correctLetters.push(letter);
+      masterCorrectLetters.push(letter);
       correctAnswersRow[`q${idx + 1}`] = letter;
     });
-
     correctAnswersRow.score = '';
 
     const row2 = worksheet.addRow(correctAnswersRow);
-
-    // Style Row 2: green and bold
     row2.eachCell((cell) => {
-      cell.font = {
-        color: { argb: 'FF008000' }, // Green
-        bold: true
-      };
+      cell.font = { color: { argb: 'FF008000' }, bold: true };
     });
 
-    // Row 3+: Student Rows
+    // Student rows
     submissions.forEach(sub => {
-      const studentRow = {
-        studentName: sub.userId?.name || 'Unknown',
-        score: sub.percentage + '%'
-      };
-
+      const studentRow = { studentName: sub.userId?.name || 'Unknown', score: sub.percentage + '%' };
       const rowValues = [];
+      const attemptPaper = assignmentMap[sub.userId?._id?.toString()] || [];
+      
+      // Build a map of questionId → student's answer letter from snapshot
+      const snapshotMap = buildStudentAnswerMap(sub, attemptPaper);
 
       quiz.questions.forEach((q, idx) => {
-        // Find user answer
-        const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
-        const userAns = ansObj ? ansObj.selectedOption : null;
-        
+        const qId = q._id.toString();
         let userLetter = 'NA';
-        if (userAns !== null && userAns !== undefined && userAns !== '') {
-          let userIdx = parseInt(userAns);
-          if (isNaN(userIdx)) {
-            userIdx = q.options.findIndex(opt => 
-               opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
-            );
+        const correctLetter = masterCorrectLetters[idx];
+
+        if (snapshotMap[qId]) {
+          // Student had this question in their randomized paper
+          userLetter = snapshotMap[qId].userLetter;
+        } else if (attemptPaper.length === 0) {
+          // Legacy non-randomized quiz: find answer directly
+          const ansObj = sub.answers.find(a => a.questionId === qId);
+          const userAns = ansObj ? ansObj.selectedOption : null;
+          if (userAns !== null && userAns !== undefined && userAns !== '') {
+            let userIdx = parseInt(userAns);
+            if (isNaN(userIdx)) {
+              userIdx = q.options.findIndex(opt => 
+                 opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
+              );
+            }
+            userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
           }
-          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
         }
+        // If question was not in student's paper (subset delivery), leave as 'NA'
 
         studentRow[`q${idx + 1}`] = userLetter;
         rowValues.push({ 
           text: userLetter, 
-          isCorrect: userLetter.trim().toUpperCase() === correctLetters[idx].trim().toUpperCase() 
+          isCorrect: userLetter !== 'NA' && userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase() 
         });
       });
 
       const addedRow = worksheet.addRow(studentRow);
-
-      // Style incorrect answers
       rowValues.forEach((val, idx) => {
-        if (!val.isCorrect && val.text !== 'NA') { // Highlight wrong answers
-          // +2 because column 1 is Student Name, so Q1 is column 2
+        if (!val.isCorrect && val.text !== 'NA') {
           const cell = addedRow.getCell(idx + 2);
-          cell.font = { color: { argb: 'FFFF0000' } }; // Red
+          cell.font = { color: { argb: 'FFFF0000' } };
         }
       });
     });
 
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    res.setHeader(
-      'Content-Disposition',
-      'attachment; filename=' + 'Detailed_Results.xlsx'
-    );
-
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename=' + 'Detailed_Results.xlsx');
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
@@ -593,6 +668,7 @@ router.post('/export/detailed/:quizId', async (req, res) => {
 
 // @route   GET /api/admin/analytics
 // @desc    Get analytics for a specific batch and quiz
+//          Aggregates by questionId (works for both randomized and non-randomized)
 // @access  Admin only
 router.get('/analytics', async (req, res) => {
   try {
@@ -618,9 +694,6 @@ router.get('/analytics', async (req, res) => {
     const batchUserIds = (batch.users || []).map(u => u._id);
     const totalStudents = batchUserIds.length;
 
-    // Query submissions by batch member user IDs + quizId.
-    // This covers both batch-scheduled and individually-assigned submissions
-    // since not all submissions have batchId set on the document.
     const submissions = await Submission.find({
       userId: { $in: batchUserIds },
       quizId,
@@ -665,6 +738,12 @@ router.get('/analytics', async (req, res) => {
       });
     });
 
+    // ── Load frozen papers for ALL submissions to enable questionId-based aggregation ──
+    const subUserIds = submissions.map(s => s.userId?._id).filter(Boolean);
+    const assignments = await Assignment.find({ quizId, userId: { $in: subUserIds } }).lean();
+    const assignmentByUser = {};
+    assignments.forEach(a => { assignmentByUser[a.userId.toString()] = a.attemptPaper || []; });
+
     const passPercentage = attemptedStudents > 0
       ? Number(((passCount / attemptedStudents) * 100).toFixed(2))
       : 0;
@@ -672,12 +751,11 @@ router.get('/analytics', async (req, res) => {
       ? Number((((attemptedStudents - passCount) / attemptedStudents) * 100).toFixed(2))
       : 0;
 
-    const getLetter = (index) => {
-      if (index === null || index === undefined || index === '') return '';
-      return String.fromCharCode(65 + parseInt(index));
-    };
-
+    // ── Item Analysis: aggregate by questionId across all submissions ──────────
+    // This handles randomized quizzes correctly because each submission stores questionId,
+    // not position — so the same question is tracked regardless of which position it appeared.
     const questions = quiz.questions.map((q) => {
+      // Resolve correct answer letter from master pool
       let correctIdx = parseInt(q.correctAnswer);
       if (isNaN(correctIdx)) {
         correctIdx = q.options.findIndex(opt =>
@@ -690,6 +768,7 @@ router.get('/analytics', async (req, res) => {
         : String(q.correctAnswer || '');
 
       let correctCount = 0;
+      let seenByCount = 0; // how many students actually received this question
       const optionCounts = {};
 
       q.options.forEach((opt, idx) => {
@@ -698,24 +777,49 @@ router.get('/analytics', async (req, res) => {
       optionCounts['NA'] = 0;
 
       submissions.forEach(sub => {
-        const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
-        const userAns = ansObj ? ansObj.selectedOption : null;
-        let userLetter = 'NA';
+        const userId = sub.userId?._id?.toString();
+        const attemptPaper = assignmentByUser[userId] || [];
 
-        if (userAns !== null && userAns !== undefined && userAns !== '') {
-          let userIdx = parseInt(userAns);
-          if (isNaN(userIdx)) {
-            userIdx = q.options.findIndex(opt =>
-              opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
-            );
-          }
-          userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
+        // Check if this student had this question in their paper
+        const paperItem = attemptPaper.length > 0
+          ? attemptPaper.find(p => p.questionId === q._id.toString())
+          : null;
+
+        if (attemptPaper.length > 0 && !paperItem) {
+          // Student had a randomized paper that did NOT include this question
+          return;
         }
 
-        if (
-          userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase() &&
-          userLetter !== 'NA'
-        ) {
+        seenByCount++;
+
+        // Get student's answer
+        const ansObj = sub.answers.find(a => a.questionId === q._id.toString());
+        const userAns = ansObj ? ansObj.selectedOption : null;
+
+        let userLetter = 'NA';
+        if (userAns !== null && userAns !== undefined && userAns !== '') {
+          if (paperItem) {
+            // Randomized: answer is index into shuffledOptions; map back to master pool option
+            const shuffledIdx = parseInt(userAns);
+            const selectedOptionText = paperItem.shuffledOptions[shuffledIdx] || '';
+            // Find that text in master options to get the display letter
+            const masterIdx = q.options.findIndex(o =>
+              String(o).trim().toUpperCase() === selectedOptionText.trim().toUpperCase()
+            );
+            userLetter = masterIdx !== -1 ? getLetter(masterIdx) : getLetter(shuffledIdx);
+          } else {
+            // Legacy non-randomized
+            let userIdx = parseInt(userAns);
+            if (isNaN(userIdx)) {
+              userIdx = q.options.findIndex(opt =>
+                opt && String(opt).trim().toUpperCase() === String(userAns).trim().toUpperCase()
+              );
+            }
+            userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
+          }
+        }
+
+        if (userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase() && userLetter !== 'NA') {
           correctCount++;
         }
 
@@ -726,21 +830,24 @@ router.get('/analytics', async (req, res) => {
         }
       });
 
-      const accuracy = attemptedStudents > 0
-        ? Number(((correctCount / attemptedStudents) * 100).toFixed(2))
-        : 0;
+      // Accuracy denominator: students who actually saw this question
+      const denominator = seenByCount > 0 ? seenByCount : 1;
+      const accuracy = Number(((correctCount / denominator) * 100).toFixed(2));
 
       const mostSelected = Object.entries(optionCounts)
         .filter(([k]) => k !== 'NA')
         .sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A';
 
       return {
+        questionId: q._id.toString(),
         question: q.question,
         options: q.options,
         accuracy,
         correctAnswer: correctLetter,
         mostSelected,
         optionCounts,
+        seenByCount,    // students who received this question
+        totalSubmissions: attemptedStudents,
       };
     });
 
@@ -761,6 +868,10 @@ router.get('/analytics', async (req, res) => {
       questions,
       studentScores,
       studentTable,
+      // Randomization info for UI
+      isRandomized: !!(quiz.questionsPerStudent || quiz.shuffleQuestions || quiz.shuffleOptions),
+      questionsPerStudent: quiz.questionsPerStudent || quiz.questions.length,
+      totalPoolSize: quiz.questions.length,
     };
 
     res.json({ success: true, data: analyticsData });

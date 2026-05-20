@@ -9,6 +9,50 @@ const mongoose = require('mongoose');
 const demoStore = require('./demoStore');
 const { protect } = require('../middleware/auth');
 
+// ── Score using FROZEN SNAPSHOT (primary path for randomized quizzes) ─────────
+// The snapshot contains the exact questions + options shown to the student.
+// answers[] maps by position: answers[0] = student's option index for Q1 on their paper.
+//
+// Returns { formattedAnswers, correct, wrong, unattempted, total }
+function processSubmissionFromSnapshot({ attemptPaper, answers }) {
+  let correct = 0;
+  let wrong = 0;
+
+  const formattedAnswers = attemptPaper.map((paperItem, index) => {
+    const userAnswer = (answers && answers[index] !== undefined && answers[index] !== null)
+      ? answers[index]
+      : null;
+
+    if (userAnswer === null || userAnswer === '') {
+      return {
+        questionId: paperItem.questionId,
+        selectedOption: null,
+      };
+    }
+
+    const userIdx   = userAnswer.toString().trim();
+    const correctIdx = paperItem.correctAnswer.toString().trim();
+
+    if (userIdx === correctIdx) {
+      correct++;
+    } else {
+      wrong++;
+    }
+
+    return {
+      questionId: paperItem.questionId,
+      selectedOption: userAnswer.toString(),
+    };
+  });
+
+  const total       = attemptPaper.length;
+  const unattempted = total - (correct + wrong);
+  const percentage  = total > 0 ? Number(((correct / total) * 100).toFixed(2)) : 0;
+
+  return { formattedAnswers, correct, wrong, unattempted, percentage, total };
+}
+
+// ── Legacy: Score using MASTER POOL (backward compat for quizzes without snapshots) ──
 function processSubmission({ quiz, answers }) {
   let correct = 0;
   let wrong = 0;
@@ -135,8 +179,21 @@ router.post('/', protect, async (req, res) => {
       }
     }
 
-    // SHARED SCORING FUNCTION
-    const result = processSubmission({ quiz, answers });
+    // ── SMART SCORING: Use frozen snapshot if available, else fall back to master pool ──
+    let result;
+    const hasFrozenPaper = assignment && assignment.attemptPaper && assignment.attemptPaper.length > 0;
+
+    if (hasFrozenPaper) {
+      // PRIMARY PATH: score against the frozen attempt paper
+      // This ensures correct answer mapping is valid AFTER option shuffle
+      result = processSubmissionFromSnapshot({
+        attemptPaper: assignment.attemptPaper,
+        answers,
+      });
+    } else {
+      // LEGACY/DEMO PATH: score against full master pool (backward compat)
+      result = processSubmission({ quiz, answers });
+    }
 
     const { timeTaken } = req.body;
     const passed = result.percentage >= (quiz.passingScore || 60);

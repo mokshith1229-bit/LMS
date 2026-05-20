@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
-import { ChevronLeft, Download, CheckCircle2, XCircle, User, Mail, BookOpen, Clock, BarChart3, ArrowLeft } from 'lucide-react';
+import { ChevronLeft, Download, CheckCircle2, XCircle, User, Mail, BookOpen, Clock, BarChart3, ArrowLeft, Shuffle, Layers } from 'lucide-react';
 import { useReactToPrint } from 'react-to-print';
 
 export default function AdminSubmissionView() {
@@ -124,6 +124,18 @@ export default function AdminSubmissionView() {
               <span className="report-badge">Official Assessment Record</span>
               <h1>Detailed Report</h1>
               <p className="quiz-name">{data.quizTitle}</p>
+              {/* Randomization metadata */}
+              {data.isRandomized && (
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  background: 'rgba(255,255,255,0.15)', borderRadius: 20,
+                  padding: '6px 14px', marginTop: 12, fontSize: '0.78rem', fontWeight: 700,
+                  border: '1px solid rgba(255,255,255,0.3)', color: '#fff'
+                }}>
+                  <Shuffle size={13} />
+                  Randomized Paper · {data.questionsDelivered} of {data.totalPoolSize} questions delivered
+                </div>
+              )}
             </div>
           </header>
 
@@ -158,21 +170,38 @@ export default function AdminSubmissionView() {
           <section className="answers-section">
             <h3 className="section-title">
               <BarChart3 size={20} /> Question-by-Question Analysis
+              {data.isRandomized && (
+                <span style={{
+                  marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe',
+                  borderRadius: 20, padding: '3px 10px', fontSize: '0.72rem', fontWeight: 700
+                }}>
+                  <Layers size={12} /> Student-specific paper
+                </span>
+              )}
             </h3>
             
             <div className="questions-list">
               {data.answers.map((item, idx) => {
-                // Use pre-computed fields from API if available, fallback to client-side
+                // isCorrect and isUnattempted are pre-computed server-side
+                // For randomized quizzes: correctAnswer is index into item.options (shuffledOptions)
                 const isCorrect = item.isCorrect !== undefined
                   ? item.isCorrect
-                  : item.userAnswer !== null && item.userAnswer.toString().toUpperCase() === item.correctAnswer.toString().toUpperCase();
+                  : item.userAnswer !== null && item.userAnswer.toString() === item.correctAnswer.toString();
                 const isUnattempted = item.isUnattempted !== undefined ? item.isUnattempted : item.userAnswer === null;
 
                 return (
                   <div key={idx} className="question-item">
                     <div className="question-header">
                       <div className="q-index">Q{idx + 1}</div>
-                      <div className="q-text">{item.question}</div>
+                      <div style={{ flex: 1 }}>
+                        <div className="q-text">{item.question}</div>
+                        {/* Show question image if any */}
+                        {item.imageUrl && (
+                          <img src={item.imageUrl} alt="" style={{ maxWidth: 320, maxHeight: 200, borderRadius: 8, marginTop: 8, border: '1px solid #e2e8f0' }}
+                            onError={e => e.target.style.display = 'none'} />
+                        )}
+                      </div>
                       <div className="q-status">
                         {isUnattempted ? (
                           <span className="badge neutral">Unattempted</span>
@@ -186,7 +215,12 @@ export default function AdminSubmissionView() {
 
                     <div className="options-grid">
                       {item.options.map((opt, oIdx) => {
-                        const isUserSelected = item.userAnswer !== null && item.userAnswer.toString() === oIdx.toString();
+                        // item.options = shuffledOptions for randomized quizzes
+                        // item.correctAnswer = index into item.options
+                        // item.userAnswer = index into item.options
+                        const isUserSelected = item.userAnswer !== null &&
+                          item.userAnswer !== undefined &&
+                          item.userAnswer.toString() === oIdx.toString();
                         const isCorrectOpt = item.correctAnswer.toString() === oIdx.toString();
                         
                         let optClass = 'option-box';
@@ -199,6 +233,7 @@ export default function AdminSubmissionView() {
                             <span className="opt-text">{opt}</span>
                             {isUserSelected && <span className="user-tag">Selected</span>}
                             {isCorrectOpt && !isCorrect && <span className="correct-tag">Correct Answer</span>}
+                            {isCorrectOpt && isCorrect && isUserSelected && <span className="correct-tag" style={{background:'#10b981'}}>✓ Correct</span>}
                           </div>
                         );
                       })}

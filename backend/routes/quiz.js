@@ -12,15 +12,61 @@ const xlsx = require('xlsx');
 const mongoose = require('mongoose');
 const demoStore = require('./demoStore');
 const { protect } = require('../middleware/auth');
+const { generatePaper } = require('../utils/paperGenerator');
 
 const upload = multer({ storage: multer.memoryStorage() });
+
+// ── Helper: Build clean student-facing question list from attemptPaper snapshot
+// Strips correctAnswer before sending to the student.
+function buildQuestionsFromSnapshot(attemptPaper) {
+  return attemptPaper.map(item => ({
+    _id: item.questionId,           // use original questionId as _id so submit/analytics work
+    question: item.questionText,
+    options: item.shuffledOptions,  // shuffled order
+    imageUrl: item.imageUrl || '',
+  }));
+}
+
+// ── Helper: Attach or restore the attempt paper snapshot on an assignment ────
+// Returns the updated assignment (with attemptPaper populated).
+// Throws on paper generation failure.
+async function ensureAttemptPaper(assignment, quiz) {
+  // Already generated → restore frozen paper (handles refresh/reconnect)
+  if (assignment.attemptPaper && assignment.attemptPaper.length > 0) {
+    return assignment;
+  }
+
+  // First access → generate paper and freeze it
+  const paper = generatePaper(quiz);
+  assignment.attemptPaper = paper;
+  await assignment.save();
+  return assignment;
+}
 
 // @route   POST /api/quiz
 // @desc    Create a new quiz
 // @access  Public/Admin
 router.post('/', async (req, res) => {
   try {
-    const { courseId, title, questions, timeLimitSeconds, passingScore, instructions } = req.body;
+    const {
+      courseId,
+      title,
+      questions,
+      timeLimitSeconds,
+      passingScore,
+      instructions,
+      questionsPerStudent,
+      shuffleQuestions,
+      shuffleOptions,
+    } = req.body;
+
+    // ── Validate randomization config ─────────────────────────────────────────
+    if (questionsPerStudent && questions && questionsPerStudent > questions.length) {
+      return res.status(400).json({
+        success: false,
+        message: `questionsPerStudent (${questionsPerStudent}) cannot exceed the master pool size (${questions.length} questions).`,
+      });
+    }
 
     if (mongoose.connection.readyState !== 1 || courseId.startsWith('demo')) {
       const newQuiz = {
@@ -31,6 +77,9 @@ router.post('/', async (req, res) => {
         timeLimitSeconds,
         passingScore,
         instructions: instructions || "",
+        questionsPerStudent: questionsPerStudent || null,
+        shuffleQuestions: shuffleQuestions || false,
+        shuffleOptions: shuffleOptions || false,
         createdAt: new Date(),
       };
       
@@ -62,6 +111,9 @@ router.post('/', async (req, res) => {
       duration: timeLimitSeconds || 1800,
       passingScore,
       instructions: instructions || "",
+      questionsPerStudent: questionsPerStudent || null,
+      shuffleQuestions: shuffleQuestions || false,
+      shuffleOptions: shuffleOptions || false,
     });
 
     // Also push a module for this quiz
@@ -101,7 +153,7 @@ router.get('/', async (req, res) => {
 });
 
 // @route   GET /api/quiz/:quizId
-// @desc    Fetch a single quiz by ID (checks assignment for real DB)
+// @desc    Fetch a single quiz by ID — generates/restores frozen attempt paper for students
 // @access  Protected
 router.get('/:quizId', protect, async (req, res) => {
   try {
@@ -129,8 +181,9 @@ router.get('/:quizId', protect, async (req, res) => {
     }
 
     // === ASSIGNMENT CHECK (real DB only) ===
+    let assignment = null;
     if (mongoose.Types.ObjectId.isValid(quizId) && req.user.role === 'student') {
-      let assignment = await Assignment.findOne({ userId, quizId });
+      assignment = await Assignment.findOne({ userId, quizId });
 
       if (!assignment) {
         // Check batch assignment
@@ -163,7 +216,7 @@ router.get('/:quizId', protect, async (req, res) => {
             $setOnInsert: { assignedAt: batchAssigned.createdAt },
             $set: { 
               status: 'IN_PROGRESS', 
-              startedAt: assignment?.startedAt || new Date() 
+              startedAt: new Date()
             } 
           },
           { upsert: true, new: true }
@@ -194,19 +247,32 @@ router.get('/:quizId', protect, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    // Strip correct answers before sending to student
-    const cleanQuestions = quiz.questions.map(q => ({
-      _id: q._id,
-      question: q.question,
-      options: q.options,
-      imageUrl: q.imageUrl || ''
-    }));
+    // === GENERATE OR RESTORE FROZEN ATTEMPT PAPER ===
+    let questions;
+    if (assignment) {
+      // Student path: use frozen snapshot (generate if first time, restore on refresh)
+      try {
+        assignment = await ensureAttemptPaper(assignment, quiz);
+        questions = buildQuestionsFromSnapshot(assignment.attemptPaper);
+      } catch (paperErr) {
+        console.error('[PaperGenerator Error]', paperErr.message);
+        return res.status(500).json({ success: false, message: paperErr.message });
+      }
+    } else {
+      // Admin/non-student path: return full master pool (no shuffle)
+      questions = quiz.questions.map(q => ({
+        _id: q._id,
+        question: q.question,
+        options: q.options,
+        imageUrl: q.imageUrl || ''
+      }));
+    }
 
     res.json({
       quizId: quiz._id,
       title: quiz.title,
       duration: quiz.duration,
-      questions: cleanQuestions,
+      questions,
       instructions: quiz.instructions || "",
       startTime: Date.now()
     });
@@ -247,8 +313,8 @@ router.post('/parse-excel', upload.single('file'), async (req, res) => {
   }
 });
 
-// @route   GET /api/quiz/single/:quizId (Legacy support - used by AssessmentPage)
-// @desc    Alias for GET /api/quiz/:quizId with assignment check
+// @route   GET /api/quiz/single/:quizId (Primary route used by AssessmentPage)
+// @desc    Fetch quiz for student — generates/restores frozen attempt paper
 // @access  Protected
 router.get('/single/:quizId', protect, async (req, res) => {
   try {
@@ -276,8 +342,9 @@ router.get('/single/:quizId', protect, async (req, res) => {
     }
 
     // === ASSIGNMENT CHECK for students (real DB) ===
+    let assignment = null;
     if (mongoose.Types.ObjectId.isValid(quizId) && req.user.role === 'student') {
-      let assignment = await Assignment.findOne({ userId, quizId });
+      assignment = await Assignment.findOne({ userId, quizId });
 
       if (!assignment) {
         // Check batch assignment
@@ -303,14 +370,14 @@ router.get('/single/:quizId', protect, async (req, res) => {
           return res.status(403).json({ success: false, message: 'The schedule for this quiz has expired' });
         }
 
-        // AUTO-CREATE ASSIGNMENT RECORD TO TRACK START TIME
+        // AUTO-CREATE ASSIGNMENT RECORD AND GENERATE PAPER
         assignment = await Assignment.findOneAndUpdate(
           { userId, quizId },
           { 
             $setOnInsert: { assignedAt: batchAssigned.createdAt },
             $set: { 
               status: 'IN_PROGRESS', 
-              startedAt: assignment?.startedAt || new Date() 
+              startedAt: new Date()
             } 
           },
           { upsert: true, new: true }
@@ -338,7 +405,31 @@ router.get('/single/:quizId', protect, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Quiz not found' });
     }
 
-    // Strip correct answers — students never see them
+    // === GENERATE OR RESTORE FROZEN ATTEMPT PAPER ===
+    let questions;
+    let isRandomized = false;
+
+    if (assignment) {
+      // Student path: frozen snapshot (generate first time, restore on refresh/reconnect)
+      try {
+        assignment = await ensureAttemptPaper(assignment, quiz);
+        questions = buildQuestionsFromSnapshot(assignment.attemptPaper);
+        isRandomized = !!(quiz.questionsPerStudent || quiz.shuffleQuestions || quiz.shuffleOptions);
+      } catch (paperErr) {
+        console.error('[PaperGenerator Error]', paperErr.message);
+        return res.status(500).json({ success: false, message: paperErr.message });
+      }
+    } else {
+      // Admin path: return full master pool, no shuffle
+      questions = quiz.questions.map(q => ({
+        _id: q._id,
+        question: q.question,
+        options: q.options,
+        imageUrl: q.imageUrl || '',
+      }));
+    }
+
+    // Build clean quiz object — correctAnswer is NEVER sent to student
     const cleanQuiz = {
       _id: quiz._id,
       title: quiz.title,
@@ -346,12 +437,10 @@ router.get('/single/:quizId', protect, async (req, res) => {
       timeLimitSeconds: quiz.duration,
       passingScore: quiz.passingScore,
       instructions: quiz.instructions || "",
-      questions: quiz.questions.map(q => ({
-        _id: q._id,
-        question: q.question,
-        options: q.options,
-        imageUrl: q.imageUrl || '',
-      })),
+      isRandomized,
+      questionsDelivered: questions.length,
+      totalPoolSize: quiz.questions.length,
+      questions,
     };
 
     res.json({ success: true, quiz: cleanQuiz });

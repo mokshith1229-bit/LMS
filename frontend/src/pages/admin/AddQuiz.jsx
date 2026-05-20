@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Upload, FileText, AlignLeft, Image, X, Loader } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, AlignLeft, Image, X, Loader, Shuffle, Users, ToggleLeft, ToggleRight, Info, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 
 const emptyQuestion = () => ({
   question: '',
@@ -44,9 +44,38 @@ function parseTextBlock(raw) {
   return results;
 }
 
+// ── Toggle Switch Component ──────────────────────────────────────────────────
+function ToggleSwitch({ checked, onChange, id, label, description }) {
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 16px', borderRadius: 10,
+        background: checked ? 'rgba(99,102,241,0.06)' : '#fafafa',
+        border: `1.5px solid ${checked ? '#818cf8' : '#e2e8f0'}`,
+        cursor: 'pointer', transition: 'all 0.2s',
+      }}
+      onClick={() => onChange(!checked)}
+    >
+      <div style={{ flex: 1 }}>
+        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#1e293b', marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: '0.77rem', color: '#64748b' }}>{description}</div>
+      </div>
+      <div style={{ marginLeft: 16, flexShrink: 0 }}>
+        {checked
+          ? <ToggleRight size={32} color="#6366f1" />
+          : <ToggleLeft size={32} color="#cbd5e1" />}
+      </div>
+    </div>
+  );
+}
+
 export default function AddQuiz() {
   const [courses, setCourses] = useState([]);
-  const [form, setForm] = useState({ courseId: '', title: 'MINDS', timeLimitMinutes: 30, passingScore: 60, instructions: '' });
+  const [form, setForm] = useState({
+    courseId: '', title: 'MINDS', timeLimitMinutes: 30, passingScore: 60, instructions: '',
+    questionsPerStudent: '', shuffleQuestions: false, shuffleOptions: false,
+  });
   const [questions, setQuestions] = useState([emptyQuestion()]);
   const [loading, setLoading] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
@@ -54,9 +83,17 @@ export default function AddQuiz() {
   const [pasteText, setPasteText] = useState('');
   const [excelParsing, setExcelParsing] = useState(false);
   const [uploadingImg, setUploadingImg] = useState({}); // { [qIdx]: true }
+  const [isRandomizationOpen, setIsRandomizationOpen] = useState(false);
   const excelRef = useRef(null);
   const imgRefs = useRef({});
   const navigate = useNavigate();
+
+  const poolSize = questions.filter(q => q.question.trim()).length || questions.length;
+  const qps = parseInt(form.questionsPerStudent) || 0;
+  const qpsError = qps > 0 && qps > poolSize
+    ? `Cannot exceed pool size (${poolSize} questions)`
+    : null;
+  const isRandomized = form.shuffleQuestions || form.shuffleOptions || (qps > 0 && qps < poolSize);
 
   useEffect(() => { api.get('/courses').then(({ data }) => setCourses(data.courses)); }, []);
 
@@ -117,12 +154,16 @@ export default function AddQuiz() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validation
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q.question.trim()) { toast.error(`Question ${i+1} text is required`); return; }
       if (q.options.some(o => !o.trim())) { toast.error(`All options of question ${i+1} must be filled`); return; }
     }
     if (!form.courseId || !form.title) { toast.error('Please select a course and add a title'); return; }
+    if (qpsError) { toast.error(qpsError); return; }
+
     setLoading(true);
     try {
       await api.post('/quiz', { 
@@ -131,11 +172,14 @@ export default function AddQuiz() {
         questions, 
         timeLimitSeconds: Number(form.timeLimitMinutes) * 60, 
         passingScore: Number(form.passingScore),
-        instructions: form.instructions 
+        instructions: form.instructions,
+        questionsPerStudent: qps > 0 ? qps : null,
+        shuffleQuestions: form.shuffleQuestions,
+        shuffleOptions: form.shuffleOptions,
       });
-      toast.success('Quiz created successfully!');
+      toast.success('Assessment created successfully!');
       navigate('/admin');
-    } catch (err) { toast.error(err.response?.data?.message || 'Failed to create quiz'); }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to create assessment'); }
     finally { setLoading(false); }
   };
 
@@ -158,10 +202,10 @@ export default function AddQuiz() {
             <ArrowLeft size={18} /> Back to Dashboard
           </button>
           <h1>Create Assessment</h1>
-          <p>Configure quiz settings and add questions.</p>
+          <p>Configure quiz settings, randomization engine, and add questions.</p>
         </div>
 
-        {/* ── Bulk Import Panel ───────────────────────────────────────────── */}
+        {/* ── Bulk Import Panel ─────────────────────────────────────────────── */}
         <div className="card" style={{ maxWidth: 780, marginBottom: 24, border: isBulkOpen ? '2px solid #f59e0b' : '1px dashed var(--border)', background: isBulkOpen ? '#fffbeb' : '#fff', transition: 'all 0.2s' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: isBulkOpen ? 16 : 0 }}>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
@@ -290,6 +334,163 @@ Correct Answer: C`}
             </div>
           </div>
 
+          {/* ── Randomization Engine ─────────────────────────────────────────── */}
+          <div className="card" style={{
+            maxWidth: 780, marginBottom: 24,
+            border: isRandomizationOpen ? '2px solid #6366f1' : '1px solid #e2e8f0',
+            background: isRandomizationOpen ? 'linear-gradient(135deg, #fafaff 0%, #f0f0ff 100%)' : '#fff',
+            transition: 'all 0.25s',
+          }}>
+            {/* Header */}
+            <div
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}
+              onClick={() => setIsRandomizationOpen(o => !o)}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isRandomized ? '#6366f1' : '#f1f5f9',
+                }}>
+                  <Shuffle size={18} color={isRandomized ? '#fff' : '#64748b'} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: '#1e293b' }}>
+                      Randomization Engine
+                    </h2>
+                    {isRandomized && (
+                      <span style={{
+                        background: '#6366f1', color: '#fff', fontSize: '0.65rem',
+                        fontWeight: 800, padding: '2px 8px', borderRadius: 20, letterSpacing: '0.5px'
+                      }}>
+                        ACTIVE
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>
+                    Configure anti-cheating paper randomization for this assessment
+                  </p>
+                </div>
+              </div>
+              <div style={{ color: '#64748b' }}>
+                {isRandomizationOpen ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              </div>
+            </div>
+
+            {/* Pool counter badge — always visible */}
+            <div style={{ marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0',
+                borderRadius: 20, padding: '4px 12px', fontSize: '0.78rem', fontWeight: 700,
+              }}>
+                <Users size={13} /> Master Pool: {questions.length} question{questions.length !== 1 ? 's' : ''}
+              </span>
+              {qps > 0 && (
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: qpsError ? '#fff1f2' : '#eff6ff',
+                  color: qpsError ? '#b91c1c' : '#1d4ed8',
+                  border: `1px solid ${qpsError ? '#fecaca' : '#bfdbfe'}`,
+                  borderRadius: 20, padding: '4px 12px', fontSize: '0.78rem', fontWeight: 700,
+                }}>
+                  {qpsError ? <AlertCircle size={13} /> : <Shuffle size={13} />}
+                  {qpsError ? qpsError : `Each student receives: ${qps} questions`}
+                </span>
+              )}
+            </div>
+
+            {/* Expanded config */}
+            {isRandomizationOpen && (
+              <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #e2e8f0' }}>
+
+                {/* Info box */}
+                <div style={{
+                  background: 'rgba(99,102,241,0.06)', border: '1px solid #c7d2fe',
+                  borderRadius: 10, padding: '12px 16px', marginBottom: 20,
+                  display: 'flex', gap: 10, alignItems: 'flex-start',
+                }}>
+                  <Info size={16} color="#6366f1" style={{ marginTop: 1, flexShrink: 0 }} />
+                  <div style={{ fontSize: '0.8rem', color: '#4338ca', lineHeight: 1.5 }}>
+                    <strong>How it works:</strong> When a student opens this exam, the system generates a unique frozen paper —
+                    randomly selecting questions from your pool, shuffling their order and option order (if enabled).
+                    The paper is saved permanently so <strong>refresh or reconnect always restores the same paper</strong>.
+                    Analytics, PDFs, and scores all use the frozen snapshot, never the master pool directly.
+                  </div>
+                </div>
+
+                {/* Questions Per Student */}
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Users size={14} color="#6366f1" />
+                    Questions Per Student
+                    <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: '0.78rem' }}>(leave blank to deliver all {questions.length})</span>
+                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <input
+                      id="quiz-qps"
+                      className="form-input"
+                      type="number"
+                      min={1}
+                      max={questions.length}
+                      value={form.questionsPerStudent}
+                      onChange={e => setForm({ ...form, questionsPerStudent: e.target.value })}
+                      placeholder={`Max ${questions.length} (pool size)`}
+                      style={{
+                        maxWidth: 220,
+                        borderColor: qpsError ? '#f87171' : undefined,
+                        boxShadow: qpsError ? '0 0 0 3px rgba(239,68,68,0.15)' : undefined,
+                      }}
+                    />
+                    {qps > 0 && !qpsError && (
+                      <div style={{ fontSize: '0.82rem', color: '#6366f1', fontWeight: 600 }}>
+                        {Math.round((qps / questions.length) * 100)}% of pool selected per student
+                      </div>
+                    )}
+                  </div>
+                  {qpsError && (
+                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, color: '#dc2626', fontSize: '0.8rem', fontWeight: 600 }}>
+                      <AlertCircle size={14} /> {qpsError}
+                    </div>
+                  )}
+                </div>
+
+                {/* Toggle switches */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <ToggleSwitch
+                    checked={form.shuffleQuestions}
+                    onChange={v => setForm({ ...form, shuffleQuestions: v })}
+                    label="Shuffle Question Order"
+                    description="Randomize the sequence of questions shown to each student — every student sees a different order"
+                  />
+                  <ToggleSwitch
+                    checked={form.shuffleOptions}
+                    onChange={v => setForm({ ...form, shuffleOptions: v })}
+                    label="Shuffle Option Order"
+                    description="Randomize A/B/C/D option positions for each MCQ — prevents answer-pattern copying"
+                  />
+                </div>
+
+                {/* Preview summary */}
+                <div style={{
+                  marginTop: 16, padding: '12px 16px', borderRadius: 10,
+                  background: isRandomized ? '#f0fdf4' : '#f8fafc',
+                  border: `1px solid ${isRandomized ? '#bbf7d0' : '#e2e8f0'}`,
+                }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: isRandomized ? '#15803d' : '#64748b', marginBottom: 6 }}>
+                    {isRandomized ? '✅ Randomization Active — Summary' : '⚪ No Randomization — Standard delivery'}
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 16, fontSize: '0.78rem', color: isRandomized ? '#166534' : '#94a3b8', lineHeight: 1.8 }}>
+                    <li>Pool size: <strong>{questions.length} questions</strong></li>
+                    <li>Delivered per student: <strong>{qps > 0 ? `${qps} (randomly selected)` : `All ${questions.length}`}</strong></li>
+                    <li>Question order: <strong>{form.shuffleQuestions ? 'Shuffled per student' : 'Fixed'}</strong></li>
+                    <li>Option order: <strong>{form.shuffleOptions ? 'Shuffled per student' : 'Fixed'}</strong></li>
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Questions */}
           {questions.map((q, qi) => (
             <div key={qi} className="card" style={{ maxWidth: 780, marginBottom: 16, border: '1px solid var(--border)' }}>
@@ -372,7 +573,7 @@ Correct Answer: C`}
             <button type="button" className="btn btn-secondary" onClick={() => setQuestions(prev => [...prev, emptyQuestion()])}>
               + Add Another Question
             </button>
-            <button id="quiz-submit" type="submit" className="btn btn-primary" style={{ background: 'var(--accent-secondary)' }} disabled={loading}>
+            <button id="quiz-submit" type="submit" className="btn btn-primary" style={{ background: 'var(--accent-secondary)' }} disabled={loading || !!qpsError}>
               {loading ? 'Saving…' : 'Save Assessment Data'}
             </button>
           </div>

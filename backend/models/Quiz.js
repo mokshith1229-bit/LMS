@@ -22,6 +22,8 @@ const questionSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  // Future: difficulty tagging support (not active yet)
+  // difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' },
 });
 
 const quizSchema = new mongoose.Schema(
@@ -39,6 +41,7 @@ const quizSchema = new mongoose.Schema(
       type: Number,
       default: 1800, // seconds
     },
+    // Master question pool — all uploaded questions
     questions: [questionSchema],
     passingScore: {
       type: Number,
@@ -48,6 +51,27 @@ const quizSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+
+    // ── Dynamic Assessment Engine Config ──────────────────────────────────────
+    // How many questions each student receives (null = all questions, backward compat)
+    questionsPerStudent: {
+      type: Number,
+      default: null,
+    },
+    // Randomize the ORDER in which selected questions are displayed
+    shuffleQuestions: {
+      type: Boolean,
+      default: false,
+    },
+    // Randomize the ORDER of options (A/B/C/D) for each MCQ
+    shuffleOptions: {
+      type: Boolean,
+      default: false,
+    },
+    // Future hooks (not active):
+    // difficultyMode: { type: String, enum: ['uniform', 'balanced'], default: 'uniform' },
+    // sections: [sectionSchema],
+    // ─────────────────────────────────────────────────────────────────────────
   },
   { timestamps: true }
 );
