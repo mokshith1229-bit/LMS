@@ -249,24 +249,22 @@ export default function PresenterConsole() {
   }, [pollTimerActive]);
 
   // ── Auto-hide toolbar ───────────────────────────────────────────────────────
-  const resetHideTimer = useCallback(() => {
+  const handleToolbarHover = useCallback(() => {
     setToolbarVisible(true);
     clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setToolbarVisible(false), 3500);
+  }, []);
+
+  const handleToolbarLeave = useCallback(() => {
+    clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setToolbarVisible(false), 1200);
   }, []);
 
   useEffect(() => {
-    resetHideTimer();
-    window.addEventListener('mousemove', resetHideTimer);
-    window.addEventListener('mousedown', resetHideTimer);
-    window.addEventListener('keydown', resetHideTimer);
-    return () => {
-      clearTimeout(hideTimer.current);
-      window.removeEventListener('mousemove', resetHideTimer);
-      window.removeEventListener('mousedown', resetHideTimer);
-      window.removeEventListener('keydown', resetHideTimer);
-    };
-  }, [resetHideTimer]);
+    // Initial show: hide after 3.5s
+    setToolbarVisible(true);
+    hideTimer.current = setTimeout(() => setToolbarVisible(false), 3500);
+    return () => clearTimeout(hideTimer.current);
+  }, []);
 
   // ── Fullscreen listener + focus restore ────────────────────────────────────
   useEffect(() => {
@@ -471,10 +469,29 @@ export default function PresenterConsole() {
       style={{ position: 'fixed', inset: 0, background: '#f8fafc', color: '#1e293b', overflow: 'hidden', fontFamily: "'Outfit', 'Inter', sans-serif", userSelect: 'none', outline: 'none' }}
     >
 
+      {/* Top Hover Trigger Zone (invisible area at the top to slide down the header when hovered) */}
+      <div
+        onMouseEnter={handleToolbarHover}
+        onMouseMove={handleToolbarHover}
+        onMouseLeave={handleToolbarLeave}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '40px',
+          zIndex: 199,
+          background: 'transparent'
+        }}
+      />
+
       {/* ─── TOP TOOLBAR ─────────────────────────────────────────── */}
       <motion.div
         animate={{ y: toolbarVisible ? 0 : -80, opacity: toolbarVisible ? 1 : 0 }}
         transition={{ duration: 0.25 }}
+        onMouseEnter={handleToolbarHover}
+        onMouseMove={handleToolbarHover}
+        onMouseLeave={handleToolbarLeave}
         style={{
           position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200,
           background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)',

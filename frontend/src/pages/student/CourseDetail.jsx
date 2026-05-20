@@ -154,21 +154,26 @@ export default function CourseDetail() {
                         <p style={{ color: 'var(--text-muted)' }}>{activeModule.quizId?.title || 'Course Final Evaluation'}</p>
                       </div>
 
-                      {submission ? (
-                        <div className="card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                          <CheckCircle size={48} color="var(--success)" style={{ margin: '0 auto 16px' }} />
-                          <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--success)', marginBottom: 4 }}>Submission Received</h4>
-                          <p style={{ fontWeight: 600, marginBottom: 20 }}>
-                            Score: {submission.score}/{submission.total} ({submission.percentage}%)
-                          </p>
-                          <button
-                            className="btn btn-primary"
-                            onClick={() => navigate(`/student/result/${submission._id}`, { state: { submission } })}
-                          >
-                            Review Results
-                          </button>
-                        </div>
-                      ) : (
+                      {submission ? (() => {
+                        const tier = getPerformanceTier(submission.percentage);
+                        return (
+                          <div className="card" style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '32px 24px', borderRadius: '12px' }}>
+                            <CheckCircle size={48} color="var(--success)" style={{ margin: '0 auto 16px' }} />
+                            <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--success)', marginBottom: 12 }}>
+                              {tier.title}
+                            </h4>
+                            <p style={{ color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 24, fontSize: '0.95rem', maxWidth: '440px', margin: '0 auto 24px' }}>
+                              {tier.message}
+                            </p>
+                            <button
+                              className="btn btn-primary"
+                              onClick={() => navigate(`/student/result/${submission.quizId || id}`, { state: { submission } })}
+                            >
+                              Review Results
+                            </button>
+                          </div>
+                        );
+                      })() : (
                         <div>
                           <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', marginBottom: 32, lineHeight: 1.6 }}>
                             This assessment will evaluate your understanding of the course modules. 
@@ -237,4 +242,46 @@ function modIcon(type, size = 16) {
   if (type === 'video') return <Play size={size} />;
   if (type === 'ppt') return <File size={size} />;
   return <ClipboardList size={size} />;
+}
+
+// Evaluates student performance internally and returns the dynamic performance title and message
+function getPerformanceTier(percentage) {
+  if (percentage === undefined || percentage === null) {
+    return {
+      title: "Assessment Submitted",
+      message: "Your responses have been recorded and evaluated."
+    };
+  }
+  const pct = Number(percentage);
+  if (pct >= 90) {
+    return {
+      title: "Exceptional Performance",
+      message: "You demonstrated outstanding subject understanding and assessment performance."
+    };
+  } else if (pct >= 80) {
+    return {
+      title: "Exceptional Performance",
+      message: "You demonstrated outstanding subject understanding and assessment performance"
+    };
+  } else if (pct >= 70) {
+    return {
+      title: "Excellent Performance",
+      message: "You achieved a strong assessment result with consistent performance."
+    };
+  } else if (pct >= 60) {
+    return {
+      title: "Great Effort",
+      message: "You completed the assessment successfully with a fair performance level."
+    };
+  } else if (pct >= 50) {
+    return {
+      title: "Assessment Completed",
+      message: "Your assessment has been evaluated successfully."
+    };
+  } else {
+    return {
+      title: "Assessment Submitted",
+      message: "Your responses have been recorded and evaluated."
+    };
+  }
 }

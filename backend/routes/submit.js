@@ -195,7 +195,7 @@ router.post('/', protect, async (req, res) => {
     }
 
     // === ROLE-BASED RESPONSE ===
-    // Students only see status, not scores
+    // Students only see status, not scores (percentage included for internal frontend evaluation only)
     const isStudent = req.user.role === 'student';
 
     if (isStudent) {
@@ -208,6 +208,7 @@ router.post('/', protect, async (req, res) => {
           quizId,
           status: finalStatus,
           submittedAt: savedSubmission.submittedAt,
+          percentage: savedSubmission.percentage,
         },
       });
     }
@@ -221,6 +222,41 @@ router.post('/', protect, async (req, res) => {
 
   } catch (error) {
     console.error('Submission Error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   GET /api/submit/my/:courseId
+// @desc    Get student's submission for a course's quiz (used internally to evaluate performance tier)
+// @access  Protected
+router.get('/my/:courseId', protect, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user._id;
+
+    const isDbConnected = mongoose.connection.readyState === 1;
+    const isDemo = courseId.toString().startsWith('demo') || courseId.toString().startsWith('mock');
+
+    if (!isDbConnected || isDemo) {
+      // Find the quiz for this course in the demoStore
+      const quiz = demoStore.quizzes.find(q => q.courseId === courseId);
+      if (!quiz) {
+        return res.json({ success: true, submission: null });
+      }
+      return res.json({ success: true, submission: null });
+    }
+
+    // Find the quiz belonging to the course
+    const quiz = await Quiz.findOne({ courseId });
+    if (!quiz) {
+      return res.json({ success: true, submission: null });
+    }
+
+    // Find student's submission for this quiz
+    const submission = await Submission.findOne({ userId, quizId: quiz._id }).lean();
+    res.json({ success: true, submission });
+  } catch (error) {
+    console.error('Get submission error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

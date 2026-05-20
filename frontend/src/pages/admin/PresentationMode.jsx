@@ -337,25 +337,25 @@ export default function PresentationMode() {
   }, [pollTimerActive]);
 
   // ── Auto-hide toolbar ───────────────────────────────────────────────────────
-  const resetHideTimer = useCallback(() => {
-    if (!isController) return; // TV view never shows toolbar anyway
+  const handleToolbarHover = useCallback(() => {
+    if (!isController) return;
     setToolbarVisible(true);
     clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => setToolbarVisible(false), 3500);
+  }, [isController]);
+
+  const handleToolbarLeave = useCallback(() => {
+    if (!isController) return;
+    clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => setToolbarVisible(false), 1200);
   }, [isController]);
 
   useEffect(() => {
-    resetHideTimer();
-    window.addEventListener('mousemove', resetHideTimer);
-    window.addEventListener('mousedown', resetHideTimer);
-    window.addEventListener('keydown', resetHideTimer);
-    return () => {
-      clearTimeout(hideTimer.current);
-      window.removeEventListener('mousemove', resetHideTimer);
-      window.removeEventListener('mousedown', resetHideTimer);
-      window.removeEventListener('keydown', resetHideTimer);
-    };
-  }, [resetHideTimer]);
+    if (!isController) return;
+    // Initial show: hide after 3.5s
+    setToolbarVisible(true);
+    hideTimer.current = setTimeout(() => setToolbarVisible(false), 3500);
+    return () => clearTimeout(hideTimer.current);
+  }, [isController]);
 
   // ── Fullscreen listener + focus restore ────────────────────────────────────
   useEffect(() => {
@@ -529,18 +529,39 @@ export default function PresentationMode() {
       style={{ position: 'fixed', inset: 0, background: '#f8fafc', color: '#1e293b', overflow: 'hidden', fontFamily: "'Outfit', 'Inter', sans-serif", userSelect: 'none', outline: 'none' }}
     >
 
+      {/* Top Hover Trigger Zone (invisible area at the top to slide down the header when hovered) */}
+      {isController && (
+        <div
+          onMouseEnter={handleToolbarHover}
+          onMouseMove={handleToolbarHover}
+          onMouseLeave={handleToolbarLeave}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '40px',
+            zIndex: 199,
+            background: 'transparent'
+          }}
+        />
+      )}
+
       {/* ─── TOP TOOLBAR ─────────────────────────────────────────── */}
       {isController && (
         <motion.div
           animate={{ y: toolbarVisible ? 0 : -80, opacity: toolbarVisible ? 1 : 0 }}
-        transition={{ duration: 0.25 }}
-        style={{
-          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)',
-          padding: '0 1.5rem', height: 64,
-          display: 'flex', alignItems: 'center', gap: '0.5rem'
-        }}
-      >
+          transition={{ duration: 0.25 }}
+          onMouseEnter={handleToolbarHover}
+          onMouseMove={handleToolbarHover}
+          onMouseLeave={handleToolbarLeave}
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200,
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%)',
+            padding: '0 1.5rem', height: 64,
+            display: 'flex', alignItems: 'center', gap: '0.5rem'
+          }}
+        >
         {/* Title */}
         <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#e2e8f0', marginRight: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '30%' }}>
           {presentation.title}
