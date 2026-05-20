@@ -124,18 +124,7 @@ export default function AdminSubmissionView() {
               <span className="report-badge">Official Assessment Record</span>
               <h1>Detailed Report</h1>
               <p className="quiz-name">{data.quizTitle}</p>
-              {/* Randomization metadata */}
-              {data.isRandomized && (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  background: 'rgba(255,255,255,0.15)', borderRadius: 20,
-                  padding: '6px 14px', marginTop: 12, fontSize: '0.78rem', fontWeight: 700,
-                  border: '1px solid rgba(255,255,255,0.3)', color: '#fff'
-                }}>
-                  <Shuffle size={13} />
-                  Randomized Paper · {data.questionsDelivered} of {data.totalPoolSize} questions delivered
-                </div>
-              )}
+
             </div>
           </header>
 
@@ -170,15 +159,7 @@ export default function AdminSubmissionView() {
           <section className="answers-section">
             <h3 className="section-title">
               <BarChart3 size={20} /> Question-by-Question Analysis
-              {data.isRandomized && (
-                <span style={{
-                  marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6,
-                  background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe',
-                  borderRadius: 20, padding: '3px 10px', fontSize: '0.72rem', fontWeight: 700
-                }}>
-                  <Layers size={12} /> Student-specific paper
-                </span>
-              )}
+
             </h3>
             
             <div className="questions-list">
