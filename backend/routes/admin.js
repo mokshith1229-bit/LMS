@@ -1308,11 +1308,15 @@ router.post('/batch-pdf/:quizId', async (req, res) => {
                .fillAndStroke();
 
             if (isCorrectChoice) {
-              // Highlight only the text of the correct option in green
+              // Highlight only the text of the correct option in green (keeping the letter prefix neutral)
+              doc.fontSize(8)
+                 .fillColor(hex(CUBE_DARK))
+                 .font('Helvetica')
+                 .text(`${letter}.  `, MARGIN + 28, y + 1, { continued: true });
               doc.fontSize(8)
                  .fillColor(hex(PASS_GREEN))
                  .font('Helvetica-Bold')
-                 .text(`${letter}.  ${opt}`, MARGIN + 28, y + 1, { width: CONTENT_W - 46 });
+                 .text(opt);
             } else {
               // Normal plain neutral text
               doc.fontSize(8)
