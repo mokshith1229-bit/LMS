@@ -1294,18 +1294,87 @@ router.post('/batch-pdf/:quizId', async (req, res) => {
           const isUserChoice = userIdxInt === oi;
           const isCorrectChoice = correctIdxInt === oi;
 
-          let optBg = null;
-          let optColor = CUBE_DARK;
+          const boxX = MARGIN + 22;
+          const boxW = CONTENT_W - 22;
+          const boxH = 14;
+          const boxY = y - 1;
 
-          if (isCorrectChoice) { optBg = PASS_GREEN; optColor = WHITE; }
-          else if (isUserChoice && !isCorrectChoice) { optBg = FAIL_RED; optColor = WHITE; }
+          if (isCorrectChoice) {
+            // Correct Option: subtle neutral light green fill, 3px solid green left border, fine green outline
+            doc.rect(boxX, boxY, boxW, boxH)
+               .fillColor(hex('#f4fbf7')) // premium light green tint
+               .fill();
+            
+            doc.rect(boxX, boxY, 3, boxH)
+               .fillColor(hex(PASS_GREEN))
+               .fill();
 
-          if (optBg) {
-            doc.rect(MARGIN + 22, y - 1, CONTENT_W - 22, 15).fill(hex(optBg));
+            doc.rect(boxX, boxY, boxW, boxH)
+               .lineWidth(0.5)
+               .strokeColor(hex('#bbf7d0'))
+               .stroke();
+
+            // Vector green tick icon on the right edge
+            const indicatorX = PAGE_W - MARGIN - 18;
+            doc.lineWidth(1.2)
+               .strokeColor(hex(PASS_GREEN))
+               .moveTo(indicatorX, y + 5)
+               .lineTo(indicatorX + 2.5, y + 7.5)
+               .lineTo(indicatorX + 7, y + 3)
+               .stroke();
+
+            // Bold dark professional charcoal text
+            doc.fontSize(8)
+               .fillColor(hex('#1c3d23'))
+               .font('Helvetica-Bold')
+               .text(`${letter}.  ${opt}`, MARGIN + 28, y + 1, { width: CONTENT_W - 46 });
+          }
+          else if (isUserChoice && !isCorrectChoice) {
+            // Incorrect Selected Option: subtle neutral light red fill, 3px solid red left border, fine red outline
+            doc.rect(boxX, boxY, boxW, boxH)
+               .fillColor(hex('#fdf4f4')) // premium light red tint
+               .fill();
+
+            doc.rect(boxX, boxY, 3, boxH)
+               .fillColor(hex(FAIL_RED))
+               .fill();
+
+            doc.rect(boxX, boxY, boxW, boxH)
+               .lineWidth(0.5)
+               .strokeColor(hex('#fca5a5'))
+               .stroke();
+
+            // Vector red cross icon on the right edge
+            const indicatorX = PAGE_W - MARGIN - 18;
+            doc.lineWidth(1.2)
+               .strokeColor(hex(FAIL_RED))
+               .moveTo(indicatorX + 1, y + 3.5)
+               .lineTo(indicatorX + 6, y + 8.5)
+               .moveTo(indicatorX + 6, y + 3.5)
+               .lineTo(indicatorX + 1, y + 8.5)
+               .stroke();
+
+            // Bold dark professional charcoal text
+            doc.fontSize(8)
+               .fillColor(hex('#5c1e1e'))
+               .font('Helvetica-Bold')
+               .text(`${letter}.  ${opt}`, MARGIN + 28, y + 1, { width: CONTENT_W - 46 });
+          }
+          else {
+            // Normal Option: plain neutral text, white background, minimal light border
+            doc.rect(boxX, boxY, boxW, boxH)
+               .lineWidth(0.5)
+               .fillColor(hex(WHITE))
+               .strokeColor(hex('#e2e8f0'))
+               .fillAndStroke();
+
+            // Plain neutral text
+            doc.fontSize(8)
+               .fillColor(hex(CUBE_DARK))
+               .font('Helvetica')
+               .text(`${letter}.  ${opt}`, MARGIN + 28, y + 1, { width: CONTENT_W - 46 });
           }
 
-          doc.fontSize(8).fillColor(hex(optColor)).font(isUserChoice || isCorrectChoice ? 'Helvetica-Bold' : 'Helvetica')
-             .text(`${letter}.  ${opt}`, MARGIN + 26, y + 1, { width: CONTENT_W - 26 });
           y += 16;
         });
 
