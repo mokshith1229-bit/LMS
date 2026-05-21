@@ -1299,7 +1299,10 @@ router.post('/batch-pdf/:quizId', async (req, res) => {
           const boxH = 14;
           const boxY = y - 1;
 
-          if (isCorrectChoice) {
+          // Only highlight option cards if the question was answered incorrectly (wrongly answered)
+          const shouldHighlight = !item.isCorrect && !item.isUnattempted;
+
+          if (shouldHighlight && isCorrectChoice) {
             // Correct Option: subtle neutral light green fill, 3px solid green left border, fine green outline
             doc.rect(boxX, boxY, boxW, boxH)
                .fillColor(hex('#f4fbf7')) // premium light green tint
@@ -1329,7 +1332,7 @@ router.post('/batch-pdf/:quizId', async (req, res) => {
                .font('Helvetica-Bold')
                .text(`${letter}.  ${opt}`, MARGIN + 28, y + 1, { width: CONTENT_W - 46 });
           }
-          else if (isUserChoice && !isCorrectChoice) {
+          else if (shouldHighlight && isUserChoice) {
             // Incorrect Selected Option: subtle neutral light red fill, 3px solid red left border, fine red outline
             doc.rect(boxX, boxY, boxW, boxH)
                .fillColor(hex('#fdf4f4')) // premium light red tint
