@@ -674,30 +674,21 @@ export default function PresentationMode() {
                         </h1>
                       </div>
 
-                      {/* Join Instructions */}
-                      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                        <p style={{ fontSize: '1.6rem', color: '#475569', margin: 0, fontWeight: 600 }}>
-                          Go to <strong style={{ color: '#0f172a', fontWeight: 800 }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</strong>
-                        </p>
-                        <p style={{ fontSize: '2rem', color: '#0f172a', margin: '0.4rem 0 0 0', fontWeight: 800 }}>
-                          Enter Code: <span style={{ color: '#8DC63F', letterSpacing: '2px', fontSize: '2.5rem', fontWeight: 900 }}>{activePoll.code}</span>
-                        </p>
-                      </div>
-
                       {/* Center Massive QR Code */}
                       <div style={{
                         background: '#ffffff',
-                        padding: '2rem',
+                        padding: '2.5rem',
                         borderRadius: '24px',
                         boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0,0,0,0.05)',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginBottom: '1.5rem'
+                        marginBottom: '2rem',
+                        marginTop: '1rem'
                       }}>
                         <QRCodeSVG value={pollUrl} size={420} />
-                        <span style={{ marginTop: '1.2rem', fontSize: '1rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                        <span style={{ marginTop: '1.2rem', fontSize: '1.1rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px' }}>
                           Scan code to join
                         </span>
                       </div>
