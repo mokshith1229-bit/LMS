@@ -620,58 +620,118 @@ export default function PresentationMode() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 1.02 }}
                     transition={{ duration: 0.4 }}
-                    style={{ width: '100%', height: '100%', background: '#0b0f19', display: 'flex', flexDirection: 'column', padding: '3rem 4rem 2rem 4rem', position: 'relative', color: '#fff', fontFamily: "'Outfit', sans-serif" }}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      background: '#ffffff',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '2rem 4rem',
+                      position: 'relative',
+                      color: '#0f172a',
+                      fontFamily: "'Outfit', sans-serif",
+                      overflow: 'hidden'
+                    }}
                   >
-                    {/* Top Assessment Title */}
-                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                      <span style={{ textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem', color: '#8DC63F', fontWeight: 700 }}>
-                        LMS Live Assessment
-                      </span>
-                      <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 900, color: '#f8fafc', marginTop: '0.5rem', lineHeight: 1.2 }}>
-                        {presentation.title || "Interactive Assessment"}
-                      </h1>
-                    </div>
+                    {/* Minds Logo Watermark Background */}
+                    <div style={{
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      width: '65%',
+                      height: '65%',
+                      backgroundImage: "url('/assets/minds_logo.png')",
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'center',
+                      backgroundSize: 'contain',
+                      opacity: 0.04, // Subtle elegant opacity matching student side
+                      pointerEvents: 'none',
+                      zIndex: 0
+                    }} />
 
-                    {/* Middle grid */}
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '5rem', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+                    {/* Content Wrapper to sit above the watermark */}
+                    <div style={{
+                      zIndex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '100%',
+                      height: '100%',
+                      maxWidth: '1200px'
+                    }}>
                       
-                      {/* Left: QR Code Side */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '2.5rem', borderRadius: '24px', backdropFilter: 'blur(10px)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
-                        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '16px', animation: 'qrPulse 3s infinite ease-in-out', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                          <QRCodeSVG value={pollUrl} size={300} />
-                        </div>
-                        <p style={{ marginTop: '1.5rem', color: '#94a3b8', fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>
-                          Scan the QR code to join
+                      {/* Top Assessment Title */}
+                      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                        <span style={{ textTransform: 'uppercase', letterSpacing: '3px', fontSize: '1rem', color: '#8DC63F', fontWeight: 800 }}>
+                          LMS Live Assessment
+                        </span>
+                        <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 900, color: '#0f172a', marginTop: '0.4rem', marginBottom: 0, lineHeight: 1.2 }}>
+                          {presentation.title || "Interactive Assessment"}
+                        </h1>
+                      </div>
+
+                      {/* Join Instructions */}
+                      <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                        <p style={{ fontSize: '1.6rem', color: '#475569', margin: 0, fontWeight: 600 }}>
+                          Go to <strong style={{ color: '#0f172a', fontWeight: 800 }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</strong>
+                        </p>
+                        <p style={{ fontSize: '2rem', color: '#0f172a', margin: '0.4rem 0 0 0', fontWeight: 800 }}>
+                          Enter Code: <span style={{ color: '#8DC63F', letterSpacing: '2px', fontSize: '2.5rem', fontWeight: 900 }}>{activePoll.code}</span>
                         </p>
                       </div>
 
-                      {/* Right: Joining Instructions & Stats */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2rem', flex: 1, maxWidth: '500px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          <span style={{ color: '#94a3b8', fontSize: '1.1rem', fontWeight: 600 }}>HOW TO JOIN</span>
-                          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>
-                            1. Go to <span style={{ color: '#8DC63F' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</span>
-                          </h2>
-                          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>
-                            2. Enter Code: <span style={{ color: '#8DC63F', fontSize: '2.5rem', letterSpacing: '1px' }}>{activePoll.code}</span>
-                          </h2>
-                        </div>
+                      {/* Center Massive QR Code */}
+                      <div style={{
+                        background: '#ffffff',
+                        padding: '2rem',
+                        borderRadius: '24px',
+                        boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0,0,0,0.05)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: '1.5rem'
+                      }}>
+                        <QRCodeSVG value={pollUrl} size={420} />
+                        <span style={{ marginTop: '1.2rem', fontSize: '1rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                          Scan code to join
+                        </span>
+                      </div>
 
-                        <div style={{ width: '100%', height: '1px', background: 'rgba(255, 255, 255, 0.1)' }} />
-
-                        {/* Live Participant count */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '70px', height: '70px', borderRadius: '50%', background: 'rgba(141,198,63,0.15)', border: '2px solid rgba(141,198,63,0.4)', color: '#8DC63F', fontSize: '2rem', fontWeight: 800 }}>
-                            {presentationResponseCount}
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc' }}>
-                              Completed Quiz
-                            </div>
-                            <div style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
-                              Waiting for mentor to start
-                            </div>
-                          </div>
+                      {/* Bottom row: Student Completed Stats */}
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '1rem',
+                        marginTop: '0.5rem'
+                      }}>
+                        {/* Completed Stats Badge */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '50px',
+                          padding: '0.6rem 2rem',
+                          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)'
+                        }}>
+                          <span style={{
+                            display: 'inline-block',
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            background: '#8DC63F',
+                            boxShadow: '0 0 8px #8DC63F'
+                          }} />
+                          <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#334155' }}>
+                            {presentationResponseCount} Students Completed
+                          </span>
                         </div>
                       </div>
 
