@@ -666,10 +666,7 @@ export default function PresentationMode() {
                       
                       {/* Top Assessment Title */}
                       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-                        <span style={{ textTransform: 'uppercase', letterSpacing: '3px', fontSize: '1rem', color: '#8DC63F', fontWeight: 800 }}>
-                          LMS Live Assessment
-                        </span>
-                        <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 900, color: '#0f172a', marginTop: '0.4rem', marginBottom: 0, lineHeight: 1.2 }}>
+                        <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 900, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>
                           {presentation.title || "Interactive Assessment"}
                         </h1>
                       </div>
@@ -699,7 +696,7 @@ export default function PresentationMode() {
                         flexDirection: 'column',
                         alignItems: 'center',
                         gap: '1rem',
-                        marginTop: '0.5rem'
+                        marginTop: '1.5rem'
                       }}>
                         {/* Completed Stats Badge */}
                         <div style={{
@@ -708,20 +705,47 @@ export default function PresentationMode() {
                           gap: '0.75rem',
                           background: '#f8fafc',
                           border: '1px solid #e2e8f0',
-                          borderRadius: '50px',
-                          padding: '0.6rem 2rem',
-                          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.03)'
+                          borderRadius: '12px',
+                          padding: '0.6rem 1.5rem',
+                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                          fontFamily: "'Outfit', sans-serif"
                         }}>
+                          {/* Premium Pulsing Live Dot */}
                           <span style={{
-                            display: 'inline-block',
-                            width: '10px',
+                            position: 'relative',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                             height: '10px',
-                            borderRadius: '50%',
-                            background: '#8DC63F',
-                            boxShadow: '0 0 8px #8DC63F'
-                          }} />
-                          <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#334155' }}>
-                            {presentationResponseCount} Students Completed
+                            width: '10px',
+                          }}>
+                            <motion.span
+                              animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
+                              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                              style={{
+                                position: 'absolute',
+                                width: '100%',
+                                height: '100%',
+                                borderRadius: '50%',
+                                backgroundColor: '#8DC63F',
+                              }}
+                            />
+                            <span style={{
+                              position: 'relative',
+                              width: '10px',
+                              height: '10px',
+                              borderRadius: '50%',
+                              backgroundColor: '#8DC63F',
+                              zIndex: 2,
+                            }} />
+                          </span>
+                          <span style={{
+                            fontSize: '1.05rem',
+                            fontWeight: 600,
+                            color: '#475569',
+                            letterSpacing: '0.5px'
+                          }}>
+                            Completed: <strong style={{ color: '#0f172a', fontWeight: 850, fontSize: '1.25rem', marginLeft: '0.15rem' }}>{presentationResponseCount}</strong>
                           </span>
                         </div>
                       </div>
