@@ -108,22 +108,42 @@ export default function ResultPage() {
               style={{ height: '4px', background: accent, marginBottom: '32px' }}
             />
 
-            <motion.h1
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.8 }}
-              style={{
-                fontSize: '3.5rem', // text-5xl
-                fontWeight: 900,
-                color: '#1a2f23',
-                lineHeight: 1.1,
-                marginBottom: '24px',
-                letterSpacing: '-1px',
-                whiteSpace: 'pre-line'
-              }}
-            >
-              {heading}
-            </motion.h1>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <motion.h1
+                initial={{ opacity: 0, scale: 1.12, y: 20, filter: 'blur(8px)' }}
+                animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                transition={{ delay: 0.5, duration: 1, ease: 'easeOut' }}
+                style={{
+                  fontSize: '3.5rem', // text-5xl
+                  fontWeight: 900,
+                  color: '#1a2f23',
+                  lineHeight: 1.1,
+                  marginBottom: '24px',
+                  letterSpacing: '-1px',
+                  whiteSpace: 'pre-line',
+                  position: 'relative'
+                }}
+              >
+                {heading}
+                
+                {/* Optional Premium Touch: Subtle Shine Sweep */}
+                <motion.div
+                  initial={{ left: '-100%' }}
+                  animate={{ left: '200%' }}
+                  transition={{ delay: 1, duration: 1.5, ease: 'easeInOut' }}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    bottom: 0,
+                    width: '50%',
+                    background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+                    transform: 'skewX(-20deg)',
+                    pointerEvents: 'none',
+                    mixBlendMode: 'overlay'
+                  }}
+                />
+              </motion.h1>
+            </div>
 
             <motion.p
               initial={{ opacity: 0 }}
