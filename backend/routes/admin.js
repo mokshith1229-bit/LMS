@@ -1300,12 +1300,7 @@ router.post('/batch-pdf/:quizId', async (req, res) => {
           const boxY = y - 1;
 
           if (item.isCorrect) {
-            // Correct Question: normal clean box card for all options
-            doc.rect(boxX, boxY, boxW, boxH)
-               .lineWidth(0.5)
-               .fillColor(hex(WHITE))
-               .strokeColor(hex('#e2e8f0'))
-               .fillAndStroke();
+            // Correct Question: No surrounding box card or border for options, just clean text layout
 
             if (isCorrectChoice) {
               // Highlight only the text of the correct option in green (keeping the letter prefix neutral)
