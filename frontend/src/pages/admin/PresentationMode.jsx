@@ -835,7 +835,7 @@ export default function PresentationMode() {
                         </span>
                       </div>
 
-                      {/* Bottom row: Student Completed Stats & Mentor Button */}
+                      {/* Bottom row: Student Completed Stats */}
                       <div style={{
                         display: 'flex',
                         flexDirection: 'column',
@@ -866,37 +866,6 @@ export default function PresentationMode() {
                             {presentationResponseCount} Students Completed
                           </span>
                         </div>
-
-                        {/* Mentor Start Quiz Button */}
-                        {isController && (
-                          <button
-                            onClick={goNext}
-                            style={{
-                              background: '#8DC63F',
-                              color: '#fff',
-                              border: 'none',
-                              borderRadius: '12px',
-                              padding: '0.8rem 2.5rem',
-                              fontSize: '1.2rem',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              boxShadow: '0 8px 20px rgba(141, 198, 63, 0.3)',
-                              transition: 'all 0.2s',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '0.75rem',
-                              marginTop: '0.5rem'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = '#9bd44e'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = '#8DC63F'; e.currentTarget.style.transform = 'none'; }}
-                          >
-                            <span>Start Quiz</span>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <line x1="5" y1="12" x2="19" y2="12"></line>
-                              <polyline points="12 5 19 12 12 19"></polyline>
-                            </svg>
-                          </button>
-                        )}
                       </div>
 
                     </div>
