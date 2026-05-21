@@ -47,8 +47,8 @@ io.on('connection', (socket) => {
   });
 
   socket.on('slide_change', (data) => {
-    // data should contain { presentationId, slideIndex }
-    io.to(`presentation_${data.presentationId}`).emit('slide_changed', data.slideIndex);
+    // data contains { presentationId, slideIndex, questionIndex, mode, summaryPage }
+    io.to(`presentation_${data.presentationId}`).emit('slide_changed', data);
   });
 
   socket.on('disconnect', () => {

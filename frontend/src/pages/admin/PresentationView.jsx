@@ -110,7 +110,7 @@ export default function PresentationMode() {
 
     // Tear down previous socket
     if (socketRef) { socketRef.disconnect(); setSocketRef(null); }
-    setChartData([]); setMode('slide'); setActivePoll(null); setCurrentQuestionIndex(0); setPollActivating(false);
+    setChartData([]); setMode('slide'); setActivePoll(null); setCurrentQuestionIndex(-1); setPollActivating(false);
     setPollTimerActive(false); setTimeLeft(0); setPollRevealed(false); setPresentationResponseCount(0);
 
     const linked = presentation.slidePolls?.find(sp => sp.slideIndex === currentSlide);
@@ -129,9 +129,11 @@ export default function PresentationMode() {
         setActivePoll({ ...poll, isExpired: data.isExpired });
         setChartData(data.results || []);
         
-        // Initialize presentationResponseCount from existing data.results if available
-        if (data.results && data.results[currentQuestionIndex]) {
-          const count = data.results[currentQuestionIndex].reduce((a, c) => a + c.value, 0);
+        // Initialize presentationResponseCount from existing responses or data.results
+        if (poll.responses) {
+          setPresentationResponseCount(poll.responses.length);
+        } else if (data.results && data.results[0]) {
+          const count = data.results[0].reduce((a, c) => a + c.value, 0);
           setPresentationResponseCount(count);
         }
 
@@ -330,7 +332,7 @@ export default function PresentationMode() {
       setMode('poll');
       return;
     }
-    if (mode === 'poll' && activePoll && currentQuestionIndex > 0) {
+    if (mode === 'poll' && activePoll && currentQuestionIndex > -1) {
       setCurrentQuestionIndex(i => i - 1); return;
     }
     setSlideDir(-1);
@@ -609,6 +611,75 @@ export default function PresentationMode() {
               const formatCountdown = (s) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
               const isTimerMode = activePoll?.revealMode === 'delayed' && pollTimerActive && !pollRevealed;
               const liveResponseCount = isTimerMode ? presentationResponseCount : totalResponses;
+              
+              if (currentQuestionIndex === -1) {
+                return (
+                  <motion.div
+                    key={`poll-${activePoll?.code}-onboarding`}
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 1.02 }}
+                    transition={{ duration: 0.4 }}
+                    style={{ width: '100%', height: '100%', background: '#0b0f19', display: 'flex', flexDirection: 'column', padding: '3rem 4rem 2rem 4rem', position: 'relative', color: '#fff', fontFamily: "'Outfit', sans-serif" }}
+                  >
+                    {/* Top Assessment Title */}
+                    <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                      <span style={{ textTransform: 'uppercase', letterSpacing: '2px', fontSize: '0.9rem', color: '#8DC63F', fontWeight: 700 }}>
+                        LMS Live Assessment
+                      </span>
+                      <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)', fontWeight: 900, color: '#f8fafc', marginTop: '0.5rem', lineHeight: 1.2 }}>
+                        {presentation.title || "Interactive Assessment"}
+                      </h1>
+                    </div>
+
+                    {/* Middle grid */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '5rem', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
+                      
+                      {/* Left: QR Code Side */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', padding: '2.5rem', borderRadius: '24px', backdropFilter: 'blur(10px)', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
+                        <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '16px', animation: 'qrPulse 3s infinite ease-in-out', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                          <QRCodeSVG value={pollUrl} size={300} />
+                        </div>
+                        <p style={{ marginTop: '1.5rem', color: '#94a3b8', fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>
+                          Scan the QR code to join
+                        </p>
+                      </div>
+
+                      {/* Right: Joining Instructions & Stats */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2rem', flex: 1, maxWidth: '500px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <span style={{ color: '#94a3b8', fontSize: '1.1rem', fontWeight: 600 }}>HOW TO JOIN</span>
+                          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>
+                            1. Go to <span style={{ color: '#8DC63F' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</span>
+                          </h2>
+                          <h2 style={{ fontSize: '2rem', fontWeight: 800, color: '#f1f5f9', margin: 0 }}>
+                            2. Enter Code: <span style={{ color: '#8DC63F', fontSize: '2.5rem', letterSpacing: '1px' }}>{activePoll.code}</span>
+                          </h2>
+                        </div>
+
+                        <div style={{ width: '100%', height: '1px', background: 'rgba(255, 255, 255, 0.1)' }} />
+
+                        {/* Live Participant count */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '70px', height: '70px', borderRadius: '50%', background: 'rgba(141,198,63,0.15)', border: '2px solid rgba(141,198,63,0.4)', color: '#8DC63F', fontSize: '2rem', fontWeight: 800 }}>
+                            {presentationResponseCount}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc' }}>
+                              Completed Quiz
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: '#94a3b8' }}>
+                              Waiting for mentor to start
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                  </motion.div>
+                );
+              }
+
               return (
                 <motion.div
                   key={`poll-${activePoll?.code}-q${currentQuestionIndex}`}
@@ -940,6 +1011,10 @@ export default function PresentationMode() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap');
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @keyframes qrPulse {
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 10px rgba(141, 198, 63, 0.15)); }
+          50% { transform: scale(1.02); filter: drop-shadow(0 10px 25px rgba(141, 198, 63, 0.35)); }
+        }
         @keyframes ticker {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }

@@ -115,11 +115,14 @@ router.post('/respond', async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
+      // Always emit response count to admin
+      io.to(`poll_admin_${poll.code}`).emit('poll_response_count', {
+        count: poll.responses.length
+      });
+
       if (poll.revealMode === 'delayed') {
         // Delayed mode: only emit response count to admin — hide charts
-        io.to(`poll_admin_${poll.code}`).emit('poll_response_count', {
-          count: poll.responses.length
-        });
+        // Already handled above
       } else {
         // Live mode: calculate and emit full chart data to admin (existing behavior)
         const results = poll.questions.map((q, qIndex) => {
