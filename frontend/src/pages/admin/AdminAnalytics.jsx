@@ -501,7 +501,7 @@ export default function AdminAnalytics() {
                         const isWeak = q.accuracy < 50;
                         const isPerfect = q.accuracy === 100;
                         const optionData = Object.keys(q.optionCounts)
-                          .filter(k => k !== 'NA' && q.optionCounts[k] > 0)
+                          .filter(k => k !== 'NA' && q.options && q.options[k.charCodeAt(0) - 65] !== undefined)
                           .map((key, i) => {
                             const optIndex = key.charCodeAt(0) - 65;
                             const optText = q.options && q.options[optIndex] ? q.options[optIndex] : `Option ${key}`;
