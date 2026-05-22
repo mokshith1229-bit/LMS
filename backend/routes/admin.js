@@ -1585,4 +1585,66 @@ router.patch('/questions/bulk-category', async (req, res) => {
   }
 });
 
+// @route   PUT /api/admin/questions/:questionId
+// @desc    Edit a question's text, options, correctAnswer, section, and imageUrl
+// @access  Admin only
+router.put('/questions/:questionId', async (req, res) => {
+  try {
+    const { questionId } = req.params;
+    const { question, options, correctAnswer, section, imageUrl } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(questionId)) {
+      return res.status(400).json({ success: false, message: 'Invalid questionId' });
+    }
+
+    if (!question || !options || !Array.isArray(options) || options.length < 2) {
+      return res.status(400).json({ success: false, message: 'Question text and at least 2 options are required' });
+    }
+
+    if (correctAnswer === undefined || correctAnswer === null || correctAnswer === '') {
+      return res.status(400).json({ success: false, message: 'Correct answer is required' });
+    }
+
+    // Find the quiz containing this question
+    const quiz = await Quiz.findOne({ 'questions._id': questionId });
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: 'Question or associated Quiz not found' });
+    }
+
+    // Find the specific question subdocument
+    const subdoc = quiz.questions.id(questionId);
+    if (!subdoc) {
+      return res.status(404).json({ success: false, message: 'Question subdocument not found' });
+    }
+
+    // Update fields
+    subdoc.question = question;
+    subdoc.options = options;
+    subdoc.correctAnswer = String(correctAnswer);
+    subdoc.section = section || '';
+    subdoc.imageUrl = imageUrl || '';
+
+    await quiz.save();
+
+    res.json({
+      success: true,
+      message: 'Question updated successfully',
+      question: {
+        _id: subdoc._id,
+        quizId: quiz._id,
+        quizTitle: quiz.title,
+        courseTitle: quiz.courseId ? quiz.courseId.title : 'No Course',
+        question: subdoc.question,
+        options: subdoc.options,
+        correctAnswer: subdoc.correctAnswer,
+        section: subdoc.section,
+        imageUrl: subdoc.imageUrl
+      }
+    });
+  } catch (error) {
+    console.error('[Edit Question Error]', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

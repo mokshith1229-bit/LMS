@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { Database, Search, Loader, CheckSquare, Square, Save, Filter, BookOpen } from 'lucide-react';
+import { Database, Search, Loader, CheckSquare, Square, Save, Filter, BookOpen, Pencil, Plus, Trash, Image, X } from 'lucide-react';
 
 export default function QuestionBank() {
   const [questions, setQuestions] = useState([]);
@@ -14,6 +14,12 @@ export default function QuestionBank() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkCategory, setBulkCategory] = useState('');
   const [updating, setUpdating] = useState(false);
+
+  // Single Question Editing state
+  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [editForm, setEditForm] = useState({ question: '', options: [], correctAnswer: 0, imageUrl: '', section: '' });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -59,8 +65,6 @@ export default function QuestionBank() {
       return;
     }
     
-    // We allow clearing the category by passing an empty string
-    
     setUpdating(true);
     try {
       const response = await api.patch('/admin/questions/bulk-category', {
@@ -84,6 +88,100 @@ export default function QuestionBank() {
       toast.error(err.response?.data?.message || 'Failed to update categories');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleOpenEdit = (e, q) => {
+    e.stopPropagation(); // Stop row click trigger selection
+    setEditingQuestion(q._id);
+    setEditForm({
+      question: q.question || '',
+      options: [...(q.options || ['', ''])],
+      correctAnswer: parseInt(q.correctAnswer) || 0,
+      imageUrl: q.imageUrl || '',
+      section: q.section || ''
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditingQuestion(null);
+    setEditForm({ question: '', options: [], correctAnswer: 0, imageUrl: '', section: '' });
+  };
+
+  const handleModalImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select a valid image file');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const fd = new FormData();
+      fd.append('image', file);
+      const { data } = await api.post('/import/upload-image', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setEditForm(prev => ({ ...prev, imageUrl: data.url }));
+      toast.success('Image uploaded successfully');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleSaveQuestion = async () => {
+    if (!editForm.question.trim()) {
+      toast.error('Question text is required');
+      return;
+    }
+
+    const filteredOptions = editForm.options.map(o => o.trim()).filter(Boolean);
+    if (filteredOptions.length < 2) {
+      toast.error('At least 2 options are required');
+      return;
+    }
+
+    if (editForm.options.some(o => !o.trim())) {
+      toast.error('All options must have text. Remove unused options.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const response = await api.put(`/admin/questions/${editingQuestion}`, {
+        question: editForm.question,
+        options: editForm.options,
+        correctAnswer: editForm.correctAnswer,
+        section: editForm.section,
+        imageUrl: editForm.imageUrl
+      });
+
+      toast.success('Question updated successfully');
+
+      // Optimistically update the UI
+      setQuestions(prev => prev.map(q => {
+        if (q._id === editingQuestion) {
+          return {
+            ...q,
+            question: editForm.question,
+            options: editForm.options,
+            correctAnswer: String(editForm.correctAnswer),
+            section: editForm.section,
+            imageUrl: editForm.imageUrl
+          };
+        }
+        return q;
+      }));
+
+      closeEditModal();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save question');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -190,7 +288,8 @@ export default function QuestionBank() {
                     <th style={{ padding: '12px 16px', fontWeight: 600, width: '45%' }}>Question</th>
                     <th style={{ padding: '12px 16px', fontWeight: 600, width: '20%' }}>Category / Section</th>
                     <th style={{ padding: '12px 16px', fontWeight: 600, width: '20%' }}>Source Quiz</th>
-                    <th style={{ padding: '12px 16px', fontWeight: 600, width: '15%' }}>Options</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600, width: '10%' }}>Options</th>
+                    <th style={{ padding: '12px 16px', fontWeight: 600, width: '10%' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -253,6 +352,29 @@ export default function QuestionBank() {
                         <td style={{ padding: '12px 16px', color: '#64748b', fontSize: '0.85rem' }}>
                           {q.options?.length || 0} options
                         </td>
+                        <td style={{ padding: '12px 16px' }} onClick={e => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => handleOpenEdit(e, q)}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                              background: '#f1f5f9',
+                              border: 'none',
+                              borderRadius: 6,
+                              padding: '6px 12px',
+                              color: '#334155',
+                              fontWeight: 600,
+                              fontSize: '0.8rem',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              outline: 'none'
+                            }}
+                            className="edit-btn"
+                          >
+                            <Pencil size={12} /> Edit
+                          </button>
+                        </td>
                       </tr>
                     );
                   })}
@@ -261,6 +383,302 @@ export default function QuestionBank() {
             </div>
           )}
         </div>
+
+        {/* Modal Overlay */}
+        {editingQuestion && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: 20
+          }}>
+            <div className="slide-down" style={{
+              background: 'white',
+              borderRadius: 16,
+              width: '100%',
+              maxWidth: 700,
+              maxHeight: '90vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              {/* Modal Header */}
+              <div style={{
+                padding: '20px 24px',
+                borderBottom: '1px solid #f1f5f9',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#0f172a', margin: 0 }}>Edit Question</h3>
+                <button 
+                  onClick={closeEditModal} 
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+                  title="Close"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {/* Question Text */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600, color: '#344054', marginBottom: 6, display: 'block' }}>Question Text *</label>
+                  <textarea
+                    className="form-input"
+                    rows={3}
+                    value={editForm.question}
+                    onChange={e => setEditForm(prev => ({ ...prev, question: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', fontSize: '0.95rem', minHeight: 80, resize: 'vertical', margin: 0 }}
+                    placeholder="Enter question text..."
+                  />
+                </div>
+
+                {/* Options */}
+                <div>
+                  <label className="form-label" style={{ fontWeight: 600, color: '#344054', marginBottom: 8, display: 'block' }}>
+                    Options — click letter badge to mark correct
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {editForm.options.map((opt, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <button
+                          type="button"
+                          onClick={() => setEditForm(prev => ({ ...prev, correctAnswer: idx }))}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            border: '1px solid',
+                            borderColor: editForm.correctAnswer === idx ? '#10b981' : '#e2e8f0',
+                            background: editForm.correctAnswer === idx ? '#ecfdf5' : '#f8fafc',
+                            color: editForm.correctAnswer === idx ? '#047857' : '#475569',
+                            fontWeight: 600,
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                            minWidth: 85,
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {editForm.correctAnswer === idx ? 'CORRECT' : `Option ${String.fromCharCode(65 + idx)}`}
+                        </button>
+                        <input
+                          className="form-input"
+                          value={opt}
+                          onChange={e => {
+                            const newOpts = [...editForm.options];
+                            newOpts[idx] = e.target.value;
+                            setEditForm(prev => ({ ...prev, options: newOpts }));
+                          }}
+                          style={{ flex: 1, margin: 0, padding: '8px 12px' }}
+                          placeholder={`Option ${String.fromCharCode(65 + idx)} text`}
+                        />
+                        {editForm.options.length > 2 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditForm(prev => {
+                                const newOpts = prev.options.filter((_, i) => i !== idx);
+                                let newCorrect = prev.correctAnswer;
+                                if (prev.correctAnswer === idx) {
+                                  newCorrect = 0;
+                                } else if (prev.correctAnswer > idx) {
+                                  newCorrect = prev.correctAnswer - 1;
+                                }
+                                return { ...prev, options: newOpts, correctAnswer: newCorrect };
+                              });
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              padding: 6
+                            }}
+                            title="Delete option"
+                          >
+                            <Trash size={16} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {editForm.options.length < 6 && (
+                    <button
+                      type="button"
+                      onClick={() => setEditForm(prev => ({ ...prev, options: [...prev.options, ''] }))}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        marginTop: 10,
+                        background: 'none',
+                        border: 'none',
+                        color: '#3b82f6',
+                        fontWeight: 600,
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        padding: '4px 8px'
+                      }}
+                    >
+                      <Plus size={14} /> Add Option
+                    </button>
+                  )}
+                </div>
+
+                {/* Category & Section */}
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 600, color: '#344054', marginBottom: 6, display: 'block' }}>Category / Section</label>
+                  <select
+                    className="form-input"
+                    value={editForm.section}
+                    onChange={e => setEditForm(prev => ({ ...prev, section: e.target.value }))}
+                    style={{ width: '100%', padding: '10px 12px', fontSize: '0.95rem', margin: 0 }}
+                  >
+                    <option value="">-- None --</option>
+                    {categories.map(c => (
+                      <option key={c._id} value={c.name}>{c.name}</option>
+                    ))}
+                    {editForm.section && !categories.some(c => c.name === editForm.section) && (
+                      <option value={editForm.section}>{editForm.section} (Custom)</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* Image Attachment */}
+                <div style={{
+                  padding: 16,
+                  background: '#f8fafc',
+                  borderRadius: 8,
+                  border: '1px dashed #cbd5e1'
+                }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: 8, display: 'block' }}>
+                    🖼️ Question Image <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span>
+                  </label>
+
+                  {editForm.imageUrl && (
+                    <div style={{ position: 'relative', display: 'inline-block', marginBottom: 12 }}>
+                      <img
+                        src={editForm.imageUrl}
+                        alt="Preview"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: 140,
+                          borderRadius: 6,
+                          border: '1px solid #e2e8f0',
+                          display: 'block'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditForm(prev => ({ ...prev, imageUrl: '' }))}
+                        style={{
+                          position: 'absolute',
+                          top: -8,
+                          right: -8,
+                          background: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: 22,
+                          height: 22,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                        title="Remove image"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      id="modal-image-upload"
+                      style={{ display: 'none' }}
+                      onChange={handleModalImageUpload}
+                      disabled={uploadingImage}
+                    />
+                    <label
+                      htmlFor="modal-image-upload"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: uploadingImage ? '#cbd5e1' : '#7c3aed',
+                        color: 'white',
+                        padding: '8px 16px',
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        fontSize: '0.85rem',
+                        cursor: uploadingImage ? 'wait' : 'pointer',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      {uploadingImage ? (
+                        <><Loader size={14} className="spin" /> Uploading...</>
+                      ) : (
+                        <><Image size={14} /> Upload from System</>
+                      )}
+                    </label>
+
+                    <input
+                      className="form-input"
+                      value={editForm.imageUrl}
+                      onChange={e => setEditForm(prev => ({ ...prev, imageUrl: e.target.value }))}
+                      placeholder="...or paste image URL directly"
+                      style={{ flex: 1, margin: 0, padding: '8px 12px', fontSize: '0.85rem' }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{
+                padding: '16px 24px',
+                borderTop: '1px solid #f1f5f9',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 12,
+                background: '#f8fafc',
+                borderBottomLeftRadius: 16,
+                borderBottomRightRadius: 16
+              }}>
+                <button
+                  onClick={closeEditModal}
+                  className="btn btn-secondary"
+                  style={{ padding: '8px 18px', fontSize: '0.9rem', margin: 0 }}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveQuestion}
+                  className="btn btn-primary"
+                  style={{ padding: '8px 18px', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: 6, margin: 0 }}
+                  disabled={saving || uploadingImage}
+                >
+                  {saving ? <Loader size={16} className="spin" /> : <Save size={16} />}
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <style>{`
           .spin { animation: spin 1s linear infinite; }
