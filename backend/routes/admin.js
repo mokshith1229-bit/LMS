@@ -497,6 +497,7 @@ router.get('/submissions/:id', async (req, res) => {
           isCorrect,
           isUnattempted: userAnswer === null || userAnswer === '' || userAnswer === undefined,
           displayedOrder: item.displayedOrder,
+          section: item.section || '',
         };
       });
     } else {
@@ -515,10 +516,37 @@ router.get('/submissions/:id', async (req, res) => {
           correctOptionText: q.options[parseInt(correctAnswer)] || correctAnswer,
           userAnswer,
           isCorrect,
-          isUnattempted: userAnswer === null
+          isUnattempted: userAnswer === null,
+          section: q.section || '',
         };
       });
     }
+
+    // Calculate individual student's section performance
+    const indSectionStats = {};
+    const passingScoreVal = quiz.passingScore || 60;
+
+    answers.forEach(ans => {
+      const secName = (ans.section || 'General').trim();
+      if (!indSectionStats[secName]) {
+        indSectionStats[secName] = { correct: 0, total: 0 };
+      }
+      indSectionStats[secName].total++;
+      if (ans.isCorrect) {
+        indSectionStats[secName].correct++;
+      }
+    });
+
+    const sectionPerformance = Object.entries(indSectionStats).map(([section, stats]) => {
+      const accuracy = stats.total > 0 ? Number(((stats.correct / stats.total) * 100).toFixed(2)) : 0;
+      return {
+        section,
+        correctCount: stats.correct,
+        totalCount: stats.total,
+        accuracy,
+        isWeak: accuracy < passingScoreVal
+      };
+    });
 
     res.json({
       success: true,
@@ -533,6 +561,8 @@ router.get('/submissions/:id', async (req, res) => {
       isRandomized,
       questionsDelivered: answers.length,
       totalPoolSize: quiz.questions.length,
+      passingScore: passingScoreVal,
+      sectionPerformance,
       answers,
     });
   } catch (error) {
@@ -853,6 +883,66 @@ router.get('/analytics', async (req, res) => {
       };
     });
 
+    // Calculate batch-wide section performance
+    const sectionStats = {};
+    const passingScoreVal = quiz.passingScore || 60;
+
+    submissions.forEach(sub => {
+      const userId = sub.userId?._id?.toString();
+      const attemptPaper = assignmentByUser[userId] || [];
+      const isRandomized = attemptPaper.length > 0;
+
+      if (isRandomized) {
+        attemptPaper.forEach(item => {
+          const secName = (item.section || 'General').trim();
+          if (!sectionStats[secName]) {
+            sectionStats[secName] = { correct: 0, total: 0 };
+          }
+          
+          const ansObj = sub.answers.find(a => a.questionId === item.questionId);
+          const userAnswer = ansObj ? ansObj.selectedOption : null;
+          const correctIdxInt = parseInt(item.correctAnswer);
+          const userIdxInt = (userAnswer !== null && userAnswer !== undefined && userAnswer !== '')
+            ? parseInt(userAnswer)
+            : null;
+          const isCorrect = userIdxInt !== null && userIdxInt === correctIdxInt;
+
+          sectionStats[secName].total++;
+          if (isCorrect) {
+            sectionStats[secName].correct++;
+          }
+        });
+      } else {
+        quiz.questions.forEach(q => {
+          const secName = (q.section || 'General').trim();
+          if (!sectionStats[secName]) {
+            sectionStats[secName] = { correct: 0, total: 0 };
+          }
+
+          const userAnswerObj = sub.answers.find(a => a.questionId === q._id.toString());
+          const userAnswer = userAnswerObj ? userAnswerObj.selectedOption : null;
+          const correctAnswer = q.correctAnswer.toString().trim();
+          const isCorrect = userAnswer !== null && userAnswer.toString().trim().toUpperCase() === correctAnswer.toUpperCase();
+
+          sectionStats[secName].total++;
+          if (isCorrect) {
+            sectionStats[secName].correct++;
+          }
+        });
+      }
+    });
+
+    const sectionPerformance = Object.entries(sectionStats).map(([section, stats]) => {
+      const accuracy = stats.total > 0 ? Number(((stats.correct / stats.total) * 100).toFixed(2)) : 0;
+      return {
+        section,
+        correctCount: stats.correct,
+        totalCount: stats.total,
+        accuracy,
+        isWeak: accuracy < passingScoreVal
+      };
+    });
+
     const analyticsData = {
       totalStudents,
       attemptedStudents,
@@ -874,6 +964,8 @@ router.get('/analytics', async (req, res) => {
       isRandomized: !!(quiz.questionsPerStudent || quiz.shuffleQuestions || quiz.shuffleOptions),
       questionsPerStudent: quiz.questionsPerStudent || quiz.questions.length,
       totalPoolSize: quiz.questions.length,
+      passingScore: passingScoreVal,
+      sectionPerformance,
     };
 
     res.json({ success: true, data: analyticsData });

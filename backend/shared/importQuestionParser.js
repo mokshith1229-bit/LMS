@@ -124,6 +124,7 @@ async function parseExcelQuestions(fileBuffer, { mode = 'quiz', uploadImages = t
     const optD      = get('Option D');
     const correct   = get('Correct Answer').toUpperCase();
     const imageUrl  = get('Image URL');
+    const section   = get('Section') || get('Category');
 
     // ── Validation ──
     if (!qText) {
@@ -176,6 +177,7 @@ async function parseExcelQuestions(fileBuffer, { mode = 'quiz', uploadImages = t
         question: qText,
         options: optionsRaw,
         correctAnswer: correctIndex,
+        section: section || '',
         ...(resolvedImageUrl ? { imageUrl: resolvedImageUrl } : {}),
       });
     }

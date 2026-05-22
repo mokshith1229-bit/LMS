@@ -10,6 +10,7 @@ const emptyQuestion = () => ({
   options: ['', '', '', ''],
   correctAnswer: 0,
   imageUrl: '',
+  section: '',
 });
 
 // ── Text-paste parser (same logic as LivePoll) ──────────────────────────────
@@ -38,7 +39,7 @@ function parseTextBlock(raw) {
       return line;
     });
     if (questionText && options.length >= 2) {
-      results.push({ question: questionText, options, correctAnswer: correctIndex, imageUrl: '' });
+      results.push({ question: questionText, options, correctAnswer: correctIndex, imageUrl: '', section: '' });
     }
   }
   return results;
@@ -85,18 +86,51 @@ export default function AddQuiz() {
   const [excelParsing, setExcelParsing] = useState(false);
   const [uploadingImg, setUploadingImg] = useState({}); // { [qIdx]: true }
   const [isRandomizationOpen, setIsRandomizationOpen] = useState(false);
+  const [enableSectionDist, setEnableSectionDist] = useState(false);
+  const [sectionDistribution, setSectionDistribution] = useState([]);
+  const [categories, setCategories] = useState([]);
   const excelRef = useRef(null);
   const imgRefs = useRef({});
   const navigate = useNavigate();
 
   const poolSize = questions.filter(q => q.question.trim()).length || questions.length;
   const qps = parseInt(form.questionsPerStudent) || 0;
-  const qpsError = qps > 0 && qps > poolSize
+  const qpsError = !enableSectionDist && qps > 0 && qps > poolSize
     ? `Cannot exceed pool size (${poolSize} questions)`
     : null;
-  const isRandomized = form.shuffleQuestions || form.shuffleOptions || (qps > 0 && qps < poolSize);
+  
+  const sectionDistError = enableSectionDist
+    ? sectionDistribution.some(d => {
+        const poolSizeVal = questions.filter(q => (q.section || '').trim() === d.section).length;
+        const deliverVal = d.questionsToDeliver || 0;
+        return deliverVal <= 0 || deliverVal > poolSizeVal;
+      })
+      ? 'Each section must have a positive delivery size not exceeding its pool size.'
+      : sectionDistribution.length === 0
+      ? 'Please add sections and specify delivery sizes.'
+      : null
+    : null;
 
-  useEffect(() => { api.get('/courses').then(({ data }) => setCourses(data.courses)); }, []);
+  const isRandomized = form.shuffleQuestions || form.shuffleOptions || enableSectionDist || (qps > 0 && qps < poolSize);
+
+  useEffect(() => { 
+    api.get('/courses').then(({ data }) => setCourses(data.courses)).catch(() => {});
+    api.get('/categories').then(({ data }) => setCategories(data)).catch(() => {});
+  }, []);
+
+  // Update sectionDistribution whenever uniqueSections changes
+  useEffect(() => {
+    const uniqueSecs = Array.from(new Set(questions.map(q => (q.section || '').trim()).filter(Boolean)));
+    setSectionDistribution(prev => {
+      return uniqueSecs.map(sec => {
+        const existing = prev.find(p => p.section === sec);
+        return {
+          section: sec,
+          questionsToDeliver: existing ? existing.questionsToDeliver : 0
+        };
+      });
+    });
+  }, [questions]);
 
   // ── Text paste handler ────────────────────────────────────────────────────
   const handlePasteParse = () => {
@@ -121,6 +155,7 @@ export default function AddQuiz() {
       const mapped = (data.questions || []).map(q => ({
         question: q.question || '', options: q.options?.length >= 2 ? q.options : ['', '', '', ''],
         correctAnswer: typeof q.correctAnswer === 'number' ? q.correctAnswer : 0, imageUrl: q.imageUrl || '',
+        section: q.section || '',
       }));
       if (questions.length === 1 && !questions[0].question) setQuestions(mapped);
       else setQuestions(prev => [...prev, ...mapped]);
@@ -164,6 +199,7 @@ export default function AddQuiz() {
     }
     if (!form.courseId || !form.title) { toast.error('Please select a course and add a title'); return; }
     if (qpsError) { toast.error(qpsError); return; }
+    if (sectionDistError) { toast.error(sectionDistError); return; }
 
     setLoading(true);
     try {
@@ -174,9 +210,10 @@ export default function AddQuiz() {
         timeLimitSeconds: Number(form.timeLimitMinutes) * 60, 
         passingScore: Number(form.passingScore),
         instructions: form.instructions,
-        questionsPerStudent: qps > 0 ? qps : null,
+        questionsPerStudent: enableSectionDist ? null : (qps > 0 ? qps : null),
         shuffleQuestions: form.shuffleQuestions,
         shuffleOptions: form.shuffleOptions,
+        sectionDistribution: enableSectionDist ? sectionDistribution.filter(d => d.questionsToDeliver > 0) : [],
       });
       toast.success('Assessment created successfully!');
       navigate('/admin');
@@ -422,43 +459,52 @@ Correct Answer: C`}
                   </div>
                 </div>
 
-                {/* Questions Per Student */}
-                <div className="form-group" style={{ marginBottom: 16 }}>
-                  <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#3D3D3D' }}>
-                    <Users size={14} color="#8DC63F" />
-                    Questions Per Student
-                    <span style={{ fontWeight: 400, color: '#5b5b5b', fontSize: '0.78rem' }}>(leave blank to deliver all {questions.length})</span>
-                  </label>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <input
-                      id="quiz-qps"
-                      className="form-input"
-                      type="number"
-                      min={1}
-                      max={questions.length}
-                      value={form.questionsPerStudent}
-                      onChange={e => setForm({ ...form, questionsPerStudent: e.target.value })}
-                      placeholder={`Max ${questions.length} (pool size)`}
-                      style={{
-                        maxWidth: 220,
-                        borderRadius: 6,
-                        border: '1px solid #cbd5e1',
-                        borderColor: qpsError ? '#f87171' : undefined,
-                        boxShadow: qpsError ? '0 0 0 3px rgba(239,68,68,0.15)' : undefined,
-                      }}
-                    />
-                    {qps > 0 && !qpsError && (
-                      <div style={{ fontSize: '0.82rem', color: '#8DC63F', fontWeight: 600 }}>
-                        {Math.round((qps / questions.length) * 100)}% of pool selected per student
+                {/* Questions Per Student (Only if Section Distribution is disabled) */}
+                {!enableSectionDist ? (
+                  <div className="form-group" style={{ marginBottom: 16 }}>
+                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#3D3D3D' }}>
+                      <Users size={14} color="#8DC63F" />
+                      Questions Per Student
+                      <span style={{ fontWeight: 400, color: '#5b5b5b', fontSize: '0.78rem' }}>(leave blank to deliver all {questions.length})</span>
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <input
+                        id="quiz-qps"
+                        className="form-input"
+                        type="number"
+                        min={1}
+                        max={questions.length}
+                        value={form.questionsPerStudent}
+                        onChange={e => setForm({ ...form, questionsPerStudent: e.target.value })}
+                        placeholder={`Max ${questions.length} (pool size)`}
+                        style={{
+                          maxWidth: 220,
+                          borderRadius: 6,
+                          border: '1px solid #cbd5e1',
+                          borderColor: qpsError ? '#f87171' : undefined,
+                          boxShadow: qpsError ? '0 0 0 3px rgba(239,68,68,0.15)' : undefined,
+                        }}
+                      />
+                      {qps > 0 && !qpsError && (
+                        <div style={{ fontSize: '0.82rem', color: '#8DC63F', fontWeight: 600 }}>
+                          {Math.round((qps / questions.length) * 100)}% of pool selected per student
+                        </div>
+                      )}
+                    </div>
+                    {qpsError && (
+                      <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, color: '#dc2626', fontSize: '0.8rem', fontWeight: 600 }}>
+                        <AlertCircle size={14} /> {qpsError}
                       </div>
                     )}
                   </div>
-                  {qpsError && (
-                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, color: '#dc2626', fontSize: '0.8rem', fontWeight: 600 }}>
-                      <AlertCircle size={14} /> {qpsError}
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div style={{
+                    background: 'rgba(141, 198, 63, 0.05)', border: '1px solid rgba(141, 198, 63, 0.3)',
+                    borderRadius: 6, padding: '12px 16px', marginBottom: 16, fontSize: '0.8rem', color: '#3D3D3D'
+                  }}>
+                    ℹ️ <strong>Questions Per Student:</strong> Overridden by Section Distribution configuration (Total: {sectionDistribution.reduce((sum, d) => sum + (d.questionsToDeliver || 0), 0)} questions).
+                  </div>
+                )}
 
                 {/* Toggle switches */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -474,7 +520,99 @@ Correct Answer: C`}
                     label="Shuffle Option Order"
                     description="Randomize A/B/C/D option positions for each MCQ — prevents answer-pattern copying"
                   />
+                  <ToggleSwitch
+                    checked={enableSectionDist}
+                    onChange={setEnableSectionDist}
+                    label="Enable Section-Based Question Distribution"
+                    description="Deliver a balanced set of questions from specific categories rather than drawing globally"
+                  />
                 </div>
+
+                {/* Section Distribution Table */}
+                {enableSectionDist && (
+                  <div style={{ marginTop: 16, padding: 16, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                    <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#3D3D3D', marginBottom: 12 }}>
+                      Section Distribution Configuration
+                    </h3>
+                    
+                    {sectionDistribution.length === 0 ? (
+                      <div style={{ fontSize: '0.8rem', color: '#dc2626', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+                        <AlertCircle size={14} /> No sections found in the questions below. Please add a section/category to your questions first.
+                      </div>
+                    ) : (
+                      <div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '2px solid #e2e8f0', textAlign: 'left', color: '#475569' }}>
+                              <th style={{ padding: '8px 4px', fontWeight: 700 }}>Section / Category</th>
+                              <th style={{ padding: '8px 4px', fontWeight: 700, width: 100 }}>Pool Size</th>
+                              <th style={{ padding: '8px 4px', fontWeight: 700, width: 180 }}>Questions to Deliver</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sectionDistribution.map((dist, idx) => {
+                              const poolSizeVal = questions.filter(q => (q.section || '').trim() === dist.section).length;
+                              const deliverVal = dist.questionsToDeliver || 0;
+                              const hasError = deliverVal > poolSizeVal || deliverVal <= 0;
+
+                              return (
+                                <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                  <td style={{ padding: '10px 4px', fontWeight: 600, color: '#1e293b' }}>
+                                    {dist.section}
+                                  </td>
+                                  <td style={{ padding: '10px 4px', color: '#475569' }}>
+                                    <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                                      {poolSizeVal}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '10px 4px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={poolSizeVal}
+                                        className="form-input"
+                                        style={{
+                                          width: 80,
+                                          padding: '4px 8px',
+                                          margin: 0,
+                                          fontSize: '0.85rem',
+                                          borderColor: hasError ? '#f87171' : undefined,
+                                        }}
+                                        value={dist.questionsToDeliver || ''}
+                                        onChange={e => {
+                                          const val = parseInt(e.target.value) || 0;
+                                          setSectionDistribution(prev => {
+                                            const u = [...prev];
+                                            u[idx] = { ...u[idx], questionsToDeliver: val };
+                                            return u;
+                                          });
+                                        }}
+                                      />
+                                      {hasError && (
+                                        <span style={{ color: '#dc2626', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                          <AlertCircle size={12} /> Limit: 1-{poolSizeVal}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                        
+                        {/* Total deliveries summary */}
+                        <div style={{ marginTop: 12, padding: 8, background: '#f8fafc', borderRadius: 6, display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 700, color: '#475569' }}>
+                          <span>Total Questions Configured to Deliver:</span>
+                          <span style={{ color: '#8DC63F' }}>
+                            {sectionDistribution.reduce((sum, d) => sum + (d.questionsToDeliver || 0), 0)} questions
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Preview summary */}
                 <div style={{
@@ -487,7 +625,16 @@ Correct Answer: C`}
                   </div>
                   <ul style={{ margin: 0, paddingLeft: 16, fontSize: '0.78rem', color: isRandomized ? '#4F4F4F' : '#5b5b5b', lineHeight: 1.8 }}>
                     <li>Pool size: <strong>{questions.length} questions</strong></li>
-                    <li>Delivered per student: <strong>{qps > 0 ? `${qps} (randomly selected)` : `All ${questions.length}`}</strong></li>
+                    <li>
+                      Delivered per student:{' '}
+                      <strong>
+                        {enableSectionDist
+                          ? `${sectionDistribution.reduce((sum, d) => sum + (d.questionsToDeliver || 0), 0)} (categorized balanced)`
+                          : qps > 0
+                          ? `${qps} (randomly selected)`
+                          : `All ${questions.length}`}
+                      </strong>
+                    </li>
                     <li>Question order: <strong>{form.shuffleQuestions ? 'Shuffled per student' : 'Fixed'}</strong></li>
                     <li>Option order: <strong>{form.shuffleOptions ? 'Shuffled per student' : 'Fixed'}</strong></li>
                   </ul>
@@ -546,6 +693,30 @@ Correct Answer: C`}
                     value={q.imageUrl} onChange={e => setQ(qi, 'imageUrl', e.target.value)}
                     style={{ flex: 1, minWidth: 180, fontSize: '0.82rem' }} />
                 </div>
+              </div>
+
+              {/* Section / Category */}
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🏷️ Section / Category
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 400 }}>(Managed in Categories menu)</span>
+                </label>
+                <select
+                  id={`question-section-${qi}`}
+                  className="form-input"
+                  value={q.section || ''}
+                  onChange={e => setQ(qi, 'section', e.target.value)}
+                  style={{ fontSize: '0.88rem', cursor: 'pointer' }}
+                >
+                  <option value="">[ Select Section ▼ ]</option>
+                  {categories.map(c => (
+                    <option key={c._id} value={c.name}>{c.name}</option>
+                  ))}
+                  {/* Allow imported sections that aren't loaded yet to still show up properly */}
+                  {q.section && !categories.find(c => c.name === q.section) && (
+                    <option value={q.section}>{q.section} (New)</option>
+                  )}
+                </select>
               </div>
 
               {/* Question Text */}

@@ -9,7 +9,7 @@ import {
 import { 
   Activity, Users, Award, CheckCircle, ChevronDown, ChevronUp, ArrowLeft, 
   Clock, AlertCircle, Download, RefreshCw, Search, Filter, TrendingUp,
-  FileText, ArrowUpRight, Check, X
+  FileText, ArrowUpRight, Check, X, Layers
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './AdminAnalytics.css';
@@ -380,6 +380,102 @@ export default function AdminAnalytics() {
                   </div>
                 </div>
               </div>
+
+              {/* Section-Wise Analysis Dashboard */}
+              {analytics.sectionPerformance && analytics.sectionPerformance.length > 0 && (
+                <div className="table-panel fade-in" style={{ marginBottom: 32 }}>
+                  <div className="table-header-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <div>
+                      <h2 className="table-title">Topic-Wise Performance Breakdown</h2>
+                      <p className="table-subtitle">Cohort mastery and focus areas across individual assessment sections</p>
+                    </div>
+                  </div>
+                  <div style={{ padding: 24 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+                      {analytics.sectionPerformance.map((sec, sIdx) => {
+                        const isWeak = sec.isWeak;
+                        const accuracy = sec.accuracy;
+                        
+                        return (
+                          <div 
+                            key={sIdx} 
+                            style={{ 
+                              padding: 20, 
+                              background: '#ffffff', 
+                              border: '1px solid #e2e8f0', 
+                              borderRadius: 10,
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                              transition: 'all 0.2s',
+                              position: 'relative',
+                              overflow: 'hidden'
+                            }}
+                            onMouseOver={(e) => {
+                              e.currentTarget.style.transform = 'translateY(-2px)';
+                              e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.05)';
+                              e.currentTarget.style.borderColor = isWeak ? '#fca5a5' : '#8dc63f';
+                            }}
+                            onMouseOut={(e) => {
+                              e.currentTarget.style.transform = 'translateY(0)';
+                              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                              e.currentTarget.style.borderColor = '#e2e8f0';
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ 
+                                  width: 32, 
+                                  height: 32, 
+                                  borderRadius: 6, 
+                                  background: isWeak ? '#fef2f2' : '#f4f9f0', 
+                                  color: isWeak ? '#ef4444' : '#8DC63F', 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'center' 
+                                }}>
+                                  <Layers size={16} />
+                                </div>
+                                <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>{sec.section}</span>
+                              </div>
+                              {isWeak ? (
+                                <span className="badge-status badge-critical" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                                  <AlertCircle size={10} style={{ marginRight: 2 }} /> Focus Area
+                                </span>
+                              ) : (
+                                <span className="badge-status badge-mastered" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
+                                  <Check size={10} style={{ marginRight: 2 }} /> Proficient
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                              <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Accuracy Rate</span>
+                              <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isWeak ? '#ef4444' : '#10b981' }}>{accuracy}%</span>
+                            </div>
+                            
+                            {/* Progress bar */}
+                            <div style={{ width: '100%', height: 8, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden', marginBottom: 12 }}>
+                              <div style={{ 
+                                width: `${accuracy}%`, 
+                                height: '100%', 
+                                background: isWeak ? '#ef4444' : '#10b981', 
+                                borderRadius: 9999,
+                                transition: 'width 0.5s ease-out'
+                              }} />
+                            </div>
+                            
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
+                              <span>Total Delivered Questions:</span>
+                              <span style={{ fontWeight: 600, color: '#334155' }}>
+                                {sec.correctCount} / {sec.totalCount} ({Number(((sec.correctCount / sec.totalCount) * 100).toFixed(0))}% Correct)
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="table-panel">
                 <div className="table-header-row" style={{borderBottom: 'none'}}>

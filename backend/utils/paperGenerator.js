@@ -111,21 +111,52 @@ function generatePaper(quiz) {
     throw new Error('Quiz has no questions in the master pool.');
   }
 
-  // ── Step 1: Determine how many questions to deliver ───────────────────────
-  const n = (quiz.questionsPerStudent && quiz.questionsPerStudent > 0)
-    ? quiz.questionsPerStudent
-    : pool.length;
+  const useSectionBased = quiz.sectionDistribution && quiz.sectionDistribution.length > 0;
+  let selected = [];
 
-  if (n > pool.length) {
-    throw new Error(
-      `questionsPerStudent (${n}) exceeds master pool size (${pool.length}). ` +
-      `Please reduce questionsPerStudent or add more questions.`
-    );
+  if (useSectionBased) {
+    // Group all questions by section
+    const grouped = {};
+    pool.forEach(q => {
+      const sec = (q.section || '').trim();
+      if (!grouped[sec]) {
+        grouped[sec] = [];
+      }
+      grouped[sec].push(q);
+    });
+
+    // Select questions from each section based on the distribution config
+    for (const dist of quiz.sectionDistribution) {
+      const secName = (dist.section || '').trim();
+      const count = dist.questionsToDeliver;
+      const sectionQuestions = grouped[secName] || [];
+
+      if (count > sectionQuestions.length) {
+        throw new Error(
+          `Questions to deliver for section "${secName}" (${count}) exceeds available questions in pool (${sectionQuestions.length}).`
+        );
+      }
+
+      // Randomly select count questions from sectionQuestions
+      const selectedFromSec = selectRandom(sectionQuestions, count);
+      selected = selected.concat(selectedFromSec);
+    }
+  } else {
+    // ── Step 1: Determine how many questions to deliver ───────────────────────
+    const n = (quiz.questionsPerStudent && quiz.questionsPerStudent > 0)
+      ? quiz.questionsPerStudent
+      : pool.length;
+
+    if (n > pool.length) {
+      throw new Error(
+        `questionsPerStudent (${n}) exceeds master pool size (${pool.length}). ` +
+        `Please reduce questionsPerStudent or add more questions.`
+      );
+    }
+
+    // ── Step 2: Randomly select N unique questions from pool ──────────────────
+    selected = selectRandom(pool, n);
   }
-
-  // ── Step 2: Randomly select N unique questions from pool ──────────────────
-  // selectRandom uses partial Fisher-Yates — no duplicates by construction.
-  const selected = selectRandom(pool, n);
 
   // ── Step 3: Optionally shuffle the question ORDER ─────────────────────────
   if (quiz.shuffleQuestions) {
@@ -159,6 +190,7 @@ function generatePaper(quiz) {
       shuffledOptions,
       correctAnswer:   String(newCorrectIdx), // stored as string, consistent with existing Submission schema
       displayedOrder,
+      section:         q.section || '',
     };
   });
 

@@ -22,6 +22,10 @@ const questionSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  section: {
+    type: String,
+    default: '',
+  },
   // Future: difficulty tagging support (not active yet)
   // difficulty: { type: String, enum: ['easy', 'medium', 'hard'], default: 'medium' },
 });
@@ -67,6 +71,13 @@ const quizSchema = new mongoose.Schema(
     shuffleOptions: {
       type: Boolean,
       default: false,
+    },
+    sectionDistribution: {
+      type: [{
+        section: { type: String, required: true },
+        questionsToDeliver: { type: Number, required: true }
+      }],
+      default: []
     },
     // Future hooks (not active):
     // difficultyMode: { type: String, enum: ['uniform', 'balanced'], default: 'uniform' },

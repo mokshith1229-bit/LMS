@@ -10,6 +10,7 @@ const attemptPaperItemSchema = new mongoose.Schema({
   shuffledOptions: { type: [String], required: true }, // options in shuffled order shown to student
   correctAnswer:   { type: String, required: true },   // index (as string) into shuffledOptions
   displayedOrder:  { type: Number, required: true },   // 0-based position on student's paper
+  section:         { type: String, default: '' },
   // selectedAnswer stored in Submission.answers; kept here for future self-contained lookup
 }, { _id: false });
 // ─────────────────────────────────────────────────────────────────────────────

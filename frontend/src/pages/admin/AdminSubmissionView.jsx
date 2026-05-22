@@ -155,6 +155,60 @@ export default function AdminSubmissionView() {
             </div>
           </section>
 
+          {/* Section Accuracy Breakdown */}
+          {data.sectionPerformance && data.sectionPerformance.length > 0 && (
+            <section className="section-performance-section" style={{ padding: '0 3rem', marginTop: '2rem' }}>
+              <h3 className="section-title" style={{ borderBottom: '2px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '1.25rem', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#1e293b' }}>
+                <Layers size={18} /> Topic Performance Analysis
+              </h3>
+              
+              <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.88rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#64748b', fontWeight: 'bold' }}>
+                      <th style={{ padding: '10px 12px', fontWeight: 700 }}>Section / Category</th>
+                      <th style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'center', width: '100px' }}>Total Questions</th>
+                      <th style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'center', width: '100px' }}>Correct Answers</th>
+                      <th style={{ padding: '10px 12px', fontWeight: 700, width: '220px' }}>Accuracy Rate</th>
+                      <th style={{ padding: '10px 12px', fontWeight: 700, textAlign: 'right', width: '130px' }}>Performance Tag</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.sectionPerformance.map((sec, idx) => {
+                      const isWeak = sec.isWeak;
+                      return (
+                        <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '12px', fontWeight: 600, color: '#1e293b' }}>{sec.section}</td>
+                          <td style={{ padding: '12px', textAlign: 'center', color: '#475569' }}>{sec.totalCount}</td>
+                          <td style={{ padding: '12px', textAlign: 'center', color: '#10b981', fontWeight: 600 }}>{sec.correctCount}</td>
+                          <td style={{ padding: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontWeight: 700, minWidth: '36px', color: isWeak ? '#ef4444' : '#10b981', fontFamily: 'monospace' }}>{sec.accuracy}%</span>
+                              <div style={{ flex: 1, height: '6px', background: '#f1f5f9', borderRadius: '9999px', overflow: 'hidden' }}>
+                                <div style={{ width: `${sec.accuracy}%`, height: '100%', background: isWeak ? '#ef4444' : '#10b981', borderRadius: '9999px' }} />
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'right' }}>
+                            {isWeak ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '6px', padding: '3px 8px', fontSize: '0.72rem', fontWeight: 700 }}>
+                                ⚠️ Weak Topic
+                              </span>
+                            ) : (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', background: '#f0fdf4', color: '#10b981', border: '1px solid #a7f3d0', borderRadius: '6px', padding: '3px 8px', fontSize: '0.72rem', fontWeight: 700 }}>
+                                ✓ Proficient
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
           {/* Detailed Answers */}
           <section className="answers-section">
             <h3 className="section-title">
@@ -445,6 +499,12 @@ export default function AdminSubmissionView() {
             padding: 0 2.5rem !important; 
             margin-top: -1.5rem !important;
             page-break-inside: avoid !important;
+          }
+          .section-performance-section {
+            padding: 0 2.5rem !important;
+            margin-top: 1.5rem !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
           .info-card { 
             border: 1px solid #e2e8f0 !important;

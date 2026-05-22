@@ -58,7 +58,25 @@ router.post('/', async (req, res) => {
       questionsPerStudent,
       shuffleQuestions,
       shuffleOptions,
+      sectionDistribution,
     } = req.body;
+
+    // ── Prevent duplicate questions ───────────────────────────────────────────
+    if (questions && Array.isArray(questions)) {
+      const seenQuestions = new Set();
+      for (const q of questions) {
+        if (q && q.question) {
+          const text = q.question.trim().toLowerCase();
+          if (seenQuestions.has(text)) {
+            return res.status(400).json({
+              success: false,
+              message: `Duplicate question found: "${q.question}"`,
+            });
+          }
+          seenQuestions.add(text);
+        }
+      }
+    }
 
     // ── Validate randomization config ─────────────────────────────────────────
     if (questionsPerStudent && questions && questionsPerStudent > questions.length) {
@@ -66,6 +84,81 @@ router.post('/', async (req, res) => {
         success: false,
         message: `questionsPerStudent (${questionsPerStudent}) cannot exceed the master pool size (${questions.length} questions).`,
       });
+    }
+
+    // ── Validate section distribution ──────────────────────────────────────────
+    if (sectionDistribution && sectionDistribution.length > 0) {
+      if (!questions || !Array.isArray(questions)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Questions pool is required when section distribution is configured.',
+        });
+      }
+
+      // Calculate pool sizes for each section in the questions array
+      const poolSizes = {};
+      questions.forEach(q => {
+        const sec = (q.section || '').trim();
+        poolSizes[sec] = (poolSizes[sec] || 0) + 1;
+      });
+
+      // Validate each entry in sectionDistribution
+      for (const dist of sectionDistribution) {
+        const secName = (dist.section || '').trim();
+        
+        // Ensure section name is not empty
+        if (!secName) {
+          return res.status(400).json({
+            success: false,
+            message: "Section name in distribution configuration cannot be empty."
+          });
+        }
+
+        // Ensure all configured sections exist in the question pool
+        if (!(secName in poolSizes)) {
+          return res.status(400).json({
+            success: false,
+            message: `Configured section "${secName}" does not exist in the uploaded questions pool.`
+          });
+        }
+
+        const poolSize = poolSizes[secName];
+        const toDeliver = dist.questionsToDeliver;
+
+        // Ensure questions to deliver is positive
+        if (toDeliver <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Questions to deliver for section "${secName}" must be greater than 0.`
+          });
+        }
+
+        // Validate: Questions To Deliver <= Section Pool Size
+        if (toDeliver > poolSize) {
+          return res.status(400).json({
+            success: false,
+            message: `Questions to deliver for section "${secName}" (${toDeliver}) cannot exceed its pool size (${poolSize}).`
+          });
+        }
+      }
+    }
+
+    // ── Upsert Categories ─────────────────────────────────────────────────────
+    // To support automatic mapping from Excel bulk import, we extract unique 
+    // sections from the questions array and insert them into QuestionCategory if missing.
+    if (mongoose.connection.readyState === 1 && questions && Array.isArray(questions)) {
+      const QuestionCategory = require('../models/QuestionCategory');
+      const uniqueSections = Array.from(new Set(
+        questions.map(q => (q.section || '').trim()).filter(Boolean)
+      ));
+      
+      for (const secName of uniqueSections) {
+        // Find existing category (case insensitive)
+        const existing = await QuestionCategory.findOne({ name: { $regex: new RegExp(`^${secName}$`, 'i') } });
+        if (!existing) {
+          await QuestionCategory.create({ name: secName, description: 'Auto-created from quiz import' });
+        }
+      }
     }
 
     if (mongoose.connection.readyState !== 1 || courseId.startsWith('demo')) {
@@ -80,6 +173,7 @@ router.post('/', async (req, res) => {
         questionsPerStudent: questionsPerStudent || null,
         shuffleQuestions: shuffleQuestions || false,
         shuffleOptions: shuffleOptions || false,
+        sectionDistribution: sectionDistribution || [],
         createdAt: new Date(),
       };
       
@@ -114,6 +208,7 @@ router.post('/', async (req, res) => {
       questionsPerStudent: questionsPerStudent || null,
       shuffleQuestions: shuffleQuestions || false,
       shuffleOptions: shuffleOptions || false,
+      sectionDistribution: sectionDistribution || [],
     });
 
     // Also push a module for this quiz
