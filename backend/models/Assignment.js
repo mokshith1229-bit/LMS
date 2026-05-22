@@ -58,5 +58,5 @@ const assignmentSchema = new mongoose.Schema(
 
 assignmentSchema.index({ userId: 1, quizId: 1 }, { unique: true });
 
-module.exports = mongoose.model('Assignment', assignmentSchema);
+module.exports = mongoose.models.Assignment || mongoose.model('Assignment', assignmentSchema);
 

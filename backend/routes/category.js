@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const QuestionCategory = require('../models/QuestionCategory');
-const { protect, admin } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
+const { checkRole } = require('../middleware/role');
+const admin = checkRole('admin');
 const mongoose = require('mongoose');
 
 // @route   GET /api/categories

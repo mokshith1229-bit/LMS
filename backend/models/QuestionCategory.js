@@ -16,4 +16,4 @@ const questionCategorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('QuestionCategory', questionCategorySchema);
+module.exports = mongoose.models.QuestionCategory || mongoose.model('QuestionCategory', questionCategorySchema);

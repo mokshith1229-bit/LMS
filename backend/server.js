@@ -5,7 +5,9 @@ const path = require('path');
 const connectDB = require('./config/db');
 
 // Connect to MongoDB
+console.log('[STARTUP] Connecting to MongoDB...');
 connectDB();
+console.log('[STARTUP] MongoDB connection initiated.');
 
 const http = require('http');
 const { Server } = require('socket.io');
@@ -74,6 +76,7 @@ app.use((req, res, next) => {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
+console.log('[STARTUP] Registering routes...');
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/courses', require('./routes/courses'));
 app.use('/api/content', require('./routes/content'));
@@ -108,7 +111,8 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`🚀 LMS Server running on http://localhost:${PORT}`);
+console.log(`[STARTUP] Attempting to start server on port ${PORT}...`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 LMS Server running on http://0.0.0.0:${PORT}`);
 });
  
