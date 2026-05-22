@@ -25,6 +25,7 @@ import PresentationMode from './pages/admin/PresentationMode';
 import AdminAnalytics from './pages/admin/AdminAnalytics';
 import DetailedAnalytics from './pages/admin/DetailedAnalytics';
 import CategoryManagement from './pages/admin/CategoryManagement';
+import QuestionBank from './pages/admin/QuestionBank';
 
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard';
@@ -141,6 +142,10 @@ function App() {
           <Route
             path="/admin/categories"
             element={<ProtectedRoute role="admin"><CategoryManagement /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/question-bank"
+            element={<ProtectedRoute role="admin"><QuestionBank /></ProtectedRoute>}
           />
 
           {/* Student Routes */}

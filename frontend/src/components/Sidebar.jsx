@@ -6,7 +6,7 @@ import Calculator from './Calculator';
 import {
   LayoutDashboard, BookOpen, Upload, ClipboardList,
   LogOut, Award, UserPlus, BarChart2, ClipboardCheck, FileSpreadsheet, PieChart, MonitorPlay, Users, Activity,
-  Calculator as CalcIcon, Layers
+  Calculator as CalcIcon, Layers, Database
 } from 'lucide-react';
 
 const adminLinks = [
@@ -14,6 +14,7 @@ const adminLinks = [
   { to: '/admin/create-course', icon: <BookOpen size={18} />, label: 'Create Course' },
   { to: '/admin/upload', icon: <Upload size={18} />, label: 'Upload Content' },
   { to: '/admin/add-quiz', icon: <ClipboardList size={18} />, label: 'Add Quiz' },
+  { to: '/admin/question-bank', icon: <Database size={18} />, label: 'Question Bank' },
   { to: '/admin/assign', icon: <UserPlus size={18} />, label: 'Assign Quiz' },
   { to: '/admin/results', icon: <BarChart2 size={18} />, label: 'Results' },
   { to: '/admin/detailed-reports', icon: <FileSpreadsheet size={18} />, label: 'Detailed Reports' },

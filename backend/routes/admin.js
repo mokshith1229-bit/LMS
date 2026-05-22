@@ -1518,4 +1518,71 @@ router.post('/batch-pdf/:quizId', async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/questions
+// @desc    Get all questions from all quizzes for the Question Bank
+// @access  Admin only
+router.get('/questions', async (req, res) => {
+  try {
+    const quizzes = await Quiz.find({}).populate('courseId', 'title').lean();
+    let allQuestions = [];
+
+    quizzes.forEach(quiz => {
+      if (quiz.questions && quiz.questions.length > 0) {
+        quiz.questions.forEach(q => {
+          allQuestions.push({
+            _id: q._id,
+            quizId: quiz._id,
+            quizTitle: quiz.title,
+            courseTitle: quiz.courseId ? quiz.courseId.title : 'No Course',
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            section: q.section || '',
+            imageUrl: q.imageUrl || '',
+            createdAt: q.createdAt || quiz.createdAt
+          });
+        });
+      }
+    });
+
+    res.json({ success: true, count: allQuestions.length, questions: allQuestions });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   PATCH /api/admin/questions/bulk-category
+// @desc    Bulk update category/section for selected questions
+// @access  Admin only
+router.patch('/questions/bulk-category', async (req, res) => {
+  try {
+    const { questionIds, category } = req.body;
+
+    if (!questionIds || !Array.isArray(questionIds) || questionIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Valid questionIds array is required' });
+    }
+
+    // Convert string IDs to ObjectIds if necessary (Mongoose updateMany with arrayFilters often needs correct types)
+    const objectIds = questionIds.map(id => {
+      try { return new mongoose.Types.ObjectId(id); }
+      catch { return id; }
+    });
+
+    const result = await Quiz.updateMany(
+      { 'questions._id': { $in: objectIds } },
+      { $set: { 'questions.$[elem].section': category || '' } },
+      { arrayFilters: [{ 'elem._id': { $in: objectIds } }] }
+    );
+
+    res.json({
+      success: true,
+      message: `Successfully updated category to "${category}" for selected questions.`,
+      modifiedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error('[Bulk Category Update Error]', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

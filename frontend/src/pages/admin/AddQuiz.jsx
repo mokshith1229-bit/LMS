@@ -89,6 +89,8 @@ export default function AddQuiz() {
   const [enableSectionDist, setEnableSectionDist] = useState(false);
   const [sectionDistribution, setSectionDistribution] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [selectedQs, setSelectedQs] = useState(new Set());
+  const [bulkCategory, setBulkCategory] = useState('');
   const excelRef = useRef(null);
   const imgRefs = useRef({});
   const navigate = useNavigate();
@@ -643,13 +645,76 @@ Correct Answer: C`}
             )}
           </div>
 
+          {/* Bulk Category Assignment */}
+          {questions.length > 0 && (
+            <div className="card" style={{ maxWidth: 780, marginBottom: 16, padding: '12px 16px', background: '#eff6ff', border: '1px solid #bfdbfe', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <input 
+                  type="checkbox" 
+                  checked={selectedQs.size === questions.length && questions.length > 0}
+                  onChange={(e) => {
+                    if (e.target.checked) setSelectedQs(new Set(questions.map((_, i) => i)));
+                    else setSelectedQs(new Set());
+                  }}
+                  style={{ cursor: 'pointer', width: 16, height: 16 }}
+                />
+                <span style={{ fontWeight: 600, color: '#1e3a8a', fontSize: '0.9rem' }}>
+                  {selectedQs.size} Selected
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <select 
+                  className="form-input" 
+                  style={{ margin: 0, padding: '6px 12px', minWidth: 180, borderColor: '#bfdbfe' }}
+                  value={bulkCategory}
+                  onChange={e => setBulkCategory(e.target.value)}
+                >
+                  <option value="">-- Select Category --</option>
+                  {categories.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                </select>
+                <button 
+                  type="button" 
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (selectedQs.size === 0) { toast.error('Select questions first'); return; }
+                    setQuestions(prev => prev.map((q, i) => selectedQs.has(i) ? { ...q, section: bulkCategory } : q));
+                    toast.success(`Category applied to ${selectedQs.size} question(s)!`);
+                    setSelectedQs(new Set());
+                    setBulkCategory('');
+                  }}
+                  style={{ padding: '6px 16px', fontSize: '0.85rem' }}
+                >
+                  Apply to Selected
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Questions */}
           {questions.map((q, qi) => (
-            <div key={qi} className="card" style={{ maxWidth: 780, marginBottom: 16, border: '1px solid var(--border)' }}>
+            <div key={qi} className="card" style={{ maxWidth: 780, marginBottom: 16, border: selectedQs.has(qi) ? '2px solid #3b82f6' : '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, borderBottom: '1px solid #eee', paddingBottom: 8 }}>
-                <p style={{ fontWeight: 800, fontSize: '0.8rem', margin: 0 }}>QUESTION {qi + 1}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedQs.has(qi)}
+                    onChange={() => {
+                      const newSet = new Set(selectedQs);
+                      if (newSet.has(qi)) newSet.delete(qi);
+                      else newSet.add(qi);
+                      setSelectedQs(newSet);
+                    }}
+                    style={{ cursor: 'pointer', width: 16, height: 16 }}
+                  />
+                  <p style={{ fontWeight: 800, fontSize: '0.8rem', margin: 0 }}>QUESTION {qi + 1}</p>
+                </div>
                 {questions.length > 1 && (
-                  <button type="button" className="btn btn-danger btn-sm" onClick={() => setQuestions(prev => prev.filter((_, i) => i !== qi))}>Delete</button>
+                  <button type="button" className="btn btn-danger btn-sm" onClick={() => {
+                    setQuestions(prev => prev.filter((_, i) => i !== qi));
+                    const newSet = new Set(selectedQs);
+                    newSet.delete(qi);
+                    setSelectedQs(newSet);
+                  }}>Delete</button>
                 )}
               </div>
 
