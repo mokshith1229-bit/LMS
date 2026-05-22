@@ -171,7 +171,7 @@ function buildStudentAnswerMap(sub, attemptPaper) {
       const userLetter = (userAns !== null && userAns !== undefined && userAns !== '')
         ? getLetter(userAns)
         : 'NA';
-      const correctLetter = getLetter(item.correctAnswer);
+      const correctLetter = item.displayedCorrectAnswer || getLetter(item.correctAnswer);
       map[item.questionId] = { userLetter, correctLetter, shuffledOptions: item.shuffledOptions };
     });
   }
@@ -255,11 +255,12 @@ router.get('/results/export', async (req, res) => {
         const qId = q._id.toString();
         let userLetter = 'NA';
         let correctLetter = masterCorrectLetters[idx];
+        let isCorrect = false;
 
         if (snapshotMap[qId]) {
           // Randomized: use snapshot data
           userLetter = snapshotMap[qId].userLetter;
-          // correctLetter from master pool (original position) — for the header row
+          isCorrect = userLetter !== 'NA' && userLetter.trim().toUpperCase() === snapshotMap[qId].correctLetter.trim().toUpperCase();
         } else {
           // Legacy (non-randomized): use raw answer
           const ansObj = sub.answers.find(a => a.questionId === qId);
@@ -273,12 +274,13 @@ router.get('/results/export', async (req, res) => {
             }
             userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
           }
+          isCorrect = userLetter !== 'NA' && userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase();
         }
 
         studentRow[`q${idx + 1}`] = userLetter;
         rowValues.push({ 
           text: userLetter, 
-          isCorrect: userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase()
+          isCorrect
         });
       });
 
@@ -652,10 +654,12 @@ router.post('/export/detailed/:quizId', async (req, res) => {
         const qId = q._id.toString();
         let userLetter = 'NA';
         const correctLetter = masterCorrectLetters[idx];
+        let isCorrect = false;
 
         if (snapshotMap[qId]) {
           // Student had this question in their randomized paper
           userLetter = snapshotMap[qId].userLetter;
+          isCorrect = userLetter !== 'NA' && userLetter.trim().toUpperCase() === snapshotMap[qId].correctLetter.trim().toUpperCase();
         } else if (attemptPaper.length === 0) {
           // Legacy non-randomized quiz: find answer directly
           const ansObj = sub.answers.find(a => a.questionId === qId);
@@ -669,13 +673,14 @@ router.post('/export/detailed/:quizId', async (req, res) => {
             }
             userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
           }
+          isCorrect = userLetter !== 'NA' && userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase();
         }
         // If question was not in student's paper (subset delivery), leave as 'NA'
 
         studentRow[`q${idx + 1}`] = userLetter;
         rowValues.push({ 
           text: userLetter, 
-          isCorrect: userLetter !== 'NA' && userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase() 
+          isCorrect
         });
       });
 
@@ -829,16 +834,36 @@ router.get('/analytics', async (req, res) => {
         const userAns = ansObj ? ansObj.selectedOption : null;
 
         let userLetter = 'NA';
+        let isCorrect = false;
+
         if (userAns !== null && userAns !== undefined && userAns !== '') {
           if (paperItem) {
             // Randomized: answer is index into shuffledOptions; map back to master pool option
             const shuffledIdx = parseInt(userAns);
             const selectedOptionText = paperItem.shuffledOptions[shuffledIdx] || '';
+            
+            // Robust normalization function
+            const normalizeText = (text) => {
+              if (text === null || text === undefined) return '';
+              return String(text).trim().toLowerCase().replace(/[\s\u200b-\u200d\ufeff]+/g, ' ');
+            };
+
+            const normSelected = normalizeText(selectedOptionText);
+
             // Find that text in master options to get the display letter
-            const masterIdx = q.options.findIndex(o =>
-              String(o).trim().toUpperCase() === selectedOptionText.trim().toUpperCase()
+            let masterIdx = q.options.findIndex(o =>
+              normalizeText(o) === normSelected
             );
+
+            // Fallback: if no exact match after normalization, try partial/includes match
+            if (masterIdx === -1 && normSelected) {
+              masterIdx = q.options.findIndex(o =>
+                normalizeText(o).includes(normSelected) || normSelected.includes(normalizeText(o))
+              );
+            }
+
             userLetter = masterIdx !== -1 ? getLetter(masterIdx) : getLetter(shuffledIdx);
+            isCorrect = userAns.toString().trim() === paperItem.correctAnswer.toString().trim();
           } else {
             // Legacy non-randomized
             let userIdx = parseInt(userAns);
@@ -848,10 +873,11 @@ router.get('/analytics', async (req, res) => {
               );
             }
             userLetter = userIdx !== -1 && !isNaN(userIdx) ? getLetter(userIdx) : String(userAns);
+            isCorrect = userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase() && userLetter !== 'NA';
           }
         }
 
-        if (userLetter.trim().toUpperCase() === correctLetter.trim().toUpperCase() && userLetter !== 'NA') {
+        if (isCorrect) {
           correctCount++;
         }
 

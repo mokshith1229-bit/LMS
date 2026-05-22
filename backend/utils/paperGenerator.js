@@ -183,14 +183,21 @@ function generatePaper(quiz) {
       newCorrectIdx = correctIdx;
     }
 
+    const getLetter = (index) => {
+      if (index === null || index === undefined || index === '') return '';
+      return String.fromCharCode(65 + parseInt(index, 10));
+    };
+
     return {
-      questionId:      q._id.toString(),
-      questionText:    q.question,
-      imageUrl:        q.imageUrl || '',
+      questionId:                  q._id.toString(),
+      questionText:                q.question,
+      imageUrl:                    q.imageUrl || '',
       shuffledOptions,
-      correctAnswer:   String(newCorrectIdx), // stored as string, consistent with existing Submission schema
+      correctAnswer:               String(newCorrectIdx), // stored as string, consistent with existing Submission schema
       displayedOrder,
-      section:         q.section || '',
+      section:                     q.section || '',
+      originalCorrectAnswerValue:  originalOptions[correctIdx] || '',
+      displayedCorrectAnswer:      getLetter(newCorrectIdx),
     };
   });
 

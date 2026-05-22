@@ -4,13 +4,15 @@ const mongoose = require('mongoose');
 // Each entry represents one question as the student saw it.
 // This snapshot is FROZEN at exam start and never regenerated.
 const attemptPaperItemSchema = new mongoose.Schema({
-  questionId:      { type: String, required: true },   // _id from master quiz pool
-  questionText:    { type: String, required: true },
-  imageUrl:        { type: String, default: '' },
-  shuffledOptions: { type: [String], required: true }, // options in shuffled order shown to student
-  correctAnswer:   { type: String, required: true },   // index (as string) into shuffledOptions
-  displayedOrder:  { type: Number, required: true },   // 0-based position on student's paper
-  section:         { type: String, default: '' },
+  questionId:                  { type: String, required: true },   // _id from master quiz pool
+  questionText:                { type: String, required: true },
+  imageUrl:                    { type: String, default: '' },
+  shuffledOptions:             { type: [String], required: true }, // options in shuffled order shown to student
+  correctAnswer:               { type: String, required: true },   // index (as string) into shuffledOptions
+  displayedOrder:              { type: Number, required: true },   // 0-based position on student's paper
+  section:                     { type: String, default: '' },
+  originalCorrectAnswerValue:  { type: String, default: '' },
+  displayedCorrectAnswer:      { type: String, default: '' },
   // selectedAnswer stored in Submission.answers; kept here for future self-contained lookup
 }, { _id: false });
 // ─────────────────────────────────────────────────────────────────────────────
