@@ -9,6 +9,8 @@ export default function QuestionBank() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [selectedQuizFilter, setSelectedQuizFilter] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('');
   
   // Bulk selection state
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -24,6 +26,28 @@ export default function QuestionBank() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (questions.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const quizIdParam = params.get('quizId');
+      const quizTitleParam = params.get('quizTitle');
+      const categoryParam = params.get('category');
+
+      if (quizIdParam) {
+        const matched = questions.find(q => q.quizId === quizIdParam);
+        if (matched) {
+          setSelectedQuizFilter(matched.quizTitle);
+        }
+      } else if (quizTitleParam) {
+        setSelectedQuizFilter(quizTitleParam);
+      }
+
+      if (categoryParam) {
+        setSelectedCategoryFilter(categoryParam);
+      }
+    }
+  }, [questions]);
 
   const fetchData = async () => {
     try {
@@ -185,30 +209,126 @@ export default function QuestionBank() {
     }
   };
 
-  const filteredQuestions = questions.filter(q => 
-    q.question.toLowerCase().includes(search.toLowerCase()) ||
-    (q.section && q.section.toLowerCase().includes(search.toLowerCase())) ||
-    q.quizTitle.toLowerCase().includes(search.toLowerCase())
-  );
+  const uniqueQuizzes = Array.from(new Set(questions.map(q => q.quizTitle))).filter(Boolean).sort();
+  const uniqueCategories = Array.from(new Set([
+    ...categories.map(c => c.name),
+    ...questions.map(q => q.section).filter(Boolean)
+  ])).sort();
+
+  const filteredQuestions = questions.filter(q => {
+    // 1. Search filter
+    const matchesSearch = !search.trim() ||
+      q.question.toLowerCase().includes(search.toLowerCase()) ||
+      (q.section && q.section.toLowerCase().includes(search.toLowerCase())) ||
+      q.quizTitle.toLowerCase().includes(search.toLowerCase());
+
+    // 2. Quiz filter
+    const matchesQuiz = !selectedQuizFilter || q.quizTitle === selectedQuizFilter;
+
+    // 3. Category filter
+    const matchesCategory = !selectedCategoryFilter || q.section === selectedCategoryFilter;
+
+    return matchesSearch && matchesQuiz && matchesCategory;
+  });
 
   return (
     <div className="app-layout">
       <Sidebar />
       <main className="main-content">
-        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
             <h1>Question Bank</h1>
             <p>Manage all questions across all assessments and bulk-assign categories.</p>
           </div>
-          <div style={{ position: 'relative', width: 300 }}>
-            <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
-            <input 
-              className="form-input" 
-              placeholder="Search questions, categories, quizzes..." 
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ paddingLeft: 36, margin: 0 }}
-            />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src="/assets/minds_logo.png" alt="Logo" style={{ height: 45, objectFit: 'contain' }} />
+          </div>
+        </div>
+
+        {/* Horizontal Filters Bar */}
+        <div className="card mb-20" style={{ padding: '16px 20px', border: '1px solid #e2e8f0', borderRadius: 12, background: 'white' }}>
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Search Box */}
+            <div style={{ flex: '1 1 240px', position: 'relative' }}>
+              <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+              <input 
+                className="form-input" 
+                placeholder="Search questions, categories, quizzes..." 
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{ paddingLeft: 36, margin: 0, width: '100%' }}
+              />
+            </div>
+            
+            {/* Quiz Filter Dropdown */}
+            <div style={{ flex: '1 1 200px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <BookOpen size={16} color="#64748b" style={{ flexShrink: 0 }} />
+              <select
+                className="form-input"
+                value={selectedQuizFilter}
+                onChange={e => setSelectedQuizFilter(e.target.value)}
+                style={{ margin: 0, padding: '8px 12px', fontSize: '0.9rem', width: '100%', borderColor: '#cbd5e1' }}
+              >
+                <option value="">-- All Quizzes / Tests --</option>
+                {uniqueQuizzes.map(qTitle => (
+                  <option key={qTitle} value={qTitle}>{qTitle}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Category Filter Dropdown */}
+            <div style={{ flex: '1 1 200px', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Filter size={16} color="#64748b" style={{ flexShrink: 0 }} />
+              <select
+                className="form-input"
+                value={selectedCategoryFilter}
+                onChange={e => setSelectedCategoryFilter(e.target.value)}
+                style={{ margin: 0, padding: '8px 12px', fontSize: '0.9rem', width: '100%', borderColor: '#cbd5e1' }}
+              >
+                <option value="">-- All Categories --</option>
+                {uniqueCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Reset Filters button */}
+            {(search || selectedQuizFilter || selectedCategoryFilter) && (
+              <button
+                className="btn"
+                onClick={() => {
+                  setSearch('');
+                  setSelectedQuizFilter('');
+                  setSelectedCategoryFilter('');
+                  window.history.replaceState({}, document.title, window.location.pathname);
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  margin: 0,
+                  background: '#f1f5f9',
+                  border: '1px solid #e2e8f0',
+                  color: '#475569',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#e2e8f0';
+                  e.currentTarget.style.color = '#1e293b';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = '#f1f5f9';
+                  e.currentTarget.style.color = '#475569';
+                }}
+              >
+                <X size={14} /> Clear Filters
+              </button>
+            )}
           </div>
         </div>
 
