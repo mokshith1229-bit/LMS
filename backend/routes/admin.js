@@ -153,6 +153,38 @@ router.get('/results', async (req, res) => {
   }
 });
 
+// @route   DELETE /api/admin/results/:submissionId
+// @desc    Delete a student submission and reset their assignment status
+// @access  Admin only
+router.delete('/results/:submissionId', async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.submissionId);
+    if (!submission) {
+      return res.status(404).json({ success: false, message: 'Submission not found' });
+    }
+
+    const { userId, quizId } = submission;
+
+    // Delete the submission
+    await Submission.findByIdAndDelete(req.params.submissionId);
+
+    // Reset individual assignment if it exists, so the user can retake it
+    if (userId && quizId) {
+      await Assignment.findOneAndUpdate(
+        { userId, quizId },
+        {
+          status: 'NOT_STARTED',
+          $unset: { startedAt: 1, submittedAt: 1, attemptPaper: 1 }
+        }
+      );
+    }
+
+    res.json({ success: true, message: 'Submission deleted successfully and assignment reset' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // ── Helper: Map numeric index to letter ──────────────────────────────────────
 const getLetter = (index) => {
   if (index === null || index === undefined || index === '') return '';

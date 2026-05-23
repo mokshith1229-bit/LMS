@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown, ArrowLeft, FileText } from 'lucide-react';
+import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown, ArrowLeft, FileText, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx-js-style';
 import { saveAs } from 'file-saver';
 
@@ -226,6 +226,25 @@ export default function AdminResults() {
     setSelectedIds(prev => 
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
     );
+  };
+
+  const handleDeleteSubmission = async (submissionId) => {
+    const isConfirmed = window.confirm(
+      "Are you sure you want to delete this result? This will permanently remove the score record and reset the student's assignment to let them retake the exam."
+    );
+    if (!isConfirmed) return;
+
+    const loadingToast = toast.loading('Deleting submission...');
+    try {
+      await api.delete(`/admin/results/${submissionId}`);
+      toast.success('Submission deleted successfully', { id: loadingToast });
+      loadResults(); // Reload the table
+      // If the deleted submission was in selectedIds, remove it
+      setSelectedIds(prev => prev.filter(id => id !== submissionId));
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to delete submission', { id: loadingToast });
+    }
   };
 
   useEffect(() => { 
@@ -456,18 +475,51 @@ export default function AdminResults() {
                           {r.submittedAt ? new Date(r.submittedAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) : '—'}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          <a 
-                            href={`/admin/results/${r.submissionId}`}
-                            className="btn btn-secondary"
-                            style={{ 
-                              padding: '4px 8px', 
-                              fontSize: '0.75rem', 
-                              textDecoration: 'none',
-                              display: 'inline-block'
-                            }}
-                          >
-                            View Answers
-                          </a>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <a 
+                              href={`/admin/results/${r.submissionId}`}
+                              className="btn btn-secondary"
+                              style={{ 
+                                padding: '4px 8px', 
+                                fontSize: '0.75rem', 
+                                textDecoration: 'none',
+                                display: 'inline-block',
+                                margin: 0
+                              }}
+                            >
+                              View Answers
+                            </a>
+                            <button 
+                              onClick={() => handleDeleteSubmission(r.submissionId)}
+                              className="btn"
+                              style={{ 
+                                padding: '4px 8px', 
+                                fontSize: '0.75rem', 
+                                background: '#fff5f5', 
+                                color: '#c92a2a', 
+                                border: '1px solid #ffc9c9',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseOver={(e) => {
+                                e.currentTarget.style.background = '#c92a2a';
+                                e.currentTarget.style.color = '#fff';
+                                e.currentTarget.style.borderColor = '#c92a2a';
+                              }}
+                              onMouseOut={(e) => {
+                                e.currentTarget.style.background = '#fff5f5';
+                                e.currentTarget.style.color = '#c92a2a';
+                                e.currentTarget.style.borderColor = '#ffc9c9';
+                              }}
+                            >
+                              <Trash2 size={12} />
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
