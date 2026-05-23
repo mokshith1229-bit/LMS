@@ -492,18 +492,20 @@ export default function AdminResults() {
                             <button 
                               onClick={() => handleDeleteSubmission(r.submissionId)}
                               className="btn"
+                              title="Delete Submission"
                               style={{ 
-                                padding: '4px 8px', 
-                                fontSize: '0.75rem', 
+                                padding: '6px', 
                                 background: '#fff5f5', 
                                 color: '#c92a2a', 
                                 border: '1px solid #ffc9c9',
                                 borderRadius: '4px',
-                                display: 'flex',
+                                display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '4px',
+                                justifyContent: 'center',
                                 cursor: 'pointer',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                width: '30px',
+                                height: '30px'
                               }}
                               onMouseOver={(e) => {
                                 e.currentTarget.style.background = '#c92a2a';
@@ -516,8 +518,7 @@ export default function AdminResults() {
                                 e.currentTarget.style.borderColor = '#ffc9c9';
                               }}
                             >
-                              <Trash2 size={12} />
-                              Delete
+                              <Trash2 size={14} />
                             </button>
                           </div>
                         </td>
