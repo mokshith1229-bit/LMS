@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Upload, FileText, AlignLeft, Image, X, Loader, Shuffle, Users, ToggleLeft, ToggleRight, Info, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, AlignLeft, Image, X, Loader, Shuffle, Users, ToggleLeft, ToggleRight, Info, ChevronDown, ChevronUp, AlertCircle, Database } from 'lucide-react';
+import ImportQuestionModal from '../../components/ImportQuestionModal';
 
 const emptyQuestion = () => ({
   question: '',
@@ -81,6 +82,7 @@ export default function AddQuiz() {
   const [questions, setQuestions] = useState([emptyQuestion()]);
   const [loading, setLoading] = useState(false);
   const [isBulkOpen, setIsBulkOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [bulkTab, setBulkTab] = useState('paste'); // 'paste' | 'excel'
   const [pasteText, setPasteText] = useState('');
   const [excelParsing, setExcelParsing] = useState(false);
@@ -144,6 +146,14 @@ export default function AddQuiz() {
     toast.success(`${parsed.length} question(s) imported!`);
     setPasteText('');
     setIsBulkOpen(false);
+  };
+
+  const handleImportQuestions = (importedQs) => {
+    if (questions.length === 1 && !questions[0].question) {
+      setQuestions(importedQs);
+    } else {
+      setQuestions(prev => [...prev, ...importedQs]);
+    }
   };
 
   // ── Excel handler ─────────────────────────────────────────────────────────
@@ -255,10 +265,16 @@ export default function AddQuiz() {
                 ⚡ SAME ENGINE AS LIVE POLLS
               </span>
             </h2>
-            <button type="button" onClick={() => setIsBulkOpen(o => !o)}
-              style={{ background: '#f59e0b', color: '#fff', fontWeight: 800, border: 'none', padding: '8px 18px', borderRadius: 6, fontSize: '0.85rem', cursor: 'pointer' }}>
-              {isBulkOpen ? '← Close' : '⚡ Open Bulk Upload'}
-            </button>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button type="button" onClick={() => setIsImportModalOpen(true)}
+                style={{ background: '#4f46e5', color: '#fff', fontWeight: 800, border: 'none', padding: '8px 18px', borderRadius: 6, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Database size={16} /> Import Questions
+              </button>
+              <button type="button" onClick={() => setIsBulkOpen(o => !o)}
+                style={{ background: '#f59e0b', color: '#fff', fontWeight: 800, border: 'none', padding: '8px 18px', borderRadius: 6, fontSize: '0.85rem', cursor: 'pointer' }}>
+                {isBulkOpen ? '← Close' : '⚡ Open Bulk Upload'}
+              </button>
+            </div>
           </div>
 
           {isBulkOpen && (
@@ -822,6 +838,12 @@ Correct Answer: C`}
 
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </main>
+      
+      <ImportQuestionModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        onImport={handleImportQuestions} 
+      />
     </div>
   );
 }
