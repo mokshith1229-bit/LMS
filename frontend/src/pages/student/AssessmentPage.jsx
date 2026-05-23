@@ -222,7 +222,7 @@ export default function AssessmentPage() {
               <li><strong>Key Rules:</strong>
                 <ul style={{ paddingLeft: 20, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <li>All questions are compulsory.</li>
-                  <li>Each online question carries 2 marks, and each descriptive question carries 5 marks.</li>
+                  <li>Each online question carries 2 marks, and each descriptive question carries 10 marks.</li>
                   <li>There is <strong>no negative marking</strong> for incorrect answers.</li>
                 </ul>
               </li>
