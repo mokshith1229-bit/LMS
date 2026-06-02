@@ -997,23 +997,23 @@ export default function LivePoll() {
           {isImportModalOpen && (
             <div style={{
               position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)',
+              backgroundColor: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
               zIndex: 10000, padding: '20px'
             }}>
               <div style={{
-                background: '#1e293b', border: '1px solid #334155',
+                background: '#ffffff', border: '1px solid #e2e8f0',
                 borderRadius: '16px', width: '100%', maxWidth: '900px',
                 maxHeight: '85vh', display: 'flex', flexDirection: 'column',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', overflow: 'hidden'
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)', overflow: 'hidden'
               }}>
                 {/* Modal Header */}
                 <div style={{
-                  padding: '1.25rem 1.5rem', borderBottom: '1px solid #334155',
+                  padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  background: '#0f172a'
+                  background: '#f8fafc'
                 }}>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f1f2f6', margin: 0 }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                     📥 Import Questions from Previous Polls
                   </h3>
                   <button
@@ -1022,7 +1022,7 @@ export default function LivePoll() {
                       setSelectedPollForImport(null);
                       setSelectedQuestionIndices([]);
                     }}
-                    style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer' }}
+                    style={{ background: 'none', border: 'none', color: '#64748b', fontSize: '1.5rem', cursor: 'pointer' }}
                   >
                     ✕
                   </button>
@@ -1032,15 +1032,15 @@ export default function LivePoll() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', flex: 1, overflow: 'hidden', minHeight: 0 }}>
                   {/* Left Column: Polls List */}
                   <div style={{
-                    padding: '1.5rem', borderRight: '1px solid #334155',
-                    overflowY: 'auto', background: '#161e2e'
+                    padding: '1.5rem', borderRight: '1px solid #e2e8f0',
+                    overflowY: 'auto', background: '#f8fafc'
                   }}>
-                    <h4 style={{ fontSize: '0.9rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem', marginTop: 0 }}>
+                    <h4 style={{ fontSize: '0.9rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem', marginTop: 0 }}>
                       Select a Poll ({history?.length || 0} Available)
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       {(!history || history.length === 0) ? (
-                        <div style={{ padding: '1.5rem', color: '#64748b', textAlign: 'center', fontSize: '0.9rem' }}>
+                        <div style={{ padding: '1.5rem', color: '#94a3b8', textAlign: 'center', fontSize: '0.9rem' }}>
                           No previous polls available to import from.
                         </div>
                       ) : (
@@ -1055,17 +1055,17 @@ export default function LivePoll() {
                               }}
                               style={{
                                 padding: '12px', borderRadius: '10px',
-                                background: isSelected ? 'rgba(56, 189, 248, 0.15)' : '#1e293b',
-                                border: `2px solid ${isSelected ? '#38bdf8' : '#334155'}`,
+                                background: isSelected ? '#f0f9ff' : '#ffffff',
+                                border: `2px solid ${isSelected ? '#38bdf8' : '#e2e8f0'}`,
                                 cursor: 'pointer', transition: 'all 0.2s'
                               }}
                             >
-                              <div style={{ fontWeight: 700, color: isSelected ? '#38bdf8' : '#f1f2f6', fontSize: '0.95rem', marginBottom: '4px' }}>
+                              <div style={{ fontWeight: 700, color: isSelected ? '#0369a1' : '#1e293b', fontSize: '0.95rem', marginBottom: '4px' }}>
                                 {p.title || 'Untitled Poll'}
                               </div>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
                                 <span>📅 {new Date(p.createdAt).toLocaleDateString()}</span>
-                                <span style={{ fontWeight: 600, color: '#38bdf8' }}>❓ {p.questions?.length || 0} Questions</span>
+                                <span style={{ fontWeight: 600, color: '#0284c7' }}>❓ {p.questions?.length || 0} Questions</span>
                               </div>
                             </div>
                           );
@@ -1075,19 +1075,19 @@ export default function LivePoll() {
                   </div>
 
                   {/* Right Column: Question Preview */}
-                  <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', background: '#ffffff' }}>
                     {!selectedPollForImport ? (
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', textAlign: 'center' }}>
-                        <FileText size={40} style={{ marginBottom: '10px', color: '#475569' }} />
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', textAlign: 'center' }}>
+                        <FileText size={40} style={{ marginBottom: '10px', color: '#cbd5e1' }} />
                         <p style={{ fontSize: '0.95rem' }}>Select a poll from the left column to preview and choose questions.</p>
                       </div>
                     ) : (
                       <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #334155', paddingBottom: '10px' }}>
-                          <span style={{ fontWeight: 700, color: '#f1f2f6', fontSize: '1rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px' }}>
+                          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem' }}>
                             {selectedPollForImport.title}
                           </span>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: '#0284c7', fontWeight: 600 }}>
                             <input
                               type="checkbox"
                               checked={selectedQuestionIndices.length === selectedPollForImport.questions?.length && selectedPollForImport.questions?.length > 0}
@@ -1112,8 +1112,8 @@ export default function LivePoll() {
                                 key={idx}
                                 style={{
                                   padding: '12px', borderRadius: '8px',
-                                  background: isChecked ? 'rgba(16, 185, 129, 0.05)' : '#161e2e',
-                                  border: `1px solid ${isChecked ? '#10b981' : '#334155'}`,
+                                  background: isChecked ? '#f0fdf4' : '#f8fafc',
+                                  border: `1px solid ${isChecked ? '#10b981' : '#e2e8f0'}`,
                                   display: 'flex', gap: '12px', alignItems: 'flex-start'
                                 }}
                               >
@@ -1130,18 +1130,18 @@ export default function LivePoll() {
                                   style={{ accentColor: '#10b981', width: '18px', height: '18px', marginTop: '3px', cursor: 'pointer' }}
                                 />
                                 <div style={{ flex: 1 }}>
-                                  <div style={{ fontWeight: 600, color: '#f1f2f6', fontSize: '0.9rem', marginBottom: '6px' }}>
+                                  <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.9rem', marginBottom: '6px' }}>
                                     {idx + 1}. {q.text}
                                   </div>
-                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '0.75rem', color: '#64748b' }}>
                                     {q.options?.map((opt, oIdx) => (
                                       <span
                                         key={oIdx}
                                         style={{
                                           padding: '2px 8px', borderRadius: '4px',
-                                          background: opt === q.correctAnswer ? 'rgba(16, 185, 129, 0.15)' : '#1e293b',
-                                          color: opt === q.correctAnswer ? '#10b981' : '#94a3b8',
-                                          border: `1px solid ${opt === q.correctAnswer ? 'rgba(16, 185, 129, 0.3)' : '#334155'}`,
+                                          background: opt === q.correctAnswer ? 'rgba(16, 185, 129, 0.15)' : '#ffffff',
+                                          color: opt === q.correctAnswer ? '#047857' : '#475569',
+                                          border: `1px solid ${opt === q.correctAnswer ? '#a7f3d0' : '#e2e8f0'}`,
                                           fontWeight: opt === q.correctAnswer ? 700 : 400
                                         }}
                                       >
@@ -1161,9 +1161,9 @@ export default function LivePoll() {
 
                 {/* Modal Footer */}
                 <div style={{
-                  padding: '1rem 1.5rem', borderTop: '1px solid #334155',
+                  padding: '1rem 1.5rem', borderTop: '1px solid #e2e8f0',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  background: '#0f172a'
+                  background: '#f8fafc'
                 }}>
                   <div>
                     {selectedPollForImport && (
@@ -1184,7 +1184,7 @@ export default function LivePoll() {
                         setSelectedQuestionIndices([]);
                       }}
                       className="btn"
-                      style={{ background: '#475569', color: '#fff', fontWeight: 'bold', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}
+                      style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', fontWeight: 'bold', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}
                     >
                       Cancel
                     </button>
