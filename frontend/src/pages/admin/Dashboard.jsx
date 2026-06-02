@@ -19,9 +19,17 @@ function fmt(n) {
 
 function getGreeting() {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 12) return 'Good Morning';
+  if (h < 17) return 'Good Afternoon';
+  return 'Good Evening';
+}
+
+function capitalizeName(name) {
+  if (!name) return 'Administrator';
+  return name
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
 }
 
 function formatDate() {
@@ -211,23 +219,28 @@ function QuickActionBtn({ to, icon: Icon, label, desc, accent }) {
   );
 }
 
-function TodayMetric({ icon: Icon, label, value, color }) {
+function TodayMetric({ icon: Icon, label, value, color, divider }) {
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '1rem 0.5rem',
-      flex: 1,
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.875rem',
+      padding: '0.5rem 1.25rem 0.5rem 0',
+      borderRight: divider ? '1px solid #f1f5f9' : 'none',
+      marginRight: divider ? '1.25rem' : 0,
     }}>
       <div style={{
-        width: 36, height: 36, borderRadius: '8px',
-        background: `${color}18`,
+        width: 38, height: 38, borderRadius: '8px',
+        background: `${color}12`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginBottom: '0.5rem',
+        flexShrink: 0,
       }}>
-        <Icon size={16} color={color} />
+        <Icon size={16} color={color} strokeWidth={1.75} />
       </div>
-      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0f172a' }}>{value}</div>
-      <div style={{ fontSize: '0.7rem', color: '#64748b', textAlign: 'center', marginTop: '2px' }}>{label}</div>
+      <div>
+        <div style={{ fontSize: '1.35rem', fontWeight: 700, color: '#0f172a', lineHeight: 1 }}>{value}</div>
+        <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '3px', whiteSpace: 'nowrap' }}>{label}</div>
+      </div>
     </div>
   );
 }
@@ -333,25 +346,30 @@ export default function AdminDashboard() {
             justifyContent: 'space-between',
             alignItems: 'center',
             boxShadow: '0 4px 16px rgba(45,122,63,0.22)',
+            gap: '2rem',
           }}>
-            <div>
-              <div style={{ fontSize: '0.8rem', color: '#a7d9b5', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '4px' }}>
+            {/* Left — greeting */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '0.72rem', color: '#a7d9b5', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' }}>
                 Training Management
               </div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#ffffff', margin: '0 0 4px' }}>
-                {getGreeting()}, {user?.name?.split(' ')[0] || 'Administrator'}
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ffffff', margin: '0 0 5px', letterSpacing: '-0.01em' }}>
+                {getGreeting()}, {capitalizeName(user?.name?.split(' ')[0])}
               </h1>
-              <p style={{ fontSize: '0.85rem', color: '#c8e6cb', margin: 0 }}>
-                Your training platform is active — {stats.totalStudents} learners enrolled across {stats.totalCourses} courses.
+              <p style={{ fontSize: '0.845rem', color: '#c8e6cb', margin: 0, fontWeight: 400 }}>
+                {stats.totalStudents} learners enrolled across {stats.totalCourses} courses.
               </p>
             </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end', marginBottom: '6px' }}>
-                <img src="/assets/minds_logo.png" alt="Logo" style={{ height: 36, objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.85 }} onError={e => e.currentTarget.style.display = 'none'} />
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Calendar size={13} color="#a7d9b5" />
-                <span style={{ fontSize: '0.78rem', color: '#a7d9b5' }}>{formatDate()}</span>
+            {/* Right — logo + date, fully vertically centered */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
+              <img
+                src="/assets/minds_logo.png" alt="Logo"
+                style={{ height: 32, objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.75 }}
+                onError={e => e.currentTarget.style.display = 'none'}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <Calendar size={12} color="#a7d9b5" />
+                <span style={{ fontSize: '0.75rem', color: '#a7d9b5', whiteSpace: 'nowrap' }}>{formatDate()}</span>
               </div>
             </div>
           </div>
@@ -381,18 +399,15 @@ export default function AdminDashboard() {
           </div>
 
           {/* ── Today's Overview strip ── */}
-          <PanelCard style={{ marginBottom: '1.75rem', padding: '0.5rem 1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '1.5rem', borderRight: '1px solid #f1f5f9' }}>
-                <Activity size={14} color={GREEN} />
-                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>Today's Overview</span>
-              </div>
-              <div style={{ display: 'flex', flex: 1, justifyContent: 'space-around' }}>
-                <TodayMetric icon={ClipboardCheck} label="Submissions Today" value={todaySubmissions} color={GREEN} />
-                <TodayMetric icon={Radio} label="Polls Created Today" value={todayPolls} color={TEAL} />
-                <TodayMetric icon={Monitor} label="Presentations" value={presentations.length} color={BLUE} />
-                <TodayMetric icon={Users} label="Total Learners" value={fmt(stats.totalStudents)} color={AMBER} />
-              </div>
+          <PanelCard style={{ marginBottom: '1.75rem', padding: '1rem 1.5rem 0.75rem' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: '0.875rem' }}>
+              Today's Overview
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
+              <TodayMetric icon={ClipboardCheck} label="Submissions Today" value={todaySubmissions} color={GREEN} divider />
+              <TodayMetric icon={Radio} label="Polls Created Today" value={todayPolls} color={TEAL} divider />
+              <TodayMetric icon={Monitor} label="Presentations" value={presentations.length} color={BLUE} divider />
+              <TodayMetric icon={Users} label="Total Learners" value={fmt(stats.totalStudents)} color={AMBER} />
             </div>
           </PanelCard>
 

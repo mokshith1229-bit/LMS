@@ -25,18 +25,22 @@ export default function CourseCard({ course, _index = 0, onDelete }) {
       <div className="course-card-thumb">
         <BookOpen size={48} strokeWidth={1.5} opacity={0.8} />
         {user?.role === 'admin' && (
-          <button 
-            className="delete-card-btn" 
+          <button
+            className="delete-card-btn"
             onClick={handleDelete}
             title="Delete Course"
             style={{
-              position: 'absolute', top: 12, right: 12, 
-              background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444',
-              border: 'none', padding: 8, borderRadius: 8, cursor: 'pointer',
-              display: 'flex', transition: 'all 0.2s'
+              position: 'absolute', top: 10, right: 10,
+              background: 'rgba(100,116,139,0.1)', color: '#94a3b8',
+              border: '1px solid rgba(100,116,139,0.15)',
+              padding: 6, borderRadius: 6, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.15s',
             }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(100,116,139,0.18)'; e.currentTarget.style.color = '#64748b'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(100,116,139,0.1)'; e.currentTarget.style.color = '#94a3b8'; }}
           >
-            <Trash2 size={16} />
+            <Trash2 size={14} />
           </button>
         )}
       </div>
