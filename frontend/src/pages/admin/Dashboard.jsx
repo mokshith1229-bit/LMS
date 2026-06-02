@@ -364,7 +364,7 @@ export default function AdminDashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
               <img
                 src="/assets/minds_logo.png" alt="Logo"
-                style={{ height: 32, objectFit: 'contain', filter: 'brightness(0) invert(1)', opacity: 0.75 }}
+                style={{ height: 32, objectFit: 'contain' }}
                 onError={e => e.currentTarget.style.display = 'none'}
               />
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
