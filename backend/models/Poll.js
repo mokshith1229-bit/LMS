@@ -9,6 +9,7 @@ const pollSchema = new mongoose.Schema({
       correctAnswer: { type: String },
       // Optional: image attached to this question (Cloudinary URL)
       imageUrl: { type: String, default: '' },
+      explanation: { type: String, default: '' },
     }
   ],
   code: { type: String, required: true, unique: true },

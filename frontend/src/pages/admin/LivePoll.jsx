@@ -31,6 +31,11 @@ export default function LivePoll() {
   const [timerRunning, setTimerRunning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0); // seconds
 
+  // Import poll questions state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedPollForImport, setSelectedPollForImport] = useState(null);
+  const [selectedQuestionIndices, setSelectedQuestionIndices] = useState([]);
+
   // Socket connection
   useEffect(() => {
     if (!activePoll?.code) return;
@@ -303,6 +308,60 @@ export default function LivePoll() {
     }
   };
 
+  const handleDuplicatePoll = (poll) => {
+    if (!poll || !poll.questions) return;
+    setPollTitle(`${poll.title} (Copy)`);
+    setRevealMode(poll.revealMode || 'live');
+    setRevealDelayMinutes(poll.revealDelayMinutes || 1);
+    
+    const copiedQuestions = poll.questions.map(q => ({
+      text: q.text || '',
+      options: Array.isArray(q.options) ? [...q.options] : ['', ''],
+      correctAnswer: q.correctAnswer || '',
+      imageUrl: q.imageUrl || '',
+      explanation: q.explanation || ''
+    }));
+    
+    setQuestions(copiedQuestions);
+    setIsImportModalOpen(false);
+    setSelectedPollForImport(null);
+    setSelectedQuestionIndices([]);
+    toast.success('Poll duplicated! The editor has been populated.');
+  };
+
+  const handleImportSelectedQuestions = () => {
+    if (!selectedPollForImport || selectedQuestionIndices.length === 0) {
+      toast.error('No questions selected for import.');
+      return;
+    }
+    
+    const imported = selectedQuestionIndices.map(index => {
+      const q = selectedPollForImport.questions[index];
+      return {
+        text: q.text || '',
+        options: Array.isArray(q.options) ? [...q.options] : ['', ''],
+        correctAnswer: q.correctAnswer || '',
+        imageUrl: q.imageUrl || '',
+        explanation: q.explanation || ''
+      };
+    });
+
+    const isCurrentBlank = questions.length === 1 && 
+      !questions[0].text.trim() && 
+      questions[0].options.every(o => !o.trim());
+
+    if (isCurrentBlank) {
+      setQuestions(imported);
+    } else {
+      setQuestions([...questions, ...imported]);
+    }
+
+    setIsImportModalOpen(false);
+    setSelectedPollForImport(null);
+    setSelectedQuestionIndices([]);
+    toast.success(`Successfully imported ${imported.length} question(s)!`);
+  };
+
   const handleDownloadExcel = async (pollId, pollCode) => {
     try {
       const response = await api.get(`/poll/${pollId}/export`, { responseType: 'blob' });
@@ -387,19 +446,29 @@ export default function LivePoll() {
             {!activePoll ? (
               <div className="card" style={{ padding: '2rem', borderTop: '4px solid #f59e0b' }}>
 
-                {/* Card Header with Bulk Toggle */}
-                <div style={{ marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {/* Card Header with Bulk Toggle and Import */}
+                <div style={{ marginBottom: '2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   <h2 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'var(--text-primary)', margin: 0 }}>
                     {isBulkMode ? 'BULK UPLOAD MODE' : 'CREATE NEW POLL'}
                   </h2>
-                  <button
-                    type="button"
-                    onClick={() => setIsBulkMode(!isBulkMode)}
-                    className="btn"
-                    style={{ background: '#f59e0b', color: '#fff', fontWeight: '900', border: 'none', padding: '10px 20px', borderRadius: '6px' }}
-                  >
-                    {isBulkMode ? '← SWITCH TO MANUAL' : '⚡ OPEN BULK UPLOAD'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setIsImportModalOpen(true)}
+                      className="btn"
+                      style={{ background: '#10b981', color: '#fff', fontWeight: '900', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                      📥 Import Questions
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsBulkMode(!isBulkMode)}
+                      className="btn"
+                      style={{ background: '#f59e0b', color: '#fff', fontWeight: '900', border: 'none', padding: '10px 20px', borderRadius: '6px' }}
+                    >
+                      {isBulkMode ? '← SWITCH TO MANUAL' : '⚡ OPEN BULK UPLOAD'}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Bulk Mode — Excel + Paste tabs */}
@@ -900,6 +969,9 @@ export default function LivePoll() {
                             <button className="btn btn-primary" style={{ padding: '4px 12px', fontSize: '0.8rem' }} onClick={() => viewPoll(poll)}>
                               View Results &amp; QR
                             </button>
+                            <button className="btn" style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#8b5cf6', color: 'white', border: 'none' }} onClick={() => handleDuplicatePoll(poll)}>
+                              Duplicate
+                            </button>
                             <button className="btn btn-success" style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#10b981', color: 'white', border: 'none' }} onClick={() => handleDownloadExcel(poll._id, poll.code)}>
                               Download Excel
                             </button>
@@ -917,6 +989,219 @@ export default function LivePoll() {
                     )}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+
+          {/* Import Questions Modal */}
+          {isImportModalOpen && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)',
+              display: 'flex', justifyContent: 'center', alignItems: 'center',
+              zIndex: 10000, padding: '20px'
+            }}>
+              <div style={{
+                background: '#1e293b', border: '1px solid #334155',
+                borderRadius: '16px', width: '100%', maxWidth: '900px',
+                maxHeight: '85vh', display: 'flex', flexDirection: 'column',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)', overflow: 'hidden'
+              }}>
+                {/* Modal Header */}
+                <div style={{
+                  padding: '1.25rem 1.5rem', borderBottom: '1px solid #334155',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  background: '#0f172a'
+                }}>
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#f1f2f6', margin: 0 }}>
+                    📥 Import Questions from Previous Polls
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setIsImportModalOpen(false);
+                      setSelectedPollForImport(null);
+                      setSelectedQuestionIndices([]);
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer' }}
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Modal Content */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+                  {/* Left Column: Polls List */}
+                  <div style={{
+                    padding: '1.5rem', borderRight: '1px solid #334155',
+                    overflowY: 'auto', background: '#161e2e'
+                  }}>
+                    <h4 style={{ fontSize: '0.9rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem', marginTop: 0 }}>
+                      Select a Poll ({history?.length || 0} Available)
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {(!history || history.length === 0) ? (
+                        <div style={{ padding: '1.5rem', color: '#64748b', textAlign: 'center', fontSize: '0.9rem' }}>
+                          No previous polls available to import from.
+                        </div>
+                      ) : (
+                        history.map((p) => {
+                          const isSelected = selectedPollForImport?._id === p._id;
+                          return (
+                            <div
+                              key={p._id}
+                              onClick={() => {
+                                setSelectedPollForImport(p);
+                                setSelectedQuestionIndices([]);
+                              }}
+                              style={{
+                                padding: '12px', borderRadius: '10px',
+                                background: isSelected ? 'rgba(56, 189, 248, 0.15)' : '#1e293b',
+                                border: `2px solid ${isSelected ? '#38bdf8' : '#334155'}`,
+                                cursor: 'pointer', transition: 'all 0.2s'
+                              }}
+                            >
+                              <div style={{ fontWeight: 700, color: isSelected ? '#38bdf8' : '#f1f2f6', fontSize: '0.95rem', marginBottom: '4px' }}>
+                                {p.title || 'Untitled Poll'}
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8' }}>
+                                <span>📅 {new Date(p.createdAt).toLocaleDateString()}</span>
+                                <span style={{ fontWeight: 600, color: '#38bdf8' }}>❓ {p.questions?.length || 0} Questions</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Column: Question Preview */}
+                  <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    {!selectedPollForImport ? (
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', textAlign: 'center' }}>
+                        <FileText size={40} style={{ marginBottom: '10px', color: '#475569' }} />
+                        <p style={{ fontSize: '0.95rem' }}>Select a poll from the left column to preview and choose questions.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #334155', paddingBottom: '10px' }}>
+                          <span style={{ fontWeight: 700, color: '#f1f2f6', fontSize: '1rem' }}>
+                            {selectedPollForImport.title}
+                          </span>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.85rem', color: '#38bdf8', fontWeight: 600 }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedQuestionIndices.length === selectedPollForImport.questions?.length && selectedPollForImport.questions?.length > 0}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedQuestionIndices(selectedPollForImport.questions.map((_, idx) => idx));
+                                } else {
+                                  setSelectedQuestionIndices([]);
+                                }
+                              }}
+                              style={{ accentColor: '#38bdf8', width: '16px', height: '16px' }}
+                            />
+                            Select All
+                          </label>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
+                          {selectedPollForImport.questions?.map((q, idx) => {
+                            const isChecked = selectedQuestionIndices.includes(idx);
+                            return (
+                              <div
+                                key={idx}
+                                style={{
+                                  padding: '12px', borderRadius: '8px',
+                                  background: isChecked ? 'rgba(16, 185, 129, 0.05)' : '#161e2e',
+                                  border: `1px solid ${isChecked ? '#10b981' : '#334155'}`,
+                                  display: 'flex', gap: '12px', alignItems: 'flex-start'
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedQuestionIndices([...selectedQuestionIndices, idx]);
+                                    } else {
+                                      setSelectedQuestionIndices(selectedQuestionIndices.filter(i => i !== idx));
+                                    }
+                                  }}
+                                  style={{ accentColor: '#10b981', width: '18px', height: '18px', marginTop: '3px', cursor: 'pointer' }}
+                                />
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontWeight: 600, color: '#f1f2f6', fontSize: '0.9rem', marginBottom: '6px' }}>
+                                    {idx + 1}. {q.text}
+                                  </div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', fontSize: '0.75rem', color: '#94a3b8' }}>
+                                    {q.options?.map((opt, oIdx) => (
+                                      <span
+                                        key={oIdx}
+                                        style={{
+                                          padding: '2px 8px', borderRadius: '4px',
+                                          background: opt === q.correctAnswer ? 'rgba(16, 185, 129, 0.15)' : '#1e293b',
+                                          color: opt === q.correctAnswer ? '#10b981' : '#94a3b8',
+                                          border: `1px solid ${opt === q.correctAnswer ? 'rgba(16, 185, 129, 0.3)' : '#334155'}`,
+                                          fontWeight: opt === q.correctAnswer ? 700 : 400
+                                        }}
+                                      >
+                                        {opt}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div style={{
+                  padding: '1rem 1.5rem', borderTop: '1px solid #334155',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  background: '#0f172a'
+                }}>
+                  <div>
+                    {selectedPollForImport && (
+                      <button
+                        onClick={() => handleDuplicatePoll(selectedPollForImport)}
+                        className="btn"
+                        style={{ background: '#8b5cf6', color: '#fff', fontWeight: 'bold', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}
+                      >
+                        🗂️ Duplicate Entire Poll
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={() => {
+                        setIsImportModalOpen(false);
+                        setSelectedPollForImport(null);
+                        setSelectedQuestionIndices([]);
+                      }}
+                      className="btn"
+                      style={{ background: '#475569', color: '#fff', fontWeight: 'bold', border: 'none', padding: '10px 20px', borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleImportSelectedQuestions}
+                      disabled={!selectedPollForImport || selectedQuestionIndices.length === 0}
+                      className="btn"
+                      style={{
+                        background: '#10b981', color: '#fff', fontWeight: 'bold', border: 'none',
+                        padding: '10px 20px', borderRadius: '6px', cursor: selectedQuestionIndices.length > 0 ? 'pointer' : 'not-allowed',
+                        opacity: selectedQuestionIndices.length > 0 ? 1 : 0.5
+                      }}
+                    >
+                      Import Selected ({selectedQuestionIndices.length})
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
