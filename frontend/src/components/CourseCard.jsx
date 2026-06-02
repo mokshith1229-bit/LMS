@@ -24,6 +24,40 @@ export default function CourseCard({ course, _index = 0, onDelete }) {
     <div className="course-card" onClick={handleClick}>
       <div className="course-card-thumb">
         <BookOpen size={48} strokeWidth={1.5} opacity={0.8} />
+        {user?.role === 'admin' && (
+          <button
+            className="delete-card-btn"
+            onClick={handleDelete}
+            title="Delete Course"
+            style={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              background: 'rgba(239, 68, 68, 0.09)',
+              color: '#ef4444',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              padding: 6,
+              borderRadius: 6,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.18)';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.35)';
+              e.currentTarget.style.color = '#dc2626';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.09)';
+              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+              e.currentTarget.style.color = '#ef4444';
+            }}
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
       </div>
       <div className="course-card-body">
         <h3 className="course-card-title">{course.title}</h3>
@@ -40,40 +74,6 @@ export default function CourseCard({ course, _index = 0, onDelete }) {
             {course.enrolledStudents?.length || 0}
           </span>
         </div>
-        {user?.role === 'admin' && (
-          <button
-            className="delete-card-btn"
-            onClick={handleDelete}
-            title="Delete Course"
-            style={{
-              background: 'rgba(239, 68, 68, 0.08)',
-              color: '#dc2626',
-              border: '1px solid rgba(239, 68, 68, 0.15)',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
-              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-              e.currentTarget.style.color = '#b91c1c';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
-              e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.15)';
-              e.currentTarget.style.color = '#dc2626';
-            }}
-          >
-            <Trash2 size={13} />
-            Delete
-          </button>
-        )}
         {user?.role === 'student' && (
           <button className="btn btn-action-sm">
             Open Assessment
