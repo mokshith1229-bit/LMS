@@ -73,24 +73,33 @@ export default function CourseDetail() {
               <button 
                 onClick={() => navigate('/student')} 
                 className="btn btn-secondary btn-sm" 
-                style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-primary)', border: 'none', marginBottom: 20 }}
+                style={{ background: 'rgba(255,255,255,0.15)', color: '#ffffff', border: 'none', marginBottom: 20 }}
               >
                 <ArrowLeft size={14} /> Back to Dashboard
               </button>
               <h1>{course.title}</h1>
               <p>{course.description}</p>
               
-              <div className="course-meta-pills" style={{ color: 'var(--text-secondary)' }}>
-                <span className="meta-pill" style={{ background: 'rgba(0,0,0,0.03)', borderColor: 'rgba(0,0,0,0.1)' }}>
+              <div className="course-meta-pills" style={{ color: '#c8e6cb' }}>
+                <span className="meta-pill">
                   <ClipboardList size={12} /> {course.modules?.length || 0} Modules
                 </span>
-                <span className="meta-pill" style={{ background: 'rgba(0,0,0,0.03)', borderColor: 'rgba(0,0,0,0.1)' }}>
+                <span className="meta-pill">
                    {submission ? 'Assessment Completed' : 'Assessment Pending'}
                 </span>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 60, objectFit: 'contain' }} />
+            <div style={{
+              background: '#ffffff',
+              padding: '8px 18px',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              flexShrink: 0
+            }}>
+              <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 44, objectFit: 'contain' }} />
             </div>
           </div>
         </div>

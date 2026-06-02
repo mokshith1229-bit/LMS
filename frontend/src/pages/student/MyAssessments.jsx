@@ -73,7 +73,18 @@ export default function MyAssessments() {
               <h1>Welcome {user?.name || 'Student'}</h1>
               <p>Track your progress and view completed certifications.</p>
             </div>
-            <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 60, objectFit: 'contain' }} />
+            <div style={{
+              background: '#ffffff',
+              padding: '8px 18px',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+              flexShrink: 0
+            }}>
+              <img src="/assets/minds_logo.png" alt="Minds Logo" style={{ height: 44, objectFit: 'contain' }} />
+            </div>
           </div>
         </div>
 

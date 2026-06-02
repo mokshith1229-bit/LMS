@@ -361,12 +361,22 @@ export default function AdminDashboard() {
               </p>
             </div>
             {/* Right — logo + date, fully vertically centered */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
-              <img
-                src="/assets/minds_logo.png" alt="Logo"
-                style={{ height: 32, objectFit: 'contain' }}
-                onError={e => e.currentTarget.style.display = 'none'}
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '10px', flexShrink: 0 }}>
+              <div style={{
+                background: '#ffffff',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+              }}>
+                <img
+                  src="/assets/minds_logo.png" alt="Logo"
+                  style={{ height: 28, objectFit: 'contain' }}
+                  onError={e => e.currentTarget.style.display = 'none'}
+                />
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <Calendar size={12} color="#a7d9b5" />
                 <span style={{ fontSize: '0.75rem', color: '#a7d9b5', whiteSpace: 'nowrap' }}>{formatDate()}</span>

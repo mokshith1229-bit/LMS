@@ -582,16 +582,15 @@ a {
 }
 
 .simulation-banner {
-  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%) !important;
-  color: var(--text-primary) !important;
+  background: linear-gradient(135deg, #1a3a2a 0%, #2d7a3f 60%, #3da055 100%) !important;
+  color: #ffffff !important;
   padding: 32px 40px;
   border-radius: 12px;
   margin-bottom: 32px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-  border: 1px solid var(--border-light);
-  border-left: 5px solid var(--accent); /* Brand Green */
+  box-shadow: 0 4px 16px rgba(45, 122, 63, 0.22);
+  border: none;
 }
 
 .simulation-banner::after {
@@ -601,7 +600,7 @@ a {
   top: -60px;
   width: 250px;
   height: 250px;
-  background: var(--accent);
+  background: #ffffff;
   opacity: 0.08;
   border-radius: 50%;
   pointer-events: none;
@@ -611,14 +610,14 @@ a {
   font-size: 1.75rem;
   font-weight: 900;
   margin-bottom: 8px;
-  color: var(--text-primary) !important;
+  color: #ffffff !important;
   letter-spacing: -0.5px;
 }
 
 .simulation-banner p {
-  opacity: 0.8;
+  opacity: 0.9;
   font-size: 0.95rem;
-  color: var(--text-secondary) !important;
+  color: #c8e6cb !important;
   max-width: 800px;
 }
 
