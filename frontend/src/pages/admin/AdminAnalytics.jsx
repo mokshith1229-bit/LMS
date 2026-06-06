@@ -280,7 +280,6 @@ export default function AdminAnalytics() {
                   { label: 'Attempted', value: analytics.attemptedStudents, subValue: `${analytics.completionRate}%`, icon: Activity, color: '#6366f1', bg: '#e0e7ff', target: 'attempted' },
                   { label: 'Pending', value: analytics.pendingStudents, icon: Clock, color: '#64748b', bg: '#f1f5f9', target: 'pending' },
                   { label: 'Avg Score', value: `${analytics.averageScore}%`, icon: TrendingUp, color: '#f59e0b', bg: '#fef3c7', target: 'average-score' },
-                  { label: 'Pass Rate', value: `${analytics.passPercentage}%`, icon: CheckCircle, color: '#10b981', bg: '#d1fae5', target: 'pass-rate' },
                   { label: 'Highest Score', value: `${analytics.highestScore}%`, icon: Award, color: '#8b5cf6', bg: '#ede9fe', target: 'highest-score' },
                 ].map((kpi, idx) => (
                   <div key={idx} className="kpi-card interactive-kpi" onClick={() => handleKpiClick(kpi.target)}>
@@ -325,33 +324,6 @@ export default function AdminAnalytics() {
                 </div>
 
                 <div className="widgets-col">
-                  <div className="widget-card">
-                    <h3 className="widget-title">Performance Outcome</h3>
-                    <div className="widget-content">
-                      <div className="widget-chart-wrapper">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie data={passFailData} cx="50%" cy="50%" innerRadius={40} outerRadius={55} paddingAngle={2} dataKey="value" stroke="none">
-                              {passFailData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip />} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="widget-center-text">{analytics.passPercentage}%</div>
-                      </div>
-                      <div className="widget-legend">
-                        <div className="legend-item">
-                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#10b981'}}></span><span className="legend-label">Passed</span></div>
-                          <span className="legend-val">{analytics.passCount}</span>
-                        </div>
-                        <div className="legend-item">
-                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#ef4444'}}></span><span className="legend-label">Failed</span></div>
-                          <span className="legend-val">{analytics.failCount}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
                   <div className="widget-card">
                     <h3 className="widget-title">Participation Rate</h3>
                     <div className="widget-content">
