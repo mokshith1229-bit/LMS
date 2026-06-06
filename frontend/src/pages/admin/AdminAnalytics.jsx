@@ -297,32 +297,6 @@ export default function AdminAnalytics() {
               </div>
 
               <div className="charts-grid">
-                <div className="chart-card">
-                  <div className="chart-header">
-                    <div>
-                      <h2 className="chart-title">Score Distribution Trend</h2>
-                      <p className="chart-subtitle">Individual performance across the assessment</p>
-                    </div>
-                  </div>
-                  <div className="chart-container">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={analytics.studentScores} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.1}/>
-                            <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} tickFormatter={(val) => val.split(' ')[0]} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Area type="monotone" dataKey="score" stroke={CHART_COLORS.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorScore)" activeDot={{ r: 6, strokeWidth: 0, fill: '#8DC63F' }} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
                 <div className="widgets-col">
                   <div className="widget-card">
                     <h3 className="widget-title">Participation Rate</h3>
@@ -350,6 +324,32 @@ export default function AdminAnalytics() {
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="chart-card" style={{ marginBottom: 32 }}>
+                <div className="chart-header">
+                  <div>
+                    <h2 className="chart-title">Score Distribution Trend</h2>
+                    <p className="chart-subtitle">Individual performance across the assessment</p>
+                  </div>
+                </div>
+                <div className="chart-container">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={analytics.studentScores} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} dy={10} tickFormatter={(val) => val.split(' ')[0]} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Area type="monotone" dataKey="score" stroke={CHART_COLORS.primary} strokeWidth={2} fillOpacity={1} fill="url(#colorScore)" activeDot={{ r: 6, strokeWidth: 0, fill: '#8DC63F' }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
 
