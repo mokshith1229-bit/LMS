@@ -60,9 +60,9 @@ export default function CreatePublicAssessment() {
   const [loadingQuiz, setLoadingQuiz] = useState(false);
   const [duration, setDuration] = useState(30); // minutes
 
-  // Step 4 — Settings
   const [showScore, setShowScore] = useState(true);
   const [isActive, setIsActive] = useState(true);
+  const [slug, setSlug] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [passingScore, setPassingScore] = useState(60);
@@ -180,6 +180,7 @@ export default function CreatePublicAssessment() {
         passingScore,
         showScore,
         isActive,
+        slug: slug.trim(),
         startDate: startDate ? new Date(startDate).toISOString() : null,
         endDate: endDate ? new Date(endDate).toISOString() : null,
       };
@@ -193,7 +194,7 @@ export default function CreatePublicAssessment() {
       fd.append('data', JSON.stringify(payload));
 
       const { assessment } = await createPublicAssessment(fd);
-      setCreatedToken(assessment.token);
+      setCreatedToken(assessment.slug || assessment.token);
       setCreatedId(assessment._id);
       setStep(5);
       toast.success('Assessment created successfully! 🎉');
@@ -204,7 +205,7 @@ export default function CreatePublicAssessment() {
     }
   };
 
-  const publicUrl = createdToken ? `${window.location.origin}/p/${createdToken}` : '';
+  const publicUrl = createdToken ? `${window.location.origin}/${createdToken}` : '';
 
   const copyLink = () => {
     navigator.clipboard.writeText(publicUrl);
@@ -617,6 +618,17 @@ export default function CreatePublicAssessment() {
                     style={inputStyle} />
                   <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 4 }}>Leave blank for no expiry</p>
                 </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Custom URL Slug (optional)</label>
+                <input type="text" value={slug}
+                  onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-'))}
+                  placeholder="e.g. yoga-day-2026"
+                  style={{ ...inputStyle, maxWidth: 400 }} />
+                <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 4 }}>
+                  Generates <code>{window.location.origin}/{slug || 'auto-generated'}</code>. Must be unique.
+                </p>
               </div>
 
               <div>

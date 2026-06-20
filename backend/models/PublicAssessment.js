@@ -37,6 +37,15 @@ const publicAssessmentSchema = new mongoose.Schema(
       unique: true,
       default: () => crypto.randomBytes(4).toString('hex').toUpperCase(),
     },
+    
+    // Custom URL slug
+    slug: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      lowercase: true,
+    },
 
     // Content
     title: { type: String, required: true, trim: true },

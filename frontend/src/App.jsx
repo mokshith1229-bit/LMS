@@ -216,6 +216,11 @@ function App() {
             element={<ProtectedRoute role="student"><MyAssessments /></ProtectedRoute>}
           />
 
+          {/* Public Assessment Portal — Root Slug Routes */}
+          <Route path="/:token" element={<PublicLanding />} />
+          <Route path="/:token/exam" element={<PublicExam />} />
+          <Route path="/:token/done" element={<PublicThankYou />} />
+
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

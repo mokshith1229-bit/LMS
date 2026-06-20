@@ -30,8 +30,8 @@ export default function PublicAssessments() {
 
   useEffect(() => { load(); }, []);
 
-  const copyLink = (token) => {
-    const url = `${BASE_URL}/p/${token}`;
+  const copyLink = (identifier) => {
+    const url = `${BASE_URL}/${identifier}`;
     navigator.clipboard.writeText(url);
     toast.success('Link copied!');
   };
@@ -166,7 +166,7 @@ export default function PublicAssessments() {
                     </span>
                   </div>
                   <div style={{ display: 'flex', gap: 20, fontSize: '0.8rem', color: '#64748b' }}>
-                    <span>🔗 /p/{a.token}</span>
+                    <span>🔗 /{a.slug || a.token}</span>
                     <span>📝 {a.questions?.length || 0} questions</span>
                     <span>👥 {a.submissionCount || 0} submissions</span>
                     <span>⏱ {Math.floor(a.duration / 60)} min</span>
@@ -176,7 +176,7 @@ export default function PublicAssessments() {
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
                   <button
-                    onClick={() => copyLink(a.token)}
+                    onClick={() => copyLink(a.slug || a.token)}
                     title="Copy public link"
                     style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6, padding: '6px 12px', color: '#0284c7', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
                   >
@@ -184,7 +184,7 @@ export default function PublicAssessments() {
                   </button>
 
                   <a
-                    href={`/p/${a.token}`}
+                    href={`/${a.slug || a.token}`}
                     target="_blank"
                     rel="noreferrer"
                     title="Open public page"

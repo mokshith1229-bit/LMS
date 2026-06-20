@@ -105,6 +105,7 @@ router.post('/', protect, upload.single('bannerImage'), async (req, res) => {
       isActive,
       startDate,
       endDate,
+      slug,
     } = body;
 
     if (!title) {
@@ -112,6 +113,13 @@ router.post('/', protect, upload.single('bannerImage'), async (req, res) => {
     }
     if (!questions || questions.length === 0) {
       return res.status(400).json({ success: false, message: 'At least one question is required' });
+    }
+
+    let finalSlug = slug ? slug.toLowerCase().trim().replace(/[^a-z0-9-]+/g, '-') : title.toLowerCase().trim().replace(/[^a-z0-9-]+/g, '-');
+    // Ensure uniqueness
+    const existing = await PublicAssessment.findOne({ slug: finalSlug });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Custom URL slug is already taken. Please choose another one.' });
     }
 
     let bannerImage = '';
@@ -153,6 +161,7 @@ router.post('/', protect, upload.single('bannerImage'), async (req, res) => {
       startDate: startDate || null,
       endDate: endDate || null,
       createdBy: req.user._id,
+      slug: finalSlug,
     });
 
     res.status(201).json({ success: true, assessment });
@@ -221,6 +230,14 @@ router.put('/admin/:id', protect, upload.single('bannerImage'), async (req, res)
     delete body._id;
     delete body.token;
     delete body.createdBy;
+
+    if (body.slug) {
+      body.slug = body.slug.toLowerCase().trim().replace(/[^a-z0-9-]+/g, '-');
+      const existing = await PublicAssessment.findOne({ slug: body.slug, _id: { $ne: assessment._id } });
+      if (existing) {
+        return res.status(400).json({ success: false, message: 'Custom URL slug is already taken.' });
+      }
+    }
 
     Object.assign(assessment, body);
     await assessment.save();
@@ -426,8 +443,12 @@ router.get('/admin-stats', protect, async (req, res) => {
 // @access  Public
 router.get('/p/:token', async (req, res) => {
   try {
+    const param = req.params.token;
     const assessment = await PublicAssessment.findOne({
-      token: req.params.token.toUpperCase(),
+      $or: [
+        { token: param.toUpperCase() },
+        { slug: param.toLowerCase() }
+      ]
     });
 
     const access = checkAccess(assessment);
@@ -449,8 +470,8 @@ router.get('/p/:token', async (req, res) => {
     res.json({
       success: true,
       assessment: {
-        _id: assessment._id,
         title: assessment.title,
+        slug: assessment.slug,
         description: assessment.description,
         bannerImage: assessment.bannerImage,
         backgroundTheme: assessment.backgroundTheme,
@@ -476,9 +497,13 @@ router.get('/p/:token', async (req, res) => {
 router.post('/p/:token/submit', async (req, res) => {
   try {
     const { candidateData, answers, timeTaken } = req.body;
+    const param = req.params.token;
 
     const assessment = await PublicAssessment.findOne({
-      token: req.params.token.toUpperCase(),
+      $or: [
+        { token: param.toUpperCase() },
+        { slug: param.toLowerCase() }
+      ]
     });
 
     const access = checkAccess(assessment);

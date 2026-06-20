@@ -128,7 +128,7 @@ export default function PublicAssessmentReports() {
                       </span>
                     </div>
                     <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                      🔗 /p/{r.token} · {r.totalQuestions} questions
+                      🔗 /{r.slug || r.token} · {r.totalQuestions} questions
                     </div>
                   </div>
                   <Link

@@ -25,7 +25,7 @@ export default function PublicExam() {
   // If accessed directly without state, redirect back to landing
   useEffect(() => {
     if (!assessment) {
-      navigate(`/p/${token}`, { replace: true });
+      navigate(`/${token}`, { replace: true });
     }
   }, [assessment, token, navigate]);
 
@@ -49,13 +49,13 @@ export default function PublicExam() {
         timeTaken,
       });
 
-      navigate(`/p/${token}/done`, {
+      navigate(`/${token}/done`, {
         state: { result, assessmentTitle: assessment.title, isAuto },
         replace: true,
       });
     } catch (err) {
       // Even on error, navigate to a basic done page
-      navigate(`/p/${token}/done`, {
+      navigate(`/${token}/done`, {
         state: {
           result: { correct: 0, wrong: 0, unattempted: assessment.questions.length, percentage: 0, showScore: false },
           assessmentTitle: assessment.title,

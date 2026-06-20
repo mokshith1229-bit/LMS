@@ -50,7 +50,7 @@ export default function PublicLanding() {
       return;
     }
     // Pass candidate data + assessment questions via navigation state
-    navigate(`/p/${token}/exam`, {
+    navigate(`/${token}/exam`, {
       state: { assessment, candidateData: formData },
     });
   };
