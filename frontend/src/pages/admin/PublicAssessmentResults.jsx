@@ -55,15 +55,20 @@ export default function PublicAssessmentResults() {
 
   const handleExport = () => {
     if (!selectedId) return;
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('lms_token');
     const url = getExportUrl(selectedId);
     fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then(res => res.blob())
+      .then(async res => {
+        if (!res.ok) throw new Error('Network response was not ok');
+        return res.blob();
+      })
       .then(blob => {
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
         link.download = 'public_results.xlsx';
+        document.body.appendChild(link);
         link.click();
+        document.body.removeChild(link);
       })
       .catch(() => toast.error('Export failed'));
   };
