@@ -62,7 +62,7 @@ export default function CreatePublicAssessment() {
 
   // Step 4 — Settings
   const [showScore, setShowScore] = useState(true);
-  const [isActive, setIsActive] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [passingScore, setPassingScore] = useState(60);

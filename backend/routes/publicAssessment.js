@@ -149,7 +149,7 @@ router.post('/', protect, upload.single('bannerImage'), async (req, res) => {
       duration: duration || 1800,
       passingScore: passingScore || 60,
       showScore: showScore !== undefined ? showScore : true,
-      isActive: isActive || false,
+      isActive: isActive !== undefined ? isActive : true,
       startDate: startDate || null,
       endDate: endDate || null,
       createdBy: req.user._id,

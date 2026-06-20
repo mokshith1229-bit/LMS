@@ -82,7 +82,7 @@ const publicAssessmentSchema = new mongoose.Schema(
     showScore: { type: Boolean, default: true },
 
     // Access control
-    isActive: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true },
     startDate: { type: Date, default: null },
     endDate: { type: Date, default: null },
 
