@@ -59,23 +59,7 @@ export default function PublicThankYou() {
 
       <div style={{ maxWidth: 430, width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 24px' }}>
 
-        {/* Success animation */}
-        <div style={{ animation: 'scaleIn 0.5s cubic-bezier(0.34,1.56,0.64,1)', marginBottom: 8 }}>
-          <div style={{ fontSize: 72 }} className="confetti">
-            {isPassed ? '🎉' : '📋'}
-          </div>
-        </div>
 
-        {/* Heading */}
-        <div style={{ textAlign: 'center', marginBottom: 32, animation: 'fadeSlideUp 0.5s 0.15s ease both' }}>
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#fff', marginBottom: 10, lineHeight: 1.2 }}>
-            {error ? 'Submission Recorded' : 'Assessment Completed!'}
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-            {isAuto ? 'Time expired — your answers were auto-submitted.' : 'Thank you for participating.'}
-          </p>
-          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', marginTop: 4 }}>{title}</p>
-        </div>
 
         {/* Score card */}
         {showScore && !error && (
