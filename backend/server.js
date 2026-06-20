@@ -90,6 +90,7 @@ app.use('/api/poll', require('./routes/poll'));
 app.use('/api/presentation', require('./routes/presentation'));
 app.use('/api/import', require('./routes/import'));
 app.use('/api/categories', require('./routes/category'));
+app.use('/api/public', require('./routes/publicAssessment'));
 
 // Health check
 app.get('/api/health', (req, res) => {

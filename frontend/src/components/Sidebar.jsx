@@ -6,7 +6,7 @@ import Calculator from './Calculator';
 import {
   LayoutDashboard, BookOpen, Upload, ClipboardList,
   LogOut, Award, UserPlus, BarChart2, ClipboardCheck, FileSpreadsheet, PieChart, MonitorPlay, Users, Activity,
-  Calculator as CalcIcon, Layers, Database
+  Calculator as CalcIcon, Layers, Database, Globe
 } from 'lucide-react';
 
 const adminLinks = [
@@ -23,6 +23,7 @@ const adminLinks = [
   { to: '/admin/polls', icon: <PieChart size={18} />, label: 'Live Polls' },
   { to: '/admin/presentations', icon: <MonitorPlay size={18} />, label: 'Presentations' },
   { to: '/admin/analytics', icon: <Activity size={18} />, label: 'Analytics' },
+  { to: '/admin/public-assessments', icon: <Globe size={18} />, label: 'Public Assessments' },
 ];
 
 const studentLinks = [

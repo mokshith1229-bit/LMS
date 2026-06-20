@@ -27,6 +27,17 @@ import DetailedAnalytics from './pages/admin/DetailedAnalytics';
 import CategoryManagement from './pages/admin/CategoryManagement';
 import QuestionBank from './pages/admin/QuestionBank';
 
+// Public Assessment Portal — Admin Pages
+import PublicAssessments from './pages/admin/PublicAssessments';
+import CreatePublicAssessment from './pages/admin/CreatePublicAssessment';
+import PublicAssessmentResults from './pages/admin/PublicAssessmentResults';
+import PublicAssessmentReports from './pages/admin/PublicAssessmentReports';
+
+// Public Assessment Portal — Public Pages (no auth)
+import PublicLanding from './pages/public/PublicLanding';
+import PublicExam from './pages/public/PublicExam';
+import PublicThankYou from './pages/public/PublicThankYou';
+
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard';
 import CourseDetail from './pages/student/CourseDetail';
@@ -72,6 +83,11 @@ function App() {
 
           {/* Public Live Poll Route */}
           <Route path="/poll/:code" element={<StudentPoll />} />
+
+          {/* Public Assessment Portal — No auth required */}
+          <Route path="/p/:token" element={<PublicLanding />} />
+          <Route path="/p/:token/exam" element={<PublicExam />} />
+          <Route path="/p/:token/done" element={<PublicThankYou />} />
 
           {/* Admin Routes */}
           <Route
@@ -146,6 +162,28 @@ function App() {
           <Route
             path="/admin/question-bank"
             element={<ProtectedRoute role="admin"><QuestionBank /></ProtectedRoute>}
+          />
+
+          {/* Public Assessment Portal — Admin Routes */}
+          <Route
+            path="/admin/public-assessments"
+            element={<ProtectedRoute role="admin"><PublicAssessments /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/public-assessments/create"
+            element={<ProtectedRoute role="admin"><CreatePublicAssessment /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/public-assessments/results"
+            element={<ProtectedRoute role="admin"><PublicAssessmentResults /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/public-assessments/:id/results"
+            element={<ProtectedRoute role="admin"><PublicAssessmentResults /></ProtectedRoute>}
+          />
+          <Route
+            path="/admin/public-assessments/reports"
+            element={<ProtectedRoute role="admin"><PublicAssessmentReports /></ProtectedRoute>}
           />
 
           {/* Student Routes */}
