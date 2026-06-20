@@ -171,17 +171,7 @@ export default function PublicLanding() {
           padding: '48px 24px 32px',
           animation: 'fadeSlideUp 0.5s ease',
         }}>
-          {/* Assessment badge */}
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(255,255,255,0.2)', borderRadius: 30,
-            padding: '5px 14px', marginBottom: 20, fontSize: '0.75rem',
-            fontWeight: 700, color: '#fff', letterSpacing: '0.5px', textTransform: 'uppercase',
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', display: 'inline-block' }} />
-            Assessment
-          </div>
+
 
           <h1 style={{
             fontSize: 'clamp(1.5rem, 6vw, 2rem)', fontWeight: 900,
@@ -270,16 +260,7 @@ export default function PublicLanding() {
             ))}
           </div>
 
-          {/* Instructions note */}
-          <div style={{
-            marginTop: 24, padding: '12px 14px',
-            background: 'rgba(255,255,255,0.08)', borderRadius: 10,
-            border: '1px solid rgba(255,255,255,0.12)', fontSize: '0.8rem',
-            color: 'rgba(255,255,255,0.7)', lineHeight: 1.6,
-          }}>
-            📋 This assessment has a <strong style={{ color: '#fff' }}>{Math.floor(assessment.duration / 60)}-minute</strong> timer.
-            Once started, it will auto-submit when time runs out.
-          </div>
+
 
           {/* Start Button */}
           <button
@@ -295,7 +276,7 @@ export default function PublicLanding() {
               boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
             }}
           >
-            {submitting ? 'Starting...' : '🚀 Start Assessment'}
+            {submitting ? 'Starting...' : 'Start Assessment'}
           </button>
 
           <p style={{ textAlign: 'center', marginTop: 16, fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
