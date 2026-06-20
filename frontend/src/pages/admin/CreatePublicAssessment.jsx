@@ -180,8 +180,8 @@ export default function CreatePublicAssessment() {
         passingScore,
         showScore,
         isActive,
-        startDate: startDate || null,
-        endDate: endDate || null,
+        startDate: startDate ? new Date(startDate).toISOString() : null,
+        endDate: endDate ? new Date(endDate).toISOString() : null,
       };
 
       if (selectedQuizId && questionMode === 'existing') {
