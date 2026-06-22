@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import Sidebar from '../../components/Sidebar';
 import toast from 'react-hot-toast';
-import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown, ArrowLeft, FileText, Trash2 } from 'lucide-react';
+import { RefreshCw, BarChart2, CheckCircle, XCircle, FileDown, ArrowLeft, FileText, Trash2, Save } from 'lucide-react';
 import * as XLSX from 'xlsx-js-style';
 import { saveAs } from 'file-saver';
 
@@ -17,6 +17,8 @@ export default function AdminResults() {
   const [filterCourse, setFilterCourse] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
   const [batchPdfLoading, setBatchPdfLoading] = useState(false);
+  const [theoryMarksUpdates, setTheoryMarksUpdates] = useState({});
+  const [savingMarks, setSavingMarks] = useState(false);
 
   const handleDownloadBatchPDF = async () => {
     if (selectedIds.length === 0) {
@@ -126,8 +128,8 @@ export default function AdminResults() {
       r.correct,
       r.wrong,
       r.unattempted,
-      '', // Theoretical Marks (Blank as requested)
-      '', // Total Theoretical (Blank as requested)
+      r.theoryMarks || 0, // Theoretical Marks
+      20, // Total Theoretical
       r.total,
       r.percentage,
       r.passed ? 'PASS' : 'FAIL'
@@ -244,6 +246,26 @@ export default function AdminResults() {
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.message || 'Failed to delete submission', { id: loadingToast });
+    }
+  };
+
+  const handleSaveMarks = async () => {
+    const updates = Object.keys(theoryMarksUpdates).map(id => ({
+      submissionId: id,
+      theoryMarks: theoryMarksUpdates[id]
+    }));
+    if (updates.length === 0) return;
+
+    setSavingMarks(true);
+    try {
+      await api.put('/admin/results/theory-marks', { marksData: updates });
+      toast.success('Theory marks updated successfully');
+      setTheoryMarksUpdates({});
+      loadResults(); // Refresh table
+    } catch (err) {
+      toast.error('Failed to update theory marks');
+    } finally {
+      setSavingMarks(false);
     }
   };
 
@@ -395,6 +417,19 @@ export default function AdminResults() {
               >
                 <RefreshCw size={14} /> Refresh
               </button>
+              {Object.keys(theoryMarksUpdates).length > 0 && (
+                <button
+                  className="btn btn-primary"
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: '0.85rem',
+                    background: '#4f46e5', borderColor: '#4f46e5'
+                  }}
+                  onClick={handleSaveMarks}
+                  disabled={savingMarks}
+                >
+                  <Save size={14} /> {savingMarks ? 'Saving...' : 'Save Marks'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -423,7 +458,7 @@ export default function AdminResults() {
                         }
                       />
                     </th>
-                    {['Student', 'Quiz', 'Score', 'Correct', 'Wrong', 'Percentage', 'Result', 'Status', 'Submitted', 'Actions'].map((h) => (
+                    {['Student', 'Quiz', 'Score', 'Theory', 'Correct', 'Wrong', 'Percentage', 'Result', 'Status', 'Submitted', 'Actions'].map((h) => (
                       <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 700, color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
@@ -457,6 +492,22 @@ export default function AdminResults() {
                           )}
                         </td>
                         <td style={{ padding: '10px 12px', fontWeight: 700 }}>{r.correct}/{r.total}</td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            max="20"
+                            value={theoryMarksUpdates[r.submissionId] !== undefined ? theoryMarksUpdates[r.submissionId] : (r.theoryMarks || 0)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTheoryMarksUpdates(prev => ({ ...prev, [r.submissionId]: val }));
+                            }}
+                            style={{
+                              width: 50, padding: '4px', border: '1px solid #e2e8f0', borderRadius: 4,
+                              textAlign: 'center', fontWeight: 600, color: '#374151'
+                            }}
+                          />
+                        </td>
                         <td style={{ padding: '10px 12px', color: '#2f9e44', fontWeight: 600 }}>{r.correct}</td>
                         <td style={{ padding: '10px 12px', color: '#c92a2a', fontWeight: 600 }}>{r.wrong}</td>
                         <td style={{ padding: '10px 12px', fontWeight: 700 }}>{r.percentage}%</td>

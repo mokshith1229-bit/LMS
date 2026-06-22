@@ -43,6 +43,10 @@ const submissionSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  theoryMarks: {
+    type: Number,
+    default: 0,
+  },
   timeTaken: {
     type: Number, // in seconds
   },

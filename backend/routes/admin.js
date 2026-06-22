@@ -96,6 +96,7 @@ router.get('/results/batch/:batchId', async (req, res) => {
         wrong: sub.wrong,
         unattempted: sub.unattempted,
         total: sub.correct + sub.wrong + sub.unattempted,
+        theoryMarks: sub.theoryMarks || 0,
         percentage: sub.percentage,
         answers: sub.answers,
         passed: sub.passed,
@@ -139,6 +140,7 @@ router.get('/results', async (req, res) => {
         wrong: sub.wrong,
         unattempted: sub.unattempted,
         total: sub.correct + sub.wrong + sub.unattempted,
+        theoryMarks: sub.theoryMarks || 0,
         percentage: sub.percentage,
         passed: sub.passed,
         timeTaken: sub.timeTaken,
@@ -180,6 +182,39 @@ router.delete('/results/:submissionId', async (req, res) => {
     }
 
     res.json({ success: true, message: 'Submission deleted successfully and assignment reset' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @route   PUT /api/admin/results/theory-marks
+// @desc    Update theory marks for submissions
+// @access  Admin only
+router.put('/results/theory-marks', async (req, res) => {
+  try {
+    const { marksData } = req.body;
+    if (!Array.isArray(marksData)) {
+      return res.status(400).json({ success: false, message: 'marksData must be an array' });
+    }
+
+    for (const data of marksData) {
+      const submission = await Submission.findById(data.submissionId).populate('quizId');
+      if (submission && submission.quizId) {
+        let tMarks = Number(data.theoryMarks);
+        if (isNaN(tMarks) || tMarks < 0) tMarks = 0;
+        if (tMarks > 20) tMarks = 20;
+
+        submission.theoryMarks = tMarks;
+        
+        const objectiveMarks = submission.correct * 2;
+        const finalMarks = objectiveMarks + tMarks;
+        submission.percentage = finalMarks;
+        submission.passed = finalMarks >= (submission.quizId.passingScore || 60);
+
+        await submission.save();
+      }
+    }
+    res.json({ success: true, message: 'Theory marks updated successfully' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
