@@ -115,35 +115,24 @@ export default function AdminResults() {
       return;
     }
 
-    // Sort and calculate dense rank
+    // Sort selected data by percentage desc
     const sortedData = [...selectedData].sort((a, b) => b.percentage - a.percentage);
-    let currentRank = 1;
-    let currentPercentage = sortedData[0]?.percentage;
-    sortedData.forEach((row) => {
-      if (row.percentage < currentPercentage) {
-        currentRank++;
-        currentPercentage = row.percentage;
-      }
-      row.rank = currentRank;
-    });
 
     // Define main headers
     const headers = [
-      'Rank', 'Student Name', 'Correct Answers', 'Wrong Answers', 'Unattempted', 
-      'Theoretical Marks', 'Total Theoretical', 'Total Questions', 
+      'Student Name', 'Correct Answers', 'Wrong Answers', 'Unattempted', 
+      'Theoretical Marks', 'Total Theoretical', 
       'Percentage (%)', 'Result'
     ];
 
     // Create main data rows
     const rows = sortedData.map(r => [
-      r.rank,
       r.userName,
       r.correct,
       r.wrong,
       r.unattempted,
       r.theoryMarks || 0,
       20,
-      r.total,
       r.percentage,
       r.passed ? 'PASS' : 'FAIL'
     ]);
@@ -175,15 +164,15 @@ export default function AdminResults() {
     if (lowest === Infinity) lowest = 0;
 
     const summaryData = [
-      ['Summary', ''], // L2:M2 (merge later)
-      ['Score Distribution', 'Count'], // L3:M3
+      ['Summary', ''], // J2:K2 (merge later)
+      ['Score Distribution', 'Count'], // J3:K3
       ['90% and Above', count90],
       ['80% to 89.99%', count80],
       ['70% to 79.99%', count70],
       ['60% to 69.99%', count60],
       ['Below 60%', countBelow],
       [],
-      ['Overall Metrics', 'Value'], // L10:M10
+      ['Overall Metrics', 'Value'], // J10:K10
       ['Total Students', totalStudents],
       ['Total Pass', passCount],
       ['Total Fail', totalStudents - passCount],
@@ -194,7 +183,7 @@ export default function AdminResults() {
 
     // Build worksheet data with padding
     const maxRows = Math.max(rows.length + 1, summaryData.length + 1);
-    const worksheetData = Array(maxRows).fill(null).map(() => Array(13).fill(''));
+    const worksheetData = Array(maxRows).fill(null).map(() => Array(11).fill('')); // up to column K (index 10)
 
     // Fill main table
     worksheetData[0].splice(0, headers.length, ...headers);
@@ -202,16 +191,16 @@ export default function AdminResults() {
       worksheetData[i + 1].splice(0, r.length, ...r);
     });
 
-    // Fill summary table starting at row 2 (index 1), col L (index 11)
+    // Fill summary table starting at row 2 (index 1), col J (index 9)
     summaryData.forEach((r, i) => {
-      worksheetData[i + 1].splice(11, r.length, ...r);
+      worksheetData[i + 1].splice(9, r.length, ...r);
     });
 
     const ws = XLSX.utils.aoa_to_sheet(worksheetData);
 
     // Merge Summary title
     if (!ws['!merges']) ws['!merges'] = [];
-    ws['!merges'].push({ s: { r: 1, c: 11 }, e: { r: 1, c: 12 } }); // L2:M2
+    ws['!merges'].push({ s: { r: 1, c: 9 }, e: { r: 1, c: 10 } }); // J2:K2
 
     // Apply styles to all cells
     const fullRange = XLSX.utils.decode_range(ws['!ref']);
@@ -234,7 +223,7 @@ export default function AdminResults() {
               border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } },
               alignment: { horizontal: "center" }
             };
-            if (c === 9) { // Result column
+            if (c === 7) { // Result column
               const value = ws[address].v;
               ws[address].s.font = { bold: true, color: { rgb: value === 'PASS' ? "2f9e44" : "c92a2a" } };
             }
@@ -242,7 +231,7 @@ export default function AdminResults() {
         }
 
         // Summary table styling
-        if (c === 11 || c === 12) {
+        if (c === 9 || c === 10) {
           if (r === 1 || r === 2 || r === 9) {
             ws[address].s = {
               font: { bold: true, color: { rgb: "FFFFFF" } },
@@ -253,13 +242,13 @@ export default function AdminResults() {
           } else if (r >= 3 && r <= 7) { // Distribution data
             ws[address].s = {
               border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } },
-              alignment: { horizontal: c === 11 ? "left" : "center" }
+              alignment: { horizontal: c === 9 ? "left" : "center" }
             };
           } else if (r >= 10 && r <= 15) { // Overall data
             ws[address].s = {
               border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } },
-              alignment: { horizontal: c === 11 ? "left" : "center" },
-              font: { bold: c === 12 }
+              alignment: { horizontal: c === 9 ? "left" : "center" },
+              font: { bold: c === 10 }
             };
           }
         }
@@ -268,15 +257,15 @@ export default function AdminResults() {
 
     // Column widths
     const wscols = [];
-    for (let i = 0; i < 13; i++) {
+    for (let i = 0; i < 11; i++) {
       if (i < headers.length) {
         const maxLen = Math.max(headers[i].length, ...rows.map(row => (row[i] ? row[i].toString().length : 0)));
         wscols.push({ wch: maxLen + 5 });
-      } else if (i === 10) { // gap
+      } else if (i === 8) { // gap
         wscols.push({ wch: 3 });
-      } else if (i === 11) { // summary label
+      } else if (i === 9) { // summary label
         wscols.push({ wch: 22 });
-      } else if (i === 12) { // summary value
+      } else if (i === 10) { // summary value
         wscols.push({ wch: 15 });
       }
     }
