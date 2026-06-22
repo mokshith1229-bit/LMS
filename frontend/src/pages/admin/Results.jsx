@@ -115,87 +115,171 @@ export default function AdminResults() {
       return;
     }
 
-    // Define headers
+    // Sort and calculate dense rank
+    const sortedData = [...selectedData].sort((a, b) => b.percentage - a.percentage);
+    let currentRank = 1;
+    let currentPercentage = sortedData[0]?.percentage;
+    sortedData.forEach((row) => {
+      if (row.percentage < currentPercentage) {
+        currentRank++;
+        currentPercentage = row.percentage;
+      }
+      row.rank = currentRank;
+    });
+
+    // Define main headers
     const headers = [
-      'Student Name', 'Correct Answers', 'Wrong Answers', 'Unattempted', 
+      'Rank', 'Student Name', 'Correct Answers', 'Wrong Answers', 'Unattempted', 
       'Theoretical Marks', 'Total Theoretical', 'Total Questions', 
       'Percentage (%)', 'Result'
     ];
 
-    // Create data rows
-    const rows = selectedData.map(r => [
+    // Create main data rows
+    const rows = sortedData.map(r => [
+      r.rank,
       r.userName,
       r.correct,
       r.wrong,
       r.unattempted,
-      r.theoryMarks || 0, // Theoretical Marks
-      20, // Total Theoretical
+      r.theoryMarks || 0,
+      20,
       r.total,
       r.percentage,
       r.passed ? 'PASS' : 'FAIL'
     ]);
 
-    // Combine headers and rows
-    const worksheetData = [headers, ...rows];
+    // Summary calculations
+    let count90 = 0, count80 = 0, count70 = 0, count60 = 0, countBelow = 0;
+    let passCount = 0;
+    let sumPercentage = 0;
+    let highest = -Infinity;
+    let lowest = Infinity;
 
-    // Convert to worksheet
+    sortedData.forEach(r => {
+      const p = r.percentage;
+      if (p >= 90) count90++;
+      else if (p >= 80) count80++;
+      else if (p >= 70) count70++;
+      else if (p >= 60) count60++;
+      else countBelow++;
+
+      if (r.passed) passCount++;
+      sumPercentage += p;
+      if (p > highest) highest = p;
+      if (p < lowest) lowest = p;
+    });
+
+    const totalStudents = sortedData.length;
+    const avg = totalStudents ? (sumPercentage / totalStudents).toFixed(2) + '%' : '0%';
+    if (highest === -Infinity) highest = 0;
+    if (lowest === Infinity) lowest = 0;
+
+    const summaryData = [
+      ['Summary', ''], // L2:M2 (merge later)
+      ['Score Distribution', 'Count'], // L3:M3
+      ['90% and Above', count90],
+      ['80% to 89.99%', count80],
+      ['70% to 79.99%', count70],
+      ['60% to 69.99%', count60],
+      ['Below 60%', countBelow],
+      [],
+      ['Overall Metrics', 'Value'], // L10:M10
+      ['Total Students', totalStudents],
+      ['Total Pass', passCount],
+      ['Total Fail', totalStudents - passCount],
+      ['Highest Percentage', highest + '%'],
+      ['Lowest Percentage', lowest + '%'],
+      ['Average Percentage', avg]
+    ];
+
+    // Build worksheet data with padding
+    const maxRows = Math.max(rows.length + 1, summaryData.length + 1);
+    const worksheetData = Array(maxRows).fill(null).map(() => Array(13).fill(''));
+
+    // Fill main table
+    worksheetData[0].splice(0, headers.length, ...headers);
+    rows.forEach((r, i) => {
+      worksheetData[i + 1].splice(0, r.length, ...r);
+    });
+
+    // Fill summary table starting at row 2 (index 1), col L (index 11)
+    summaryData.forEach((r, i) => {
+      worksheetData[i + 1].splice(11, r.length, ...r);
+    });
+
     const ws = XLSX.utils.aoa_to_sheet(worksheetData);
 
-    // Apply styles
-    const range = XLSX.utils.decode_range(ws['!ref']);
-    
-    // Style headers (row 0)
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const address = XLSX.utils.encode_cell({ r: 0, c });
-      if (!ws[address]) continue;
-      ws[address].s = {
-        font: { bold: true, color: { rgb: "FFFFFF" } },
-        fill: { fgColor: { rgb: "1e293b" } }, // Dark theme header
-        alignment: { horizontal: "center", vertical: "center" },
-        border: {
-          top: { style: "thin" },
-          bottom: { style: "thin" },
-          left: { style: "thin" },
-          right: { style: "thin" }
-        }
-      };
-    }
+    // Merge Summary title
+    if (!ws['!merges']) ws['!merges'] = [];
+    ws['!merges'].push({ s: { r: 1, c: 11 }, e: { r: 1, c: 12 } }); // L2:M2
 
-    // Style data rows
-    for (let r = 1; r <= range.e.r; r++) {
-      for (let c = range.s.c; c <= range.e.c; c++) {
+    // Apply styles to all cells
+    const fullRange = XLSX.utils.decode_range(ws['!ref']);
+    for (let r = fullRange.s.r; r <= fullRange.e.r; r++) {
+      for (let c = fullRange.s.c; c <= fullRange.e.c; c++) {
         const address = XLSX.utils.encode_cell({ r, c });
-        if (!ws[address]) ws[address] = { v: "" };
-        
-        ws[address].s = {
-          border: {
-            top: { style: "thin" },
-            bottom: { style: "thin" },
-            left: { style: "thin" },
-            right: { style: "thin" }
-          },
-          alignment: { horizontal: "center" }
-        };
+        if (!ws[address] || ws[address].v === '') continue; // skip empty cells
 
-        // Result column (index 8)
-        if (c === 8) {
-          const value = ws[address].v;
-          ws[address].s.font = { 
-            bold: true, 
-            color: { rgb: value === 'PASS' ? "2f9e44" : "c92a2a" } 
-          };
+        // Main table styling
+        if (c < headers.length) {
+          if (r === 0) { // Main headers
+            ws[address].s = {
+              font: { bold: true, color: { rgb: "FFFFFF" } },
+              fill: { fgColor: { rgb: "1e293b" } },
+              alignment: { horizontal: "center", vertical: "center" },
+              border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } }
+            };
+          } else { // Main data rows
+            ws[address].s = {
+              border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } },
+              alignment: { horizontal: "center" }
+            };
+            if (c === 9) { // Result column
+              const value = ws[address].v;
+              ws[address].s.font = { bold: true, color: { rgb: value === 'PASS' ? "2f9e44" : "c92a2a" } };
+            }
+          }
+        }
+
+        // Summary table styling
+        if (c === 11 || c === 12) {
+          if (r === 1 || r === 2 || r === 9) {
+            ws[address].s = {
+              font: { bold: true, color: { rgb: "FFFFFF" } },
+              fill: { fgColor: { rgb: "4f46e5" } },
+              alignment: { horizontal: "center", vertical: "center" },
+              border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } }
+            };
+          } else if (r >= 3 && r <= 7) { // Distribution data
+            ws[address].s = {
+              border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } },
+              alignment: { horizontal: c === 11 ? "left" : "center" }
+            };
+          } else if (r >= 10 && r <= 15) { // Overall data
+            ws[address].s = {
+              border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } },
+              alignment: { horizontal: c === 11 ? "left" : "center" },
+              font: { bold: c === 12 }
+            };
+          }
         }
       }
     }
 
-    // Auto width
-    const wscols = headers.map((h, i) => {
-      const maxLen = Math.max(
-        h.length,
-        ...rows.map(row => (row[i] ? row[i].toString().length : 0))
-      );
-      return { wch: maxLen + 5 };
-    });
+    // Column widths
+    const wscols = [];
+    for (let i = 0; i < 13; i++) {
+      if (i < headers.length) {
+        const maxLen = Math.max(headers[i].length, ...rows.map(row => (row[i] ? row[i].toString().length : 0)));
+        wscols.push({ wch: maxLen + 5 });
+      } else if (i === 10) { // gap
+        wscols.push({ wch: 3 });
+      } else if (i === 11) { // summary label
+        wscols.push({ wch: 22 });
+      } else if (i === 12) { // summary value
+        wscols.push({ wch: 15 });
+      }
+    }
     ws['!cols'] = wscols;
 
     const wb = XLSX.utils.book_new();
