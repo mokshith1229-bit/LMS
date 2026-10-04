@@ -105,7 +105,7 @@ const publicAssessmentSchema = new mongoose.Schema(
 );
 
 // Ensure token is always uppercase and unique
-publicAssessmentSchema.index({ token: 1 }, { unique: true });
+// publicAssessmentSchema.index({ token: 1 }, { unique: true });
 
 module.exports =
   mongoose.models.PublicAssessment ||

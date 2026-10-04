@@ -62,6 +62,19 @@ export default function PresentationMode() {
   const [pollRevealed, setPollRevealed] = useState(false);
   const [presentationResponseCount, setPresentationResponseCount] = useState(0);
   const [summaryPage, setSummaryPage] = useState(0);
+  const [scale, setScale] = useState(1);
+
+  // Calculate CSS scale to fit 1920x1080 canvas inside viewport
+  useEffect(() => {
+    const updateScale = () => {
+      const scaleX = window.innerWidth / 1920;
+      const scaleY = window.innerHeight / 1080;
+      setScale(Math.min(scaleX, scaleY));
+    };
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, []);
 
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   const FRONTEND_ORIGIN = window.location.origin;
@@ -81,14 +94,14 @@ export default function PresentationMode() {
       syncSocket.current.on('slide_changed', (data) => {
         if (data && typeof data === 'object') {
           const { slideIndex, questionIndex, mode: newMode, summaryPage: newSummaryPage } = data;
-          
+
           setCurrentSlide((prev) => {
             if (prev !== slideIndex) {
               setSlideDir(slideIndex > prev ? 1 : -1);
             }
             return slideIndex;
           });
-          
+
           if (newMode !== undefined) setMode(newMode);
           if (questionIndex !== undefined) setCurrentQuestionIndex(questionIndex);
           if (newSummaryPage !== undefined) setSummaryPage(newSummaryPage);
@@ -187,10 +200,10 @@ export default function PresentationMode() {
       clearTimeout(timeout);
       timeout = setTimeout(hideCursor, 3000);
     };
-    
+
     window.addEventListener('mousemove', showCursor);
     showCursor(); // initial setup
-    
+
     return () => {
       window.removeEventListener('mousemove', showCursor);
       document.body.style.cursor = 'default';
@@ -237,7 +250,7 @@ export default function PresentationMode() {
         const poll = data.poll;
         setActivePoll({ ...poll, isExpired: data.isExpired });
         setChartData(data.results || []);
-        
+
         // Initialize presentationResponseCount from existing responses or data.results
         if (poll.responses) {
           setPresentationResponseCount(poll.responses.length);
@@ -337,19 +350,19 @@ export default function PresentationMode() {
           clearInterval(interval);
           // Fallback: If timer hits 0 and socket event hasn't fired or was missed
           if (pollTimerActive) {
-             setPollTimerActive(false);
-             setPollRevealed(true);
-             // Ensure results are fetched before switching
-             (async () => {
-                try {
-                  const pId = typeof activePoll?._id === 'object' ? activePoll._id._id : activePoll?._id;
-                  if (pId) {
-                    const { data } = await api.get(`/poll/${pId}/results`);
-                    if (data.success) setChartData(data.results);
-                  }
-                } catch (e) { console.error('Fallback results fetch failed', e); }
-                setTimeout(() => setMode('summary'), 800);
-             })();
+            setPollTimerActive(false);
+            setPollRevealed(true);
+            // Ensure results are fetched before switching
+            (async () => {
+              try {
+                const pId = typeof activePoll?._id === 'object' ? activePoll._id._id : activePoll?._id;
+                if (pId) {
+                  const { data } = await api.get(`/poll/${pId}/results`);
+                  if (data.success) setChartData(data.results);
+                }
+              } catch (e) { console.error('Fallback results fetch failed', e); }
+              setTimeout(() => setMode('summary'), 800);
+            })();
           }
           return 0;
         }
@@ -415,7 +428,7 @@ export default function PresentationMode() {
     if (!presentation) return;
     if (mode === 'poll' && activePoll) {
       if (currentQuestionIndex < activePoll.questions.length - 1) {
-        setCurrentQuestionIndex(i => i + 1); 
+        setCurrentQuestionIndex(i => i + 1);
         return;
       } else {
         endPollAndShowSummary();
@@ -462,7 +475,7 @@ export default function PresentationMode() {
   // ── Keyboard (window-level listener for remote / extended display) ──────────
   useEffect(() => {
     if (!isController) return; // TV view doesn't listen to keyboard
-    
+
     const handleSlideKeys = (e) => {
       // Navigation keys used by Logitech and other presentation remotes
       const NAV_NEXT = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
@@ -528,7 +541,7 @@ export default function PresentationMode() {
       const t = TRANSITIONS.slideLeft(slideDir);
       return { initial: t.enter, animate: t.center, exit: t.exit, transition: { ...t.transition, duration } };
     }
-    
+
     if (type === 'slideRight') {
       const t = TRANSITIONS.slideLeft(-slideDir); // Inverse of slideLeft
       return { initial: t.enter, animate: t.center, exit: t.exit, transition: { ...t.transition, duration } };
@@ -585,127 +598,127 @@ export default function PresentationMode() {
             display: 'flex', alignItems: 'center', gap: '0.5rem'
           }}
         >
-        {/* Title */}
-        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#e2e8f0', marginRight: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '30%' }}>
-          {presentation.title}
-        </span>
-
-        {/* Slide counter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 12px' }}>
-          <button onClick={goPrev} disabled={currentSlide === 0} style={btnStyle(currentSlide === 0)}>‹</button>
-          <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: 60, textAlign: 'center', color: '#1e293b' }}>
-            {mode === 'poll' ? '📊 Poll' : mode === 'summary' ? '📈 Summary' : `${currentSlide + 1} / ${totalSlides}`}
+          {/* Title */}
+          <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#e2e8f0', marginRight: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '30%' }}>
+            {presentation.title}
           </span>
-          <button onClick={goNext} disabled={mode === 'slide' && currentSlide === totalSlides - 1} style={btnStyle(mode === 'slide' && currentSlide === totalSlides - 1)}>›</button>
-        </div>
 
-        {/* Poll activating indicator */}
-        {pollActivating && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(141,198,63,0.15)', border: '1px solid rgba(141,198,63,0.4)', borderRadius: 8, padding: '4px 12px' }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F', animation: 'pulse 1s infinite' }} />
-            <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#8DC63F' }}>Starting poll…</span>
+          {/* Slide counter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 12px' }}>
+            <button onClick={goPrev} disabled={currentSlide === 0} style={btnStyle(currentSlide === 0)}>‹</button>
+            <span style={{ fontSize: '0.85rem', fontWeight: 700, minWidth: 60, textAlign: 'center', color: '#1e293b' }}>
+              {mode === 'poll' ? '📊 Poll' : mode === 'summary' ? '📈 Summary' : `${currentSlide + 1} / ${totalSlides}`}
+            </span>
+            <button onClick={goNext} disabled={mode === 'slide' && currentSlide === totalSlides - 1} style={btnStyle(mode === 'slide' && currentSlide === totalSlides - 1)}>›</button>
           </div>
-        )}
 
-        {/* Transitions */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowTransitionPicker(p => !p)}
-            style={toolBtn()}
-            title="Change transition"
-          >
-            ✨
-          </button>
-          {showTransitionPicker && (
-            <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden', minWidth: 140, boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
-              {TRANSITION_NAMES.map(t => (
-                <button key={t} onClick={() => { setTransitionType(t); setShowTransitionPicker(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', background: transitionType === t ? 'rgba(141,198,63,0.15)' : 'none', color: transitionType === t ? '#8DC63F' : '#e2e8f0', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>
-                  {t === 'slideLeft' ? 'Slide' : t === 'fade' ? 'Fade' : 'Zoom'}
-                  {transitionType === t && ' (Selected)'}
-                </button>
-              ))}
+          {/* Poll activating indicator */}
+          {pollActivating && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(141,198,63,0.15)', border: '1px solid rgba(141,198,63,0.4)', borderRadius: 8, padding: '4px 12px' }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#8DC63F', animation: 'pulse 1s infinite' }} />
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#8DC63F' }}>Starting poll…</span>
             </div>
           )}
-        </div>
 
-        {/* Thumbnails toggle */}
-        <button onClick={() => setThumbnailsOpen(p => !p)} style={toolBtn(thumbnailsOpen)} title="Slide panel">Slides</button>
+          {/* Transitions */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowTransitionPicker(p => !p)}
+              style={toolBtn()}
+              title="Change transition"
+            >
+              ✨
+            </button>
+            {showTransitionPicker && (
+              <div style={{ position: 'absolute', top: '110%', right: 0, background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden', minWidth: 140, boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
+                {TRANSITION_NAMES.map(t => (
+                  <button key={t} onClick={() => { setTransitionType(t); setShowTransitionPicker(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '10px 16px', background: transitionType === t ? 'rgba(141,198,63,0.15)' : 'none', color: transitionType === t ? '#8DC63F' : '#e2e8f0', border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600, textTransform: 'capitalize' }}>
+                    {t === 'slideLeft' ? 'Slide' : t === 'fade' ? 'Fade' : 'Zoom'}
+                    {transitionType === t && ' (Selected)'}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* Poll controls — auto-started, but allow manual toggle */}
-        {hasLinkedPoll && mode === 'slide' && !pollActivating && (
-          <button onClick={() => setMode('poll')} style={{ ...toolBtn(), background: 'rgba(141,198,63,0.2)', color: '#8DC63F', border: '1px solid rgba(141,198,63,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
-            Show Poll
+          {/* Thumbnails toggle */}
+          <button onClick={() => setThumbnailsOpen(p => !p)} style={toolBtn(thumbnailsOpen)} title="Slide panel">Slides</button>
+
+          {/* Poll controls — auto-started, but allow manual toggle */}
+          {hasLinkedPoll && mode === 'slide' && !pollActivating && (
+            <button onClick={() => setMode('poll')} style={{ ...toolBtn(), background: 'rgba(141,198,63,0.2)', color: '#8DC63F', border: '1px solid rgba(141,198,63,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+              Show Poll
+            </button>
+          )}
+          {mode === 'poll' && (
+            <button onClick={endPollAndShowSummary} style={{ ...toolBtn(), background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+              End Poll & Summary
+            </button>
+          )}
+          {mode === 'summary' && (
+            <button onClick={() => setMode('slide')} style={{ ...toolBtn(), background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', border: '1px solid rgba(56, 189, 248, 0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
+              Back to Slide
+            </button>
+          )}
+
+          {/* Fullscreen */}
+          <button onClick={toggleFullscreen} style={toolBtn()} title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}>
+            {isFullscreen ? 'Exit Full' : 'Full Screen'}
           </button>
-        )}
-        {mode === 'poll' && (
-          <button onClick={endPollAndShowSummary} style={{ ...toolBtn(), background: 'rgba(239,68,68,0.2)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
-            End Poll & Summary
+
+          {/* Launch TV View */}
+          <button
+            onClick={() => {
+              const features = [
+                'fullscreen=yes',
+                'toolbar=no',
+                'menubar=no',
+                'scrollbars=no',
+                'resizable=yes',
+                `width=${window.screen.width}`,
+                `height=${window.screen.height}`,
+                'left=0',
+                'top=0',
+              ].join(',');
+              window.open(`/admin/presentation-view/${id}`, '_blank', features);
+            }}
+            style={{ ...toolBtn(), color: '#8DC63F', border: '1px solid rgba(141,198,63,0.5)', background: 'rgba(141,198,63,0.1)' }}
+            title="Launch TV / Projector Display"
+          >
+            🖥️ Launch Display
           </button>
-        )}
-        {mode === 'summary' && (
-          <button onClick={() => setMode('slide')} style={{ ...toolBtn(), background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', border: '1px solid rgba(56, 189, 248, 0.4)', fontWeight: 700, padding: '6px 14px', borderRadius: 8, fontSize: '0.8rem' }}>
-            Back to Slide
+
+          {/* End */}
+          <button onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); navigate('/admin/presentations'); }} style={{ ...toolBtn(), color: '#f87171' }} title="End presentation (Esc)">
+            End
           </button>
-        )}
-
-        {/* Fullscreen */}
-        <button onClick={toggleFullscreen} style={toolBtn()} title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}>
-          {isFullscreen ? 'Exit Full' : 'Full Screen'}
-        </button>
-
-        {/* Launch TV View */}
-        <button 
-          onClick={() => {
-            const features = [
-              'fullscreen=yes',
-              'toolbar=no',
-              'menubar=no',
-              'scrollbars=no',
-              'resizable=yes',
-              `width=${window.screen.width}`,
-              `height=${window.screen.height}`,
-              'left=0',
-              'top=0',
-            ].join(',');
-            window.open(`/admin/presentation-view/${id}`, '_blank', features);
-          }} 
-          style={{ ...toolBtn(), color: '#8DC63F', border: '1px solid rgba(141,198,63,0.5)', background: 'rgba(141,198,63,0.1)' }} 
-          title="Launch TV / Projector Display"
-        >
-          🖥️ Launch Display
-        </button>
-
-        {/* End */}
-        <button onClick={() => { if (document.fullscreenElement) document.exitFullscreen(); navigate('/admin/presentations'); }} style={{ ...toolBtn(), color: '#f87171' }} title="End presentation (Esc)">
-          End
-        </button>
         </motion.div>
       )}
 
       {/* ─── THUMBNAIL PANEL ─────────────────────────────────────── */}
       {isController && (
         <AnimatePresence>
-        {thumbnailsOpen && (
-          <motion.div
-            initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            style={{
-              position: 'absolute', left: 0, top: 64, bottom: 0, width: 220, zIndex: 150,
-              background: 'rgba(15,15,20,0.95)', borderRight: '1px solid rgba(255,255,255,0.07)',
-              overflowY: 'auto', padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: 8
-            }}
-          >
-            {presentation.slides?.map((slide, i) => (
-              <div key={i} onClick={() => jumpTo(i)} style={{ cursor: 'pointer', borderRadius: 8, overflow: 'hidden', border: i === currentSlide ? '2px solid #8DC63F' : '2px solid transparent', position: 'relative', flexShrink: 0 }}>
-                <img src={slideImageSrc(slide)} alt={`Slide ${i + 1}`} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block', background: '#1e293b' }} />
-                <div style={{ position: 'absolute', bottom: 4, right: 6, fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(0,0,0,0.6)', padding: '1px 5px', borderRadius: 4 }}>
-                  {i + 1}
+          {thumbnailsOpen && (
+            <motion.div
+              initial={{ x: -280 }} animate={{ x: 0 }} exit={{ x: -280 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              style={{
+                position: 'absolute', left: 0, top: 64, bottom: 0, width: 220, zIndex: 150,
+                background: 'rgba(15,15,20,0.95)', borderRight: '1px solid rgba(255,255,255,0.07)',
+                overflowY: 'auto', padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: 8
+              }}
+            >
+              {presentation.slides?.map((slide, i) => (
+                <div key={i} onClick={() => jumpTo(i)} style={{ cursor: 'pointer', borderRadius: 8, overflow: 'hidden', border: i === currentSlide ? '2px solid #8DC63F' : '2px solid transparent', position: 'relative', flexShrink: 0 }}>
+                  <img src={slideImageSrc(slide)} alt={`Slide ${i + 1}`} style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block', background: '#1e293b' }} />
+                  <div style={{ position: 'absolute', bottom: 4, right: 6, fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', background: 'rgba(0,0,0,0.6)', padding: '1px 5px', borderRadius: 4 }}>
+                    {i + 1}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       )}
 
       {/* ─── MAIN CONTENT AREA ──────────────────────────────────── */}
@@ -742,7 +755,7 @@ export default function PresentationMode() {
                 <img
                   src={slideImageSrc(presentation.slides[currentSlide])}
                   alt={`Slide ${currentSlide + 1}`}
-                  style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   draggable={false}
                 />
               )}
@@ -750,10 +763,10 @@ export default function PresentationMode() {
           ) : mode === 'poll' ? (
             /* ── POLL VIEW ──────────────────────────────────────── */
             (() => {
-              const formatCountdown = (s) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+              const formatCountdown = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
               const isTimerMode = activePoll?.revealMode === 'delayed' && pollTimerActive && !pollRevealed;
               const liveResponseCount = isTimerMode ? presentationResponseCount : totalResponses;
-              
+
               if (currentQuestionIndex === -1) {
                 return (
                   <motion.div
@@ -805,7 +818,7 @@ export default function PresentationMode() {
                       height: '100%',
                       maxWidth: '1200px'
                     }}>
-                      
+
                       {/* Top Assessment Title */}
                       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                         <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 900, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>
@@ -813,81 +826,89 @@ export default function PresentationMode() {
                         </h1>
                       </div>
 
-                      {/* Center Massive QR Code */}
+                      {/* Main Content Row */}
                       <div style={{
-                        background: '#ffffff',
-                        padding: '2.5rem',
-                        borderRadius: '24px',
-                        boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0,0,0,0.05)',
                         display: 'flex',
-                        flexDirection: 'column',
+                        flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginBottom: '2rem',
-                        marginTop: '1rem'
+                        gap: '4rem',
+                        marginTop: '2rem',
+                        width: '100%',
+                        maxWidth: '1200px'
                       }}>
-                        <QRCodeSVG value={pollUrl} size={420} />
-                        <span style={{ marginTop: '1.2rem', fontSize: '1.1rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px' }}>
-                          Scan code to join
-                        </span>
-                      </div>
-
-                      {/* Bottom row: Student Completed Stats */}
-                      <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '1rem',
-                        marginTop: '1.5rem'
-                      }}>
-                        {/* Completed Stats Badge */}
+                        {/* Left: Massive QR Code */}
                         <div style={{
+                          background: '#ffffff',
+                          padding: '2.5rem',
+                          borderRadius: '24px',
+                          boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0,0,0,0.05)',
                           display: 'flex',
+                          flexDirection: 'column',
                           alignItems: 'center',
-                          gap: '0.75rem',
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '12px',
-                          padding: '0.6rem 1.5rem',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-                          fontFamily: "'Outfit', sans-serif"
+                          justifyContent: 'center',
                         }}>
-                          {/* Premium Pulsing Live Dot */}
-                          <span style={{
-                            position: 'relative',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            height: '10px',
-                            width: '10px',
-                          }}>
-                            <motion.span
-                              animate={{ scale: [1, 1.8, 1], opacity: [0.6, 0, 0.6] }}
-                              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                              style={{
-                                position: 'absolute',
-                                width: '100%',
-                                height: '100%',
-                                borderRadius: '50%',
-                                backgroundColor: '#8DC63F',
-                              }}
-                            />
+                          <QRCodeSVG value={pollUrl} size={420} />
+                          <span style={{ marginTop: '1.2rem', fontSize: '1.1rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                            Scan code to join
+                          </span>
+                        </div>
+
+                        {/* Right: Big Completed Stats */}
+                        <div style={{
+                          background: '#ffffff',
+                          padding: '4rem',
+                          borderRadius: '24px',
+                          boxShadow: '0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0,0,0,0.05)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          minWidth: '400px',
+                          minHeight: '480px'
+                        }}>
+                          {/* Live Dot and Label */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
                             <span style={{
                               position: 'relative',
-                              width: '10px',
-                              height: '10px',
-                              borderRadius: '50%',
-                              backgroundColor: '#8DC63F',
-                              zIndex: 2,
-                            }} />
-                          </span>
-                          <span style={{
-                            fontSize: '1.05rem',
-                            fontWeight: 600,
-                            color: '#475569',
-                            letterSpacing: '0.5px'
-                          }}>
-                            Completed: <strong style={{ color: '#0f172a', fontWeight: 850, fontSize: '1.25rem', marginLeft: '0.15rem' }}>{presentationResponseCount}</strong>
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              height: '18px',
+                              width: '18px',
+                            }}>
+                              <motion.span
+                                animate={{ scale: [1, 2, 1], opacity: [0.6, 0, 0.6] }}
+                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                style={{
+                                  position: 'absolute',
+                                  width: '100%',
+                                  height: '100%',
+                                  borderRadius: '50%',
+                                  backgroundColor: '#8DC63F',
+                                }}
+                              />
+                              <span style={{
+                                position: 'relative',
+                                width: '18px',
+                                height: '18px',
+                                borderRadius: '50%',
+                                backgroundColor: '#8DC63F',
+                                zIndex: 2,
+                              }} />
+                            </span>
+                            <span style={{ fontSize: '1.5rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '2px' }}>
+                              Completed
+                            </span>
+                          </div>
+
+                          {/* Massive Number */}
+                          <div style={{ fontSize: '8rem', fontWeight: 900, color: '#0f172a', lineHeight: 1, marginBottom: '1rem' }}>
+                            {presentationResponseCount}
+                          </div>
+
+                          <span style={{ fontSize: '1.2rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px' }}>
+
                           </span>
                         </div>
                       </div>
@@ -898,309 +919,342 @@ export default function PresentationMode() {
               }
 
               return (
-                <motion.div
-                  key={`poll-${activePoll?.code}-q${currentQuestionIndex}`}
-                  initial={{ opacity: 0, scale: 0.96 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.02 }}
-                  transition={{ duration: 0.4 }}
-                  style={{ width: '100%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '5rem 4rem 2rem 4rem', position: 'relative' }}
-                >
-                  {/* Join bar */}
-                  {activePoll && !activePoll.isExpired ? (
-                    <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-                      <span style={{ color: '#64748b', fontWeight: 500 }}>Join at <strong style={{ color: '#1e293b' }}>{FRONTEND_ORIGIN.replace(/^https?:\/\//, '')}/poll</strong></span>
-                      <div style={{ width: 1, height: 20, background: '#e2e8f0' }} />
-                      <span style={{ color: '#64748b', fontWeight: 500 }}>Code: <strong style={{ color: '#8DC63F', fontSize: '1.1rem' }}>{activePoll.code}</strong></span>
-                    </div>
-                  ) : activePoll?.isExpired ? (
-                    <div style={{ position: 'absolute', top: '1.25rem', left: '50%', transform: 'translateX(-50%)', zIndex: 10, display: 'flex', alignItems: 'center', gap: '1.5rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '0.6rem 2rem', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-                      <span style={{ color: '#ef4444', fontWeight: 700 }}>Expired Poll - Final Results</span>
-                    </div>
-                  ) : null}
+                <div key={`poll-wrapper-${activePoll?.code}`} style={{ width: '100%', height: '100%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <motion.div
+                    key={`poll-${activePoll?.code}-q${currentQuestionIndex}`}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.4 }}
+                    style={{
+                      width: 1920, height: 1080, background: '#f8fafc',
+                      display: 'flex', flexDirection: 'column',
+                      position: 'absolute', top: '50%', left: '50%',
+                      transform: `translate(-50%, -50%) scale(${scale})`,
+                      boxShadow: '0 0 50px rgba(0,0,0,0.2)', overflow: 'hidden',
+                      fontFamily: 'Outfit, sans-serif', boxSizing: 'border-box'
+                    }}
+                  >
+                    {/* Main Header Container (Fixed Height) */}
+                    <div style={{ display: 'flex', flexDirection: 'column', flexShrink: 0, boxSizing: 'border-box' }}>
 
-                  {/* Question card */}
-                  <div style={{ flex: 1, background: '#fff', borderRadius: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div style={{ padding: '3rem 4rem 1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', borderBottom: isTimerMode ? 'none' : '1px solid #f1f5f9' }}>
-                      {activePoll.questions.length > 1 && (
-                        <div style={{ display: 'inline-block', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '2rem', padding: '0.4rem 1rem', fontSize: '0.75rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: '1.5rem' }}>
-                          Question {currentQuestionIndex + 1} of {activePoll.questions.length}
+
+                      {/* Title Row */}
+                      <div style={{ padding: '15px 80px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f1f5f9', borderBottom: '2px solid #e2e8f0', position: 'relative', boxSizing: 'border-box' }}>
+                        <div style={{ position: 'absolute', left: 40, top: 15, bottom: 15, width: 4, background: '#f59e0b' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0 }}>
+                          <span style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', letterSpacing: 1 }}>LIVE POLL</span>
+                          <div style={{ width: 3, height: 30, background: '#cbd5e1' }} />
+                          <span style={{ fontSize: 28, fontWeight: 700, color: '#64748b', letterSpacing: 1 }}>KNOWLEDGE CHECK</span>
                         </div>
-                      )}
-                      <h1 style={{ fontSize: 'clamp(1.8rem, 4vw, 3.2rem)', fontWeight: 800, color: '#0f172a', lineHeight: 1.3, textAlign: 'center', maxWidth: '900px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 30, flexShrink: 0 }}>
+                          <span style={{ fontSize: 24, fontWeight: 700, color: '#475569', whiteSpace: 'nowrap' }}>QUESTION {currentQuestionIndex + 1} OF {activePoll.questions.length}</span>
+                          <div style={{ width: 3, height: 30, background: '#cbd5e1' }} />
+                          <div style={{ display: 'flex', gap: 12, flexWrap: 'nowrap' }}>
+                            {activePoll.questions.map((_, i) => (
+                              <div key={i} style={{ width: 18, height: 18, borderRadius: '50%', background: i === currentQuestionIndex ? '#0f172a' : 'transparent', border: '3px solid #cbd5e1', flexShrink: 0 }} />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Question Zone (Flexible Height, allows wrapping) */}
+                    <div style={{ padding: '30px 80px', display: 'flex', alignItems: 'center', flexShrink: 1, minHeight: 180, boxSizing: 'border-box' }}>
+                      <h1 style={{
+                        fontSize: currentQuestion?.text?.length > 150 ? 45 : currentQuestion?.text?.length > 80 ? 55 : 65,
+                        fontWeight: 800, color: '#0f172a', lineHeight: 1.3, margin: 0,
+                        width: '100%', wordWrap: 'break-word', overflowWrap: 'anywhere'
+                      }}>
                         {currentQuestion?.text}
                       </h1>
                     </div>
 
-                    {/* ── TIMER ACTIVE: clean corporate waiting UI ── */}
-                    {isTimerMode ? (
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem' }}>
+                    {/* Content 3-Column Split (Takes remaining space) */}
+                    <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1.3fr 300px', gap: 60, padding: '0 80px 30px', minHeight: 0, boxSizing: 'border-box' }}>
+                      
+                      {/* Left: Chart */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 0, boxSizing: 'border-box' }}>
+                         {isTimerMode ? (
+                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 15 }}>
+                              <Clock size={80} color="#0f172a" />
+                              <div style={{ fontSize: 70, fontWeight: 800, color: '#0f172a', fontFamily: 'monospace' }}>{formatCountdown(timeLeft)}</div>
+                              <div style={{ fontSize: 22, fontWeight: 600, color: '#64748b' }}>Time Remaining</div>
+                           </div>
+                         ) : (
+                           <div style={{ position: 'relative', width: '100%', maxWidth: 450, aspectRatio: '1 / 1', maxHeight: '100%', flexShrink: 1, boxSizing: 'border-box' }}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                  <Pie data={totalResponses === 0 ? [{name:'Empty', value:1}] : currentQuestionData} cx="50%" cy="50%" outerRadius="100%" innerRadius="70%" dataKey="value" stroke="none" animationDuration={1000}>
+                                    {(totalResponses === 0 ? [{name:'Empty', value:1}] : currentQuestionData).map((_, i) => (
+                                      <Cell key={i} fill={totalResponses === 0 ? '#cbd5e1' : COLORS[i % COLORS.length]} />
+                                    ))}
+                                  </Pie>
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+                                <span style={{ fontSize: 85, fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>{totalResponses}</span>
+                                <span style={{ fontSize: 22, fontWeight: 600, color: '#64748b', marginTop: 10 }}>Total{'\n'}Response</span>
+                              </div>
+                           </div>
+                         )}
+                         
+                         {/* Highlight text below chart */}
+                         {!isTimerMode && totalResponses > 0 && (() => {
+                           const maxData = [...currentQuestionData].sort((a,b) => b.value - a.value)[0];
+                           const maxPct = Math.round((maxData.value / totalResponses) * 100);
+                           const maxIndex = currentQuestionData.indexOf(maxData);
+                           const maxColor = COLORS[maxIndex % COLORS.length];
+                           const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+                           return (
+                             <div style={{ marginTop: 25, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                 <div style={{ width: 16, height: 16, borderRadius: '50%', background: maxColor }} />
+                                 <span style={{ fontSize: 30, fontWeight: 900, color: '#0f172a' }}>{maxPct}%</span>
+                               </div>
+                               <span style={{ fontSize: 20, fontWeight: 600, color: '#475569' }}>Option {letters[maxIndex]}</span>
+                             </div>
+                           );
+                         })()}
+                      </div>
+
+                      {/* Middle: Options */}
+                      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 16, height: '100%', paddingRight: 40, borderRight: '2px solid #e2e8f0', overflow: 'hidden', boxSizing: 'border-box' }}>
+                         {!isTimerMode && currentQuestionData.map((opt, i) => {
+                           const pct = totalResponses > 0 ? Math.round((opt.value / totalResponses) * 100) : 0;
+                           const letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+                           const color = COLORS[i % COLORS.length];
+                           const hasVotes = opt.value > 0;
+                           
+                           return (
+                             <div key={i} style={{ 
+                               display: 'flex', alignItems: 'center', gap: 20, position: 'relative', 
+                               background: hasVotes ? `${color}1A` : '#f1f5f9',
+                               padding: '12px 20px', borderRadius: 16, flexShrink: 1, minHeight: 0, boxSizing: 'border-box'
+                             }}>
+                               <div style={{ 
+                                 width: 60, height: 60, borderRadius: 12, 
+                                 background: hasVotes ? color : '#cbd5e1', 
+                                 display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                 fontSize: 32, fontWeight: 800, color: hasVotes ? '#fff' : '#64748b', 
+                                 flexShrink: 0, zIndex: 1, boxShadow: '0 4px 10px rgba(0,0,0,0.05)' 
+                               }}>
+                                 {letters[i]}
+                               </div>
+                               
+                               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, overflow: 'hidden' }}>
+                                 <span style={{ fontSize: 26, fontWeight: 700, color: '#0f172a', wordWrap: 'break-word', overflowWrap: 'anywhere' }}>
+                                   {opt.name}
+                                 </span>
+                                 <div style={{ height: 10, background: '#e2e8f0', borderRadius: 5, overflow: 'hidden', width: '100%', flexShrink: 0 }}>
+                                   <div style={{ height: '100%', width: `${pct}%`, background: color, transition: 'width 1s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+                                 </div>
+                               </div>
+                               
+                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', width: 100, flexShrink: 0 }}>
+                                 <span style={{ fontSize: 34, fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>{pct}%</span>
+                                 <span style={{ fontSize: 14, fontWeight: 600, color: '#64748b', marginTop: 6 }}>{opt.value} {opt.value === 1 ? 'vote' : 'votes'}</span>
+                               </div>
+                             </div>
+                           );
+                         })}
+                      </div>
+
+                      {/* Right: QR Code */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 30, height: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                          <Users size={60} color="#475569" />
+                          <span style={{ fontSize: 60, fontWeight: 900, color: '#0f172a', lineHeight: 1.1, marginTop: 10 }}>{totalResponses}</span>
+                          <span style={{ fontSize: 22, fontWeight: 600, color: '#64748b' }}>Total Participants</span>
+                        </div>
                         
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
-                          {/* Responses Stat */}
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div style={{ fontSize: '3.5rem', fontWeight: 800, color: '#0ea5e9', lineHeight: 1 }}>{liveResponseCount}</div>
-                            <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginTop: '0.5rem' }}>Responses</div>
+                        {activePoll && !activePoll.isExpired && (
+                          <div style={{ background: '#fff', padding: 20, borderRadius: 20, border: '2px solid #e2e8f0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 15, boxShadow: '0 10px 20px rgba(0,0,0,0.04)', flexShrink: 1, minHeight: 0 }}>
+                            <QRCodeSVG value={pollUrl} size={150} style={{ maxWidth: '100%', height: 'auto' }} />
+                            <span style={{ fontSize: 16, fontWeight: 800, color: '#0f172a', letterSpacing: 2 }}>SCAN TO VOTE</span>
                           </div>
-
-                          <div style={{ width: '1px', height: '60px', background: '#e2e8f0' }} />
-
-                          {/* Time Stat */}
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <div style={{ fontSize: '3.5rem', fontWeight: 800, color: '#334155', lineHeight: 1, fontFamily: 'monospace', letterSpacing: '-2px' }}>{formatCountdown(timeLeft)}</div>
-                            <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1, marginTop: '0.5rem' }}>Time Remaining</div>
-                          </div>
+                        )}
+                        
+                        <div style={{ textAlign: 'center', color: '#64748b', fontSize: 20, fontWeight: 600, lineHeight: 1.4, flexShrink: 0 }}>
+                          Your Response<br/>Matters
                         </div>
-
-                        {/* Animated Progress Bar */}
-                        <div style={{ width: '100%', maxWidth: '400px', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden', marginTop: '3rem' }}>
-                           <motion.div 
-                             initial={{ width: '100%' }}
-                             animate={{ width: `${(timeLeft / ((activePoll?.revealDelayMinutes || 1) * 60)) * 100}%` }}
-                             transition={{ ease: 'linear', duration: 1 }}
-                             style={{ height: '100%', background: '#0ea5e9', borderRadius: '2px' }}
-                           />
-                        </div>
-                        <div style={{ fontSize: '0.85rem', color: '#94a3b8', fontWeight: 500, marginTop: '1rem' }}>Results will reveal automatically</div>
-
                       </div>
-                    ) : (
-                      /* ── LIVE / REVEALED: show pie chart ── */
-                      <div style={{ flex: 1, padding: '0 3rem 2rem' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie data={currentQuestionData} cx="50%" cy="50%" outerRadius="85%" innerRadius="55%" dataKey="value" nameKey="name" paddingAngle={4} animationDuration={1200} stroke="#fff" strokeWidth={4}>
-                              {currentQuestionData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                            </Pie>
-                            <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10 }} />
-                            <Legend verticalAlign="bottom" height={72} formatter={(v) => {
-                              const item = currentQuestionData.find(d => d.name === v);
-                              const pct = totalResponses > 0 ? ((item?.value / totalResponses) * 100).toFixed(0) : 0;
-                              return <span style={{ color: '#475569', fontWeight: 700 }}>{v} ({pct}%)</span>;
-                            }} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
-                  </div>
 
-                  {/* QR Code Overlay (Fullscreen when expanded) */}
-                  {activePoll && !activePoll.isExpired && (
-                    <AnimatePresence>
-                      {qrExpanded && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          onClick={() => setQrExpanded(false)}
-                          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}
-                        >
-                          <motion.div
-                            initial={{ scale: 0.5 }}
-                            animate={{ scale: 1 }}
-                            exit={{ scale: 0.5 }}
-                            style={{ background: '#fff', padding: '3rem', borderRadius: '32px', textAlign: 'center' }}
-                          >
-                            <QRCodeSVG value={pollUrl} size={400} />
-                            <div style={{ marginTop: '2rem', color: '#1e293b', fontWeight: 800, fontSize: '2rem' }}>SCAN TO VOTE</div>
-                            <div style={{ color: '#64748b', fontSize: '1.2rem', marginTop: '0.5rem' }}>Join code: <strong style={{ color: '#8DC63F' }}>{activePoll.code}</strong></div>
-                          </motion.div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  )}
+                    </div>
 
-                  {/* Small QR (Bottom Right) — only when not in timer mode */}
-                  {activePoll && !activePoll.isExpired && !isTimerMode && (
-                    <motion.div
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.4 }}
-                      onClick={() => setQrExpanded(true)}
-                      style={{ position: 'absolute', bottom: '2.5rem', right: '2.5rem', background: '#fff', padding: '1rem', borderRadius: 16, border: '1px solid #e2e8f0', boxShadow: '0 10px 30px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'zoom-in', zIndex: 100 }}
-                    >
-                      <QRCodeSVG value={pollUrl} size={120} />
-                      <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', letterSpacing: 1 }}>CLICK TO EXPAND</span>
-                    </motion.div>
-                  )}
+                    {/* Footer (Fixed Height) */}
+                    <div style={{ padding: '20px 80px', borderTop: '2px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f1f5f9', flexShrink: 0, boxSizing: 'border-box' }}>
+                       <span style={{ fontSize: 18, fontWeight: 700, color: '#94a3b8', letterSpacing: 2 }}>INFRASTRUCTURE FOR A BRIGHTER TOMORROW</span>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                         <div style={{ display: 'flex', gap: 6 }}>
+                           <div style={{ width: 12, height: 28, background: '#cbd5e1', transform: 'skewX(-25deg)' }} />
+                           <div style={{ width: 12, height: 28, background: '#cbd5e1', transform: 'skewX(-25deg)' }} />
+                           <div style={{ width: 12, height: 28, background: '#cbd5e1', transform: 'skewX(-25deg)' }} />
+                         </div>
+                         <span style={{ fontSize: 20, fontWeight: 700, color: '#64748b', letterSpacing: 2 }}>PLAN | BUILD | CONNECT</span>
+                       </div>
+                    </div>
 
-                  {/* Large QR bottom-right during timer so students can still join */}
-                  {activePoll && !activePoll.isExpired && isTimerMode && (
-                    <motion.div
-                      initial={{ scale: 0.8, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{ delay: 0.4 }}
-                      onClick={() => setQrExpanded(true)}
-                      style={{ position: 'absolute', bottom: '2.5rem', right: '2.5rem', background: '#fff', padding: '1.25rem', borderRadius: 16, border: '2px solid #f59e0b', boxShadow: '0 10px 30px rgba(245,158,11,0.2)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'zoom-in', zIndex: 100 }}
-                    >
-                      <QRCodeSVG value={pollUrl} size={140} />
-                      <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#f59e0b', letterSpacing: 1 }}>SCAN TO VOTE</span>
-                    </motion.div>
-                  )}
-                </motion.div>
+                  </motion.div>
+                </div>
               );
             })()
 
           ) : (
             /* ── SUMMARY VIEW ────────────────────────────────────── */
-            <>
-              <motion.div
-                key={`summary-${activePoll?.code}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.4 }}
-                style={{ width: '100%', height: '100%', background: '#f1f5f9', display: 'flex', flexDirection: 'column', padding: '1.5rem 2rem', alignItems: 'center', overflow: 'hidden' }}
-              >
-                {/* Header */}
-                <div style={{ textAlign: 'center', marginBottom: '1.25rem', flexShrink: 0 }}>
-                  <h1 style={{ fontSize: '2.2rem', fontWeight: 800, margin: 0, color: '#1e293b' }}>Poll Summary</h1>
-                  <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0.3rem 0 0' }}>Here's how your audience responded</p>
-                </div>
+            (() => {
+              // 1. Data Calculation Logic
+              const totalQuestions = activePoll?.questions?.length || 0;
+              const questionPerformance = [];
+              let maxVotes = 0;
+              let overallCorrectVotes = 0;
+              let overallTotalVotes = 0;
 
-                {/* Fixed container for 5 cards per page with consistent scale */}
-                <div style={{ width: '100%', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  <div style={{ width: '100%', display: 'flex', gap: '1.25rem', justifyContent: 'center', alignItems: 'stretch' }}>
-                    {(() => {
-                      const visibleQuestions = activePoll?.questions.slice(summaryPage * 5, (summaryPage + 1) * 5) || [];
-                      const visibleCount = visibleQuestions.length;
-                      return visibleQuestions.map((q, localIndex) => {
-                        const qi = summaryPage * 5 + localIndex;
-                        const data = chartData[qi] || [];
-                        const total = data.reduce((a, c) => a + c.value, 0);
-                        let majorityOption = 'No votes yet';
-                        let majorityPct = 0;
+              activePoll?.questions?.forEach((q, i) => {
+                const qData = chartData[i] || [];
+                const qTotalVotes = qData.reduce((sum, item) => sum + item.value, 0);
+                if (qTotalVotes > maxVotes) maxVotes = qTotalVotes;
+                
+                let correctVotes = 0;
+                if (q.correctAnswer) {
+                  const correctItem = qData.find(d => d.name === q.correctAnswer);
+                  if (correctItem) correctVotes = correctItem.value;
+                }
+                
+                const accuracy = qTotalVotes > 0 ? Math.round((correctVotes / qTotalVotes) * 100) : 0;
+                
+                overallCorrectVotes += correctVotes;
+                overallTotalVotes += qTotalVotes;
+                
+                questionPerformance.push({
+                  index: i + 1,
+                  totalVotes: qTotalVotes,
+                  accuracy
+                });
+              });
 
-                        if (total > 0) {
-                          const sorted = [...data].sort((a, b) => b.value - a.value);
-                          majorityOption = sorted[0].name;
-                          majorityPct = Math.round((sorted[0].value / total) * 100);
-                        }
+              const participants = maxVotes;
+              const avgAccuracy = overallTotalVotes > 0 ? Math.round((overallCorrectVotes / overallTotalVotes) * 100) : 0;
+              const avgVotes = totalQuestions > 0 ? overallTotalVotes / totalQuestions : 0;
+              const participationRate = participants > 0 ? Math.round((avgVotes / participants) * 100) : 0;
+              
+              // 2. Trainer Insights Logic
+              const answeredQuestions = questionPerformance.filter(q => q.totalVotes > 0);
+              let highestQ = null;
+              let lowestQ = null;
+              let recommendedAction = "No participant responses are available yet.";
+              
+              if (answeredQuestions.length > 0) {
+                highestQ = answeredQuestions.reduce((prev, current) => (prev.accuracy > current.accuracy) ? prev : current);
+                lowestQ = answeredQuestions.reduce((prev, current) => (prev.accuracy < current.accuracy) ? prev : current);
+                recommendedAction = `Question ${lowestQ.index} requires additional attention before proceeding.`;
+              }
 
-                        const correctData = data.find(d => d.name === q.correctAnswer);
-                        const correctPct = total > 0 && correctData ? Math.round((correctData.value / total) * 100) : 0;
+              // Color helper
+              const getPerformanceColor = (acc) => {
+                if (acc >= 90) return '#15803d'; // Strong (Green)
+                if (acc >= 70) return '#0369a1'; // Good (Blue)
+                if (acc >= 50) return '#b45309'; // Needs attention (Orange)
+                return '#be123c'; // Critical (Red)
+              };
 
-                        return (
-                          <div
-                            key={qi}
-                            style={{
-                              background: '#fff',
-                              borderRadius: '1rem',
-                              border: '1px solid #e2e8f0',
-                              boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              flex: '1 1 0',
-                              minWidth: 0,
-                              maxWidth: visibleCount === 1 ? '450px' : `calc(${100 / visibleCount}% - 1.25rem)`,
-                              height: '420px',
-                              overflow: 'hidden',
-                            }}
-                          >
-                          {/* Question text */}
-                          <div style={{ padding: '1rem 1rem 0.75rem', borderBottom: '1px solid #f1f5f9', height: '80px', display: 'flex', alignItems: 'center' }}>
-                            <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 700, color: '#1e293b', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{q.text}</p>
-                          </div>
+              return (
+                <motion.div
+                  key={`summary-${activePoll?.code}`}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  transition={{ duration: 0.4 }}
+                  style={{ width: '100%', height: '100%', background: '#f8fafc', padding: '3rem 4rem', overflowY: 'auto', fontFamily: "'Outfit', sans-serif" }}
+                >
+                  <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+                    
+                    {/* Header */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', borderBottom: '2px solid #e2e8f0', paddingBottom: '1.5rem' }}>
+                      <h1 style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: 1 }}>POLL SUMMARY</h1>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#64748b' }}>Knowledge Check &middot; {activePoll?.title || 'Session'}</div>
+                    </div>
 
-                          {/* Stats row */}
-                          <div style={{ display: 'flex', gap: '0.4rem', padding: '0.75rem 1rem', height: '70px', flexShrink: 0 }}>
-                            {/* Total Responses */}
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Total{'\n'}Responses</span>
-                              <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#38BDF8' }}>{total}</span>
-                              <Users size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
-                            </div>
-                            {/* Majority Vote */}
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Majority{'\n'}Vote</span>
-                              <span style={{ fontSize: '1.4rem', fontWeight: 800, color: '#8DC63F' }}>{majorityPct}%</span>
-                              <PieChartIcon size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
-                            </div>
-                            {/* Correct % if available */}
-                            {q.correctAnswer && (
-                              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center', lineHeight: 1.2, marginBottom: '0.2rem' }}>Correct{'\n'}%</span>
-                                <span style={{ fontSize: '1.4rem', fontWeight: 800, color: correctPct >= 70 ? '#8DC63F' : correctPct >= 40 ? '#F59E0B' : '#EF4444' }}>{correctPct}%</span>
-                                <Target size={12} color="#cbd5e1" style={{ marginTop: '0.15rem' }} />
+                    {/* Overview Metrics */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                      {[
+                        { label: 'TOTAL QUESTIONS', value: totalQuestions },
+                        { label: 'PARTICIPANTS', value: participants },
+                        { label: 'AVG ACCURACY', value: `${avgAccuracy}%` },
+                        { label: 'PARTICIPATION RATE', value: `${participationRate}%` }
+                      ].map((m, i) => (
+                        <div key={i} style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>{m.value}</span>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', letterSpacing: 1 }}>{m.label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Main Content Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+                      
+                      {/* Question Performance */}
+                      <div style={{ background: '#fff', borderRadius: '0.75rem', padding: '2rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: '0 0 2rem 0', letterSpacing: 1 }}>QUESTION PERFORMANCE</h2>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                          {questionPerformance.map(q => (
+                            <div key={q.index} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+                              <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#334155', minWidth: '35px' }}>Q{q.index}</span>
+                              <div style={{ flex: 1, height: '14px', background: '#f1f5f9', borderRadius: '7px', overflow: 'hidden' }}>
+                                {q.totalVotes > 0 ? (
+                                  <div style={{ height: '100%', width: `${q.accuracy}%`, background: getPerformanceColor(q.accuracy), transition: 'width 1s ease-in-out', borderRadius: '7px' }} />
+                                ) : (
+                                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', paddingLeft: '10px', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8' }}>No responses</div>
+                                )}
                               </div>
-                            )}
+                              <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', minWidth: '55px', textAlign: 'right' }}>
+                                {q.totalVotes > 0 ? `${q.accuracy}%` : '-'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Trainer Insights */}
+                      <div style={{ background: '#fff', borderRadius: '0.75rem', padding: '2rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <h2 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: 1 }}>TRAINER INSIGHTS</h2>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Highest Performance</span>
+                            <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
+                              {highestQ ? `Q${highestQ.index} — ${highestQ.accuracy}% correct` : 'No data yet'}
+                            </span>
                           </div>
 
-                          {/* Answer Comparison */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', margin: '0 1rem 0.75rem', height: '65px', justifyContent: 'center' }}>
-                            {q.correctAnswer ? (
-                              <>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(141,198,63,0.08)', padding: '0.3rem 0.6rem', borderRadius: '0.4rem', border: '1px solid rgba(141,198,63,0.2)', overflow: 'hidden' }}>
-                                  <CheckCircle size={12} color="#8DC63F" style={{ flexShrink: 0 }} />
-                                  <span style={{ fontSize: '0.65rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Correct:</span>
-                                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                                    <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: q.correctAnswer.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
-                                      <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{q.correctAnswer}</span>
-                                      {q.correctAnswer.length > 12 && <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 700, paddingRight: '2rem' }}>{q.correctAnswer}</span>}
-                                    </div>
-                                  </div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: majorityOption === q.correctAnswer ? 'rgba(141,198,63,0.08)' : 'rgba(239,68,68,0.08)', padding: '0.3rem 0.6rem', borderRadius: '0.4rem', border: `1px solid ${majorityOption === q.correctAnswer ? 'rgba(141,198,63,0.2)' : 'rgba(239,68,68,0.2)'}`, overflow: 'hidden' }}>
-                                  <Trophy size={12} color={majorityOption === q.correctAnswer ? '#8DC63F' : '#EF4444'} style={{ flexShrink: 0 }} />
-                                  <span style={{ fontSize: '0.65rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Most Voted:</span>
-                                  <div style={{ flex: 1, overflow: 'hidden' }}>
-                                    <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
-                                      <span style={{ fontSize: '0.7rem', color: majorityOption === q.correctAnswer ? '#15803d' : '#b91c1c', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
-                                      {majorityOption.length > 12 && <span style={{ fontSize: '0.7rem', color: majorityOption === q.correctAnswer ? '#15803d' : '#b91c1c', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>}
-                                    </div>
-                                  </div>
-                                </div>
-                              </>
-                            ) : (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(56,189,248,0.08)', padding: '0.4rem 0.6rem', borderRadius: '0.6rem', border: '1px solid rgba(56,189,248,0.2)', overflow: 'hidden' }}>
-                                <Trophy size={12} color="#38BDF8" style={{ flexShrink: 0 }} />
-                                <span style={{ fontSize: '0.7rem', color: '#334155', fontWeight: 700, whiteSpace: 'nowrap', flexShrink: 0 }}>Most Voted:</span>
-                                <div style={{ flex: 1, overflow: 'hidden' }}>
-                                  <div style={{ display: 'inline-block', whiteSpace: 'nowrap', animation: majorityOption.length > 12 ? 'ticker 8s linear infinite' : 'none' }}>
-                                    <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>
-                                    {majorityOption.length > 12 && <span style={{ fontSize: '0.75rem', color: '#0369a1', fontWeight: 700, paddingRight: '2rem' }}>{majorityOption}</span>}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Needs Attention</span>
+                            <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
+                              {lowestQ ? `Q${lowestQ.index} — ${lowestQ.accuracy}% correct` : 'No data yet'}
+                            </span>
                           </div>
 
-                          {/* Donut chart + legend */}
-                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 1rem 1rem', minHeight: '120px' }}>
-                            <div style={{ width: '90px', height: '90px', flexShrink: 0 }}>
-                              <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                  <Pie data={data.length > 0 ? data : [{ name: 'No data', value: 1 }]} cx="50%" cy="50%" outerRadius="90%" innerRadius="55%" dataKey="value" stroke="none">
-                                    {(data.length > 0 ? data : [{ name: 'No data', value: 1 }]).map((_, i) => (
-                                      <Cell key={i} fill={data.length > 0 ? COLORS[i % COLORS.length] : '#e2e8f0'} />
-                                    ))}
-                                  </Pie>
-                                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '11px' }} />
-                                </PieChart>
-                              </ResponsiveContainer>
-                            </div>
-                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.3rem', overflow: 'hidden' }}>
-                              {data.slice(0, 4).map((opt, i) => {
-                                const pct = total > 0 ? Math.round((opt.value / total) * 100) : 0;
-                                return (
-                                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', overflow: 'hidden' }}>
-                                    <div style={{ width: '0.5rem', height: '0.5rem', borderRadius: '50%', background: COLORS[i % COLORS.length], flexShrink: 0 }} />
-                                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#1e293b', flexShrink: 0, minWidth: '2rem' }}>{pct}%</span>
-                                    <span style={{ fontSize: '0.68rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={opt.name}>{opt.name}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 }}>Overall Performance</span>
+                            <span style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>
+                              {participants > 0 ? `${avgAccuracy}%` : '0%'}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f8fafc', padding: '1.25rem', borderRadius: '0.5rem', borderLeft: '4px solid #0ea5e9' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0ea5e9', textTransform: 'uppercase', letterSpacing: 1 }}>Recommended Action</span>
+                            <span style={{ fontSize: '1rem', fontWeight: 600, color: '#334155', lineHeight: 1.5 }}>
+                              {recommendedAction}
+                            </span>
                           </div>
                         </div>
-                      );
-                    });
-                  })()}
-                  </div>
-                </div>
-              </motion.div>
+                      </div>
 
-            </>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })()
           )}
         </AnimatePresence>
       </div>

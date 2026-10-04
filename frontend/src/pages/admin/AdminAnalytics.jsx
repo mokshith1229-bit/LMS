@@ -165,22 +165,34 @@ export default function AdminAnalytics() {
     navigate(`/admin/analytics/${route}?batchId=${selectedBatch}&quizId=${selectedQuiz}`);
   };
 
+  const lowestScore = useMemo(() => {
+    if (!analytics?.studentTable?.length) return 0;
+    return Math.min(...analytics.studentTable.map(s => s.percentage));
+  }, [analytics]);
+
+  const { strongestArea, focusArea } = useMemo(() => {
+    if (!analytics?.sectionPerformance?.length) return { strongestArea: null, focusArea: null };
+    const sorted = [...analytics.sectionPerformance].sort((a, b) => b.accuracy - a.accuracy);
+    return {
+      strongestArea: sorted[0],
+      focusArea: sorted[sorted.length - 1]
+    };
+  }, [analytics]);
+
   return (
     <div className="analytics-container">
       <Sidebar />
       <main className="analytics-main">
         <div className="analytics-content">
+          
           <div className="header-row">
-            <div>
+            <div className="header-left">
               <button onClick={() => navigate('/admin/dashboard')} className="back-btn">
                 <ArrowLeft size={16} /> Back to Dashboard
               </button>
-              <h1 className="page-title">
-                <Activity size={28} /> Admin Analytics
-              </h1>
-              <p className="page-subtitle">Assessment performance and batch reporting.</p>
+              <h1 className="page-title">ADMIN ANALYTICS</h1>
+              <p className="page-subtitle">Training performance and assessment insights</p>
             </div>
-
             <div className="header-actions">
               <button 
                 onClick={fetchAnalytics}
@@ -199,46 +211,50 @@ export default function AdminAnalytics() {
               </button>
             </div>
           </div>
-      
-          <div className="filter-bar">
-            <div className="filter-group">
-              <Users size={16} className="filter-icon-left" />
-              <select 
-                value={selectedBatch} 
-                onChange={(e) => setSelectedBatch(e.target.value)}
-                disabled={loadingBatches}
-                className="filter-select"
-              >
-                <option value="">{loadingBatches ? 'Loading batches...' : 'Select Target Batch'}</option>
-                {batches.map(b => (
-                  <option key={b._id} value={b._id}>{b.name}</option>
-                ))}
-              </select>
-              <ChevronDown size={16} className="filter-icon-right" />
+
+          <div className="filter-panel">
+            <div className="filter-item">
+              <label>Training Programme</label>
+              <div className="select-wrapper">
+                <select 
+                  value={selectedBatch} 
+                  onChange={(e) => setSelectedBatch(e.target.value)}
+                  disabled={loadingBatches}
+                  className="premium-select"
+                >
+                  <option value="">{loadingBatches ? 'Loading...' : 'Select Target Batch'}</option>
+                  {batches.map(b => (
+                    <option key={b._id} value={b._id}>{b.name}</option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className="select-icon" />
+              </div>
             </div>
 
-            <div className="filter-group">
-              <FileText size={16} className="filter-icon-left" />
-              <select 
-                value={selectedQuiz} 
-                onChange={(e) => setSelectedQuiz(e.target.value)}
-                disabled={!selectedBatch || loadingQuizzes || quizzes.length === 0}
-                className="filter-select"
-              >
-                <option value="">
-                  {!selectedBatch 
-                    ? 'Awaiting batch selection...' 
-                    : loadingQuizzes 
-                      ? 'Loading assessments...' 
-                      : quizzes.length === 0 
-                        ? 'No active assessments' 
-                        : 'Select Assessment Context'}
-                </option>
-                {quizzes.map(q => (
-                  <option key={q._id} value={q._id}>{q.title}</option>
-                ))}
-              </select>
-              <ChevronDown size={16} className="filter-icon-right" />
+            <div className="filter-item">
+              <label>Organization</label>
+              <div className="select-wrapper">
+                <select 
+                  value={selectedQuiz} 
+                  onChange={(e) => setSelectedQuiz(e.target.value)}
+                  disabled={!selectedBatch || loadingQuizzes || quizzes.length === 0}
+                  className="premium-select"
+                >
+                  <option value="">
+                    {!selectedBatch 
+                      ? 'Awaiting selection...' 
+                      : loadingQuizzes 
+                        ? 'Loading...' 
+                        : quizzes.length === 0 
+                          ? 'No assessments' 
+                          : 'Select Assessment'}
+                  </option>
+                  {quizzes.map(q => (
+                    <option key={q._id} value={q._id}>{q.title}</option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className="select-icon" />
+              </div>
             </div>
           </div>
 
@@ -274,163 +290,157 @@ export default function AdminAnalytics() {
 
           {!loadingAnalytics && analytics && analytics.attemptedStudents > 0 && (
             <div className="fade-in">
+              
               <div className="kpi-grid">
                 {[
-                  { label: 'Total Cohort', value: analytics.totalStudents, icon: Users, color: '#8DC63F', bg: '#eff6ff', target: 'cohort' },
-                  { label: 'Attempted', value: analytics.attemptedStudents, subValue: `${analytics.completionRate}%`, icon: Activity, color: '#6366f1', bg: '#e0e7ff', target: 'attempted' },
-                  { label: 'Pending', value: analytics.pendingStudents, icon: Clock, color: '#64748b', bg: '#f1f5f9', target: 'pending' },
-                  { label: 'Avg Score', value: `${analytics.averageScore}%`, icon: TrendingUp, color: '#f59e0b', bg: '#fef3c7', target: 'average-score' },
-                  { label: 'Highest Score', value: `${analytics.highestScore}%`, icon: Award, color: '#8b5cf6', bg: '#ede9fe', target: 'highest-score' },
+                  { label: 'TOTAL COHORT', value: analytics.totalStudents },
+                  { label: 'ATTEMPTED', value: analytics.attemptedStudents, subValue: `${analytics.completionRate}%` },
+                  { label: 'PENDING', value: analytics.pendingStudents },
+                  { label: 'AVERAGE SCORE', value: `${analytics.averageScore}%` },
+                  { label: 'HIGHEST SCORE', value: `${analytics.highestScore}%` },
                 ].map((kpi, idx) => (
-                  <div key={idx} className="kpi-card interactive-kpi" onClick={() => handleKpiClick(kpi.target)}>
-                    <kpi.icon size={64} className="kpi-bg-icon" style={{color: kpi.color}} />
-                    <div className="kpi-icon-box" style={{backgroundColor: kpi.bg, color: kpi.color}}>
-                      <kpi.icon size={20} />
-                    </div>
+                  <div key={idx} className="kpi-card interactive-kpi" onClick={() => handleKpiClick(['cohort', 'attempted', 'pending', 'average-score', 'highest-score'][idx])}>
                     <p className="kpi-label">{kpi.label}</p>
                     <div className="kpi-value-row">
                       <span className="kpi-value">{kpi.value}</span>
                       {kpi.subValue && <span className="kpi-subvalue">({kpi.subValue})</span>}
                     </div>
+                    <div className="kpi-indicator"></div>
                   </div>
                 ))}
               </div>
 
-              <div className="charts-grid">
-                <div className="widgets-col">
-                  <div className="widget-card">
-                    <h3 className="widget-title">Participation Rate</h3>
-                    <div className="widget-content">
-                      <div className="widget-chart-wrapper">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie data={attemptData} cx="50%" cy="50%" innerRadius={40} outerRadius={55} paddingAngle={2} dataKey="value" stroke="none">
-                              {attemptData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip />} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="widget-center-text">{analytics.completionRate}%</div>
+              <div className="summary-grid">
+                <div className="summary-card">
+                  <h3 className="section-title">Participation Rate</h3>
+                  <div className="participation-content">
+                    <div className="donut-chart-container">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={attemptData} cx="50%" cy="50%" innerRadius={35} outerRadius={48} paddingAngle={2} dataKey="value" stroke="none">
+                            {attemptData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}
+                          </Pie>
+                          <Tooltip content={<CustomTooltip />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="donut-center">{analytics.completionRate}%</div>
+                    </div>
+                    <div className="participation-stats">
+                      <div className="stat-row">
+                        <span className="stat-dot" style={{backgroundColor: '#8DC63F'}}></span>
+                        <span className="stat-label">Attempted:</span>
+                        <span className="stat-val">{analytics.attemptedStudents}</span>
                       </div>
-                      <div className="widget-legend">
-                        <div className="legend-item">
-                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#8DC63F'}}></span><span className="legend-label">Attempted</span></div>
-                          <span className="legend-val">{analytics.attemptedStudents}</span>
-                        </div>
-                        <div className="legend-item">
-                          <div className="legend-label-group"><span className="legend-dot" style={{backgroundColor: '#94a3b8'}}></span><span className="legend-label">Pending</span></div>
-                          <span className="legend-val">{analytics.pendingStudents}</span>
-                        </div>
+                      <div className="stat-row">
+                        <span className="stat-dot" style={{backgroundColor: '#94a3b8'}}></span>
+                        <span className="stat-label">Pending:</span>
+                        <span className="stat-val">{analytics.pendingStudents}</span>
                       </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="summary-card">
+                  <h3 className="section-title">Performance Snapshot</h3>
+                  <div className="snapshot-stats">
+                    <div className="snap-item">
+                      <div className="snap-label">Average</div>
+                      <div className="snap-value">{analytics.averageScore}%</div>
+                    </div>
+                    <div className="snap-item">
+                      <div className="snap-label">Highest</div>
+                      <div className="snap-value">{analytics.highestScore}%</div>
+                    </div>
+                    <div className="snap-item">
+                      <div className="snap-label">Lowest</div>
+                      <div className="snap-value">{lowestScore}%</div>
                     </div>
                   </div>
                 </div>
               </div>
 
-
-              {/* Section-Wise Analysis Dashboard */}
               {analytics.sectionPerformance && analytics.sectionPerformance.length > 0 && (
-                <div className="table-panel fade-in" style={{ marginBottom: 32 }}>
-                  <div className="table-header-row" style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <div>
-                      <h2 className="table-title">Topic-Wise Performance Breakdown</h2>
-                      <p className="table-subtitle">Cohort mastery and focus areas across individual assessment sections</p>
-                    </div>
-                  </div>
-                  <div style={{ padding: 24 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+                <>
+                  <div className="section-panel">
+                    <h2 className="section-title uppercase">TOPIC-WISE PERFORMANCE</h2>
+                    <p className="section-subtitle">Cohort mastery and focus areas across individual assessment sections</p>
+                    
+                    <div className="topic-table">
+                      <div className="topic-table-header">
+                        <div className="col-topic">Topic</div>
+                        <div className="col-accuracy">Accuracy</div>
+                        <div className="col-correct">Correct / Questions</div>
+                        <div className="col-status">Status</div>
+                      </div>
                       {analytics.sectionPerformance.map((sec, sIdx) => {
-                        const isWeak = sec.isWeak;
-                        const accuracy = sec.accuracy;
-                        
+                        const status = sec.accuracy >= 80 ? 'Strong' : sec.accuracy >= 60 ? 'Good' : 'Needs Attention';
+                        const statusClass = status.replace(' ', '-').toLowerCase();
                         return (
-                          <div 
-                            key={sIdx} 
-                            style={{ 
-                              padding: 20, 
-                              background: '#ffffff', 
-                              border: '1px solid #e2e8f0', 
-                              borderRadius: 10,
-                              boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                              transition: 'all 0.2s',
-                              position: 'relative',
-                              overflow: 'hidden'
-                            }}
-                            onMouseOver={(e) => {
-                              e.currentTarget.style.transform = 'translateY(-2px)';
-                              e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.05)';
-                              e.currentTarget.style.borderColor = isWeak ? '#fca5a5' : '#8dc63f';
-                            }}
-                            onMouseOut={(e) => {
-                              e.currentTarget.style.transform = 'translateY(0)';
-                              e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-                              e.currentTarget.style.borderColor = '#e2e8f0';
-                            }}
-                          >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <div style={{ 
-                                  width: 32, 
-                                  height: 32, 
-                                  borderRadius: 6, 
-                                  background: isWeak ? '#fef2f2' : '#f4f9f0', 
-                                  color: isWeak ? '#ef4444' : '#8DC63F', 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  justifyContent: 'center' 
-                                }}>
-                                  <Layers size={16} />
-                                </div>
-                                <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.95rem' }}>{sec.section}</span>
+                          <div className="topic-row" key={sIdx}>
+                            <div className="col-topic">{sec.section}</div>
+                            <div className="col-accuracy">
+                              <div className="accuracy-val">{sec.accuracy}%</div>
+                              <div className="progress-bar-bg">
+                                <div className={`progress-bar-fill ${statusClass}`} style={{width: `${sec.accuracy}%`}}></div>
                               </div>
-                              {isWeak ? (
-                                <span className="badge-status badge-critical" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                                  <AlertCircle size={10} style={{ marginRight: 2 }} /> Focus Area
-                                </span>
-                              ) : (
-                                <span className="badge-status badge-mastered" style={{ fontSize: '0.65rem', padding: '2px 6px' }}>
-                                  <Check size={10} style={{ marginRight: 2 }} /> Proficient
-                                </span>
-                              )}
                             </div>
-                            
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-                              <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>Accuracy Rate</span>
-                              <span style={{ fontSize: '1.2rem', fontWeight: 800, color: isWeak ? '#ef4444' : '#10b981' }}>{accuracy}%</span>
-                            </div>
-                            
-                            {/* Progress bar */}
-                            <div style={{ width: '100%', height: 8, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden', marginBottom: 12 }}>
-                              <div style={{ 
-                                width: `${accuracy}%`, 
-                                height: '100%', 
-                                background: isWeak ? '#ef4444' : '#10b981', 
-                                borderRadius: 9999,
-                                transition: 'width 0.5s ease-out'
-                              }} />
-                            </div>
-                            
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
-                              <span>Total Delivered Questions:</span>
-                              <span style={{ fontWeight: 600, color: '#334155' }}>
-                                {sec.correctCount} / {sec.totalCount} ({Number(((sec.correctCount / sec.totalCount) * 100).toFixed(0))}% Correct)
-                              </span>
+                            <div className="col-correct">{sec.correctCount} / {sec.totalCount}</div>
+                            <div className="col-status">
+                              <span className={`status-badge ${statusClass}`}>{status}</span>
                             </div>
                           </div>
-                        );
+                        )
                       })}
                     </div>
                   </div>
-                </div>
+
+                  <div className="section-panel">
+                    <h2 className="section-title uppercase">TOPIC PERFORMANCE</h2>
+                    <div className="horizontal-chart-container" style={{ height: `${Math.max(300, analytics.sectionPerformance.length * 40 + 40)}px` }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={analytics.sectionPerformance} layout="vertical" margin={{ top: 0, right: 30, left: 40, bottom: 0 }}>
+                          <XAxis type="number" hide />
+                          <YAxis dataKey="section" type="category" axisLine={false} tickLine={false} tick={{ fill: '#0f172a', fontSize: 13, fontWeight: 500 }} width={120} />
+                          <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }} />
+                          <Bar dataKey="accuracy" radius={[0, 4, 4, 0]} barSize={24}>
+                            {analytics.sectionPerformance.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.accuracy >= 80 ? '#10b981' : entry.accuracy >= 60 ? '#8DC63F' : '#f59e0b'} />
+                            ))}
+                          </Bar>
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {strongestArea && focusArea && (
+                    <div className="section-panel insights-panel">
+                      <h2 className="section-title uppercase">TRAINING INSIGHTS</h2>
+                      <div className="insights-grid">
+                        <div className="insight-item">
+                          <div className="insight-label">Strongest Area</div>
+                          <div className="insight-value">{strongestArea.section} — {strongestArea.accuracy}%</div>
+                        </div>
+                        <div className="insight-item">
+                          <div className="insight-label">Focus Area</div>
+                          <div className="insight-value">{focusArea.section} — {focusArea.accuracy}%</div>
+                        </div>
+                        <div className="insight-item">
+                          <div className="insight-label">Overall Average</div>
+                          <div className="insight-value">{analytics.averageScore}%</div>
+                        </div>
+                        <div className="insight-item">
+                          <div className="insight-label">Recommended Focus</div>
+                          <div className="insight-desc">Topics below 70% may require additional review.</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
-              <div className="table-panel">
-                <div className="table-header-row" style={{borderBottom: 'none'}}>
-                  <div>
-                    <h2 className="table-title">Item Analysis</h2>
-                    <p className="table-subtitle">Detailed breakdown of question-level performance</p>
-                  </div>
-                </div>
+              {/* Legacy tables styled to match */}
+              <div className="section-panel">
+                <h2 className="section-title uppercase">ITEM ANALYSIS</h2>
+                <p className="section-subtitle">Detailed breakdown of question-level performance</p>
                 <div className="table-wrap">
                   <table className="data-table">
                     <thead>
@@ -477,9 +487,9 @@ export default function AdminAnalytics() {
                                 </div>
                               </td>
                               <td style={{textAlign: 'center'}}>
-                                {isWeak ? <span className="badge-status badge-critical">Critical</span> : 
-                                 isPerfect ? <span className="badge-status badge-mastered">Mastered</span> : 
-                                 <span className="badge-status badge-nominal">Nominal</span>}
+                                {isWeak ? <span className="status-badge needs-attention">Critical</span> : 
+                                 isPerfect ? <span className="status-badge strong">Mastered</span> : 
+                                 <span className="status-badge good">Nominal</span>}
                               </td>
                               <td style={{textAlign: 'center'}}>
                                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
@@ -512,7 +522,7 @@ export default function AdminAnalytics() {
                                             return (
                                               <div key={i} className="dist-item">
                                                 <div className="dist-item-left" style={{ maxWidth: '60%' }}>
-                                                  <div className="dist-box" style={{backgroundColor: '#f8fafc', color: '#333', border: '1px solid #e2e8f0', flexShrink: 0}}>{opt.fullname.replace('Option ', '')}</div>
+                                                  <div className="dist-box">{opt.fullname.replace('Option ', '')}</div>
                                                   <span className={`dist-label ${isCorrect ? 'correct' : ''}`} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                     {isCorrect && <Check size={14} style={{ flexShrink: 0 }} />} 
                                                     {opt.text}
@@ -528,38 +538,7 @@ export default function AdminAnalytics() {
                                               </div>
                                             )
                                           })}
-                                          {q.optionCounts['NA'] > 0 && (
-                                            <div className="dist-item dashed">
-                                              <div className="dist-item-left">
-                                                <div className="dist-box" style={{backgroundColor: '#f1f5f9', color: '#94a3b8', border: '1px dashed #cbd5e1'}}>--</div>
-                                                <span className="dist-label" style={{color: '#64748b'}}>Unattempted</span>
-                                              </div>
-                                              <div className="dist-item-right">
-                                                <span className="dist-pct" style={{color: '#64748b'}}>{((q.optionCounts['NA'] / analytics.attemptedStudents) * 100).toFixed(1)}%</span>
-                                                <span className="dist-count">({q.optionCounts['NA']})</span>
-                                              </div>
-                                            </div>
-                                          )}
                                         </div>
-                                      </div>
-                                      <div className="chart-viz-box">
-                                        <h4 className="viz-title">Visual Hierarchy</h4>
-                                        {optionData.length > 0 ? (
-                                          <div className="viz-chart-wrap">
-                                            <ResponsiveContainer width="100%" height="100%">
-                                              <BarChart data={optionData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
-                                                <XAxis type="number" hide />
-                                                <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#64748b', fontSize: 12 }} width={60} />
-                                                <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ backgroundColor: '#fff', borderColor: '#e2e8f0', borderRadius: '6px' }} itemStyle={{ color: '#0f172a' }} />
-                                                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
-                                                  {optionData.map((entry, i) => (<Cell key={`cell-${i}`} fill={entry.color} />))}
-                                                </Bar>
-                                              </BarChart>
-                                            </ResponsiveContainer>
-                                          </div>
-                                        ) : (
-                                          <p className="no-data">Insufficient data for visualization</p>
-                                        )}
                                       </div>
                                     </div>
                                   </div>
@@ -574,11 +553,11 @@ export default function AdminAnalytics() {
                 </div>
               </div>
 
-              <div className="table-panel">
-                <div className="table-header-row">
+              <div className="section-panel">
+                <div className="table-header-row" style={{borderBottom: 'none'}}>
                   <div>
-                    <h2 className="table-title">Assessment Report</h2>
-                    <p className="table-subtitle">Individual performance records and submission timestamps</p>
+                    <h2 className="section-title uppercase">ASSESSMENT REPORT</h2>
+                    <p className="section-subtitle">Individual performance records and submission timestamps</p>
                   </div>
                   <div className="table-controls">
                     <div className="control-input-wrap">
@@ -620,8 +599,8 @@ export default function AdminAnalytics() {
                             <td style={{textAlign: 'center'}}><span className="count-box count-wrong">{student.wrong}</span></td>
                             <td>
                               {student.passed ? 
-                                <span className="badge-status badge-mastered"><Check size={12} /> Passed</span> : 
-                                <span className="badge-status badge-critical"><X size={12} /> Failed</span>
+                                <span className="status-badge strong"><Check size={12} /> Passed</span> : 
+                                <span className="status-badge needs-attention"><X size={12} /> Failed</span>
                               }
                             </td>
                             <td style={{textAlign: 'right'}}>
@@ -644,6 +623,7 @@ export default function AdminAnalytics() {
                   </table>
                 </div>
               </div>
+
             </div>
           )}
         </div>

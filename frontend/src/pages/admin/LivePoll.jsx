@@ -655,12 +655,13 @@ export default function LivePoll() {
                         )}
 
                         <div className="form-group">
-                          <input
-                            type="text"
+                          <textarea
                             className="form-input"
                             placeholder="Enter question text..."
                             value={q.text}
                             onChange={(e) => handleQuestionTextChange(qIndex, e.target.value)}
+                            rows={3}
+                            style={{ resize: 'vertical', fontFamily: 'inherit' }}
                           />
                         </div>
                         <div className="form-group" style={{ marginTop: '1rem' }}>
