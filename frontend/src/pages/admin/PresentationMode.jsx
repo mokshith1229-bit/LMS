@@ -8,7 +8,7 @@ import { Target, FlaskConical, Droplet, Users, PieChart as PieChartIcon, Trophy,
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
-const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F43F5E'];
+const COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#06B6D4', '#D946EF', '#6366F1', '#14B8A6', '#F472B6'];
 
 // ── Transition variants ─────────────────────────────────────────────────────
 const TRANSITIONS = {
@@ -822,7 +822,7 @@ export default function PresentationMode() {
                       {/* Top Assessment Title */}
                       <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
                         <h1 style={{ fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 900, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>
-                          {presentation.title || "Interactive Assessment"}
+                          {activePoll?.title || presentation.title || "Interactive Assessment"}
                         </h1>
                       </div>
 
@@ -1180,8 +1180,7 @@ export default function PresentationMode() {
                       {[
                         { label: 'TOTAL QUESTIONS', value: totalQuestions },
                         { label: 'PARTICIPANTS', value: participants },
-                        { label: 'AVG ACCURACY', value: `${avgAccuracy}%` },
-                        { label: 'PARTICIPATION RATE', value: `${participationRate}%` }
+                        { label: 'AVG ACCURACY', value: `${avgAccuracy}%` }
                       ].map((m, i) => (
                         <div key={i} style={{ background: '#fff', padding: '1.5rem', borderRadius: '0.75rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                           <span style={{ fontSize: '2.5rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>{m.value}</span>

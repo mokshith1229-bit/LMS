@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
 import { Trash2, Target, Users, Trophy, ArrowLeft, Clock, Timer, FileText, Image, X } from 'lucide-react';
 
-const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+const COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#06B6D4', '#D946EF', '#6366F1'];
 
 export default function LivePoll() {
   const navigate = useNavigate();

@@ -13,7 +13,7 @@ import {
 import toast from 'react-hot-toast';
 import './AdminAnalytics.css';
 
-const COLORS = ['#8DC63F', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+const COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#06B6D4', '#D946EF', '#6366F1'];
 const CHART_COLORS = {
   pass: '#10b981',
   fail: '#ef4444',

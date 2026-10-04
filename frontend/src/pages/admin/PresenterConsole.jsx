@@ -8,7 +8,7 @@ import { Target, FlaskConical, Droplet, Users, PieChart as PieChartIcon, Trophy,
 import api from '../../api/axios';
 import toast from 'react-hot-toast';
 
-const COLORS = ['#8DC63F', '#38BDF8', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#10B981', '#F43F5E'];
+const COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#06B6D4', '#D946EF', '#6366F1', '#14B8A6', '#F472B6'];
 
 // ── Transition variants ─────────────────────────────────────────────────────
 const TRANSITIONS = {
